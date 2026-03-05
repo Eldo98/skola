@@ -5,10 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Školska Aplikacija - Admin, Učitelji, Učenici</title>
 <style>
-  /* Reset & basics */
-  * {
-    box-sizing: border-box;
-  }
+  * { box-sizing: border-box; }
   body {
     font-family: 'Inter', sans-serif;
     margin: 0; padding: 0;
@@ -18,10 +15,7 @@
     display: flex;
     flex-direction: column;
   }
-  h1,h2,h3,h4,h5,h6 {
-    margin: 0 0 16px 0;
-    font-weight: 700;
-  }
+  h1,h2,h3,h4,h5,h6 { margin: 0 0 16px 0; font-weight: 700; }
   button {
     cursor: pointer;
     border: none;
@@ -30,10 +24,7 @@
     font-weight: 600;
     transition: background-color 0.3s ease, box-shadow 0.3s ease;
   }
-  button:focus {
-    outline: 3px solid #63b3ed;
-    outline-offset: 2px;
-  }
+  button:focus { outline: 3px solid #63b3ed; outline-offset: 2px; }
   button.primary {
     background: linear-gradient(135deg, #667eea, #764ba2);
     color: white;
@@ -43,13 +34,8 @@
     background: linear-gradient(135deg, #764ba2, #667eea);
     box-shadow: 0 6px 20px rgba(118,75,162,0.7);
   }
-  button.secondary {
-    background: #555;
-    color: #ddd;
-  }
-  button.secondary:hover {
-    background: #666;
-  }
+  button.secondary { background: #555; color: #ddd; }
+  button.secondary:hover { background: #666; }
   input, select, textarea {
     font-family: 'Inter', sans-serif;
     font-size: 1rem;
@@ -67,19 +53,13 @@
     outline: 3px solid #63b3ed;
     outline-offset: 2px;
   }
-  label {
-    font-weight: 600;
-    margin-bottom: 6px;
-    display: block;
-  }
-  /* Container grid */
+  label { font-weight: 600; margin-bottom: 6px; display: block; }
   .container {
     max-width: 1200px;
     margin: 32px auto;
     padding: 0 24px;
     flex: 1 0 auto;
   }
-  /* Header */
   header {
     background: #1e293b;
     padding: 16px 24px;
@@ -95,7 +75,6 @@
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
   }
-  /* Authentication */
   #authSection {
     max-width: 420px;
     margin: 48px auto;
@@ -104,22 +83,10 @@
     padding: 32px 24px;
     box-shadow: 0 0 25px rgba(102,126,234,0.4);
   }
-  #authSection h2 {
-    text-align: center;
-    margin-bottom: 24px;
-  }
-  form {
-    display: flex;
-    flex-direction: column;
-  }
-  form > *:not(:last-child) {
-    margin-bottom: 12px;
-  }
-  .tabs {
-    display: flex;
-    justify-content: center;
-    margin-bottom: 24px;
-  }
+  #authSection h2 { text-align: center; margin-bottom: 24px; }
+  form { display: flex; flex-direction: column; }
+  form > *:not(:last-child) { margin-bottom: 12px; }
+  .tabs { display: flex; justify-content: center; margin-bottom: 24px; }
   .tab {
     cursor: pointer;
     padding: 12px 24px;
@@ -135,7 +102,6 @@
     color: white;
     box-shadow: 0 4px 15px rgba(102,126,234,0.5);
   }
-  /* Dashboard */
   #dashboard {
     display: none;
     flex-direction: column;
@@ -150,11 +116,7 @@
     align-items: center;
     box-shadow: 0 2px 8px rgba(0,0,0,0.4);
   }
-  #dashboardHeader h2 {
-    margin: 12px 0;
-    font-weight: 700;
-    color: #e0e7ff;
-  }
+  #dashboardHeader h2 { margin: 12px 0; font-weight: 700; color: #e0e7ff; }
   .btn-logout {
     background: transparent;
     color: #a0aec0;
@@ -164,11 +126,7 @@
     border-radius: 12px;
     transition: all 0.3s ease;
   }
-  .btn-logout:hover {
-    background: #667eea;
-    color: white;
-  }
-  /* Navigation sidebar */
+  .btn-logout:hover { background: #667eea; color: white; }
   #sideMenu {
     background: #2d3748;
     width: 260px;
@@ -194,7 +152,6 @@
     color: white;
     box-shadow: 0 4px 16px rgba(102,126,234,0.5);
   }
-  /* Main content area */
   #mainContent {
     flex: 1;
     background: #1e293b;
@@ -203,7 +160,6 @@
     padding: 24px;
     overflow-y: auto;
   }
-  /* Flex container for dashboard */
   #dashboardMain {
     display: flex;
     margin-top: 16px;
@@ -211,36 +167,17 @@
     overflow: hidden;
     min-height: 500px;
   }
-  /* Scrollbar for main content */
-  #mainContent::-webkit-scrollbar {
-    width: 10px;
-  }
-  #mainContent::-webkit-scrollbar-thumb {
-    background-color: #5769af;
-    border-radius: 8px;
-  }
-  /* Table styles */
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    margin-top: 12px;
-  }
+  #mainContent::-webkit-scrollbar { width: 10px; }
+  #mainContent::-webkit-scrollbar-thumb { background-color: #5769af; border-radius: 8px; }
+  table { width: 100%; border-collapse: collapse; margin-top: 12px; }
   th, td {
     padding: 12px 8px;
     text-align: left;
     border-bottom: 1px solid #475569;
   }
-  th {
-    background-color: #334155;
-  }
-  tr:hover {
-    background-color: #475569;
-  }
-  /* Form groups */
-  .form-group {
-    margin-bottom: 16px;
-  }
-  /* Modal overlay */
+  th { background-color: #334155; }
+  tr:hover { background-color: #475569; }
+  .form-group { margin-bottom: 16px; }
   #modalOverlay {
     position: fixed;
     top: 0;
@@ -271,19 +208,16 @@
     align-items: center;
     margin-bottom: 24px;
   }
-  #modalHeader h3 {
-    margin: 0;
-  }
+  #modalHeader h3 { margin: 0; }
   #modalClose {
     cursor: pointer;
     font-size: 1.5rem;
     color: #a0aec0;
     transition: color 0.3s ease;
+    background: transparent;
+    padding: 0;
   }
-  #modalClose:hover {
-    color: white;
-  }
-  /* Cards */
+  #modalClose:hover { color: white; }
   .card {
     background: #2e3a59;
     padding: 16px 24px;
@@ -291,19 +225,10 @@
     box-shadow: 0 4px 16px rgba(102,126,234,0.35);
     margin-bottom: 20px;
   }
-  /* Animations */
-  @keyframes fadeIn {
-    from {opacity:0;}
-    to {opacity:1;}
-  }
-  #authSection, #dashboard {
-    animation: fadeIn 0.8s ease forwards;
-  }
-  /* Responsive */
+  @keyframes fadeIn { from {opacity:0;} to {opacity:1;} }
+  #authSection, #dashboard { animation: fadeIn 0.8s ease forwards; }
   @media (max-width:1024px) {
-    #dashboardMain {
-      flex-direction: column;
-    }
+    #dashboardMain { flex-direction: column; }
     #sideMenu {
       width: 100%;
       min-width: auto;
@@ -327,20 +252,13 @@
     }
   }
   @media (max-width:440px) {
-    header h1 {
-      font-size: 1.4rem;
-    }
+    header h1 { font-size: 1.4rem; }
     #authSection {
       margin: 32px 16px;
       padding: 24px 16px;
     }
   }
-  /* Scroll for small modals */
-  .scrollable {
-    max-height: 50vh;
-    overflow-y: auto;
-  }
-  /* Info badges */
+  .scrollable { max-height: 50vh; overflow-y: auto; }
   .badge {
     display: inline-block;
     background-color: #667eea;
@@ -350,6 +268,18 @@
     border-radius: 12px;
     font-weight: 700;
   }
+  .firebase-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+    background: rgba(102,126,234,0.16);
+    border: 1px solid rgba(102,126,234,0.35);
+    color: #dbeafe;
+    padding: 8px 12px;
+    border-radius: 999px;
+    font-size: 0.85rem;
+  }
 </style>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet" />
 <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet" />
@@ -357,6 +287,7 @@
 <body>
 <header>
   <h1>Školska Aplikacija</h1>
+  <div class="firebase-chip" id="firebaseStatus">Firebase se inicijalizira...</div>
 </header>
 
 <section id="authSection" aria-label="Prijava i registracija">
@@ -400,16 +331,11 @@
     <button id="logoutBtn" class="btn-logout" aria-label="Odjavi se">Odjava <span class="material-icons" aria-hidden="true">logout</span></button>
   </div>
   <div id="dashboardMain">
-    <nav id="sideMenu" role="navigation" aria-label="Glavni izbornik">
-      <!-- Izbornik će biti dinamički -->
-    </nav>
-    <main id="mainContent" tabindex="0" aria-live="polite" aria-atomic="true">
-      <!-- Glavni sadržaj će se mijenjati -->
-    </main>
+    <nav id="sideMenu" role="navigation" aria-label="Glavni izbornik"></nav>
+    <main id="mainContent" tabindex="0" aria-live="polite" aria-atomic="true"></main>
   </div>
 </section>
 
-<!-- Modal za dijaloge -->
 <div id="modalOverlay" role="dialog" aria-modal="true" aria-labelledby="modalTitle" aria-describedby="modalDesc" tabindex="-1">
   <div id="modal">
     <div id="modalHeader">
@@ -420,9 +346,31 @@
   </div>
 </div>
 
-<script>
+<script type="module">
+  import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js';
+  import { getAnalytics, isSupported } from 'https://www.gstatic.com/firebasejs/10.12.2/firebase-analytics.js';
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyDEXc3HNgvIylJE7J2kmwvj6G7SMQchos4",
+    authDomain: "skola-44124.firebaseapp.com",
+    projectId: "skola-44124",
+    storageBucket: "skola-44124.firebasestorage.app",
+    messagingSenderId: "969918362630",
+    appId: "1:969918362630:web:5e8ee798684e7f2eff3f87",
+    measurementId: "G-K4L0FD0NT0"
+  };
+
+  const firebaseApp = initializeApp(firebaseConfig);
+  let firebaseAnalytics = null;
+  if (await isSupported()) {
+    firebaseAnalytics = getAnalytics(firebaseApp);
+  }
+  window.schoolFirebase = { firebaseApp, firebaseAnalytics, firebaseConfig };
+
+  const firebaseStatus = document.getElementById('firebaseStatus');
+  firebaseStatus.textContent = `Firebase aktivan · ${firebaseConfig.projectId}`;
+
   (() => {
-    // --- Podaci pohranjeni u localStorage ---
     const STORAGE_USERS = 'schoolAppUsers';
     const STORAGE_CLASSES = 'schoolAppClasses';
     const STORAGE_ROOMS = 'schoolAppRooms';
@@ -430,9 +378,8 @@
     const STORAGE_ATTENDANCE = 'schoolAppAttendance';
     const STORAGE_GRADES = 'schoolAppGrades';
     const STORAGE_MEALMENU = 'schoolAppMealMenu';
-    const STORAGE_REPORTS = 'schoolAppReports'; // AI-generated reports cache
+    const STORAGE_REPORTS = 'schoolAppReports';
 
-    // --- UI elementi ---
     const authSection = document.getElementById('authSection');
     const loginTab = document.getElementById('loginTab');
     const registerTab = document.getElementById('registerTab');
@@ -449,16 +396,13 @@
     const sideMenu = document.getElementById('sideMenu');
     const mainContent = document.getElementById('mainContent');
 
-    // Modal
     const modalOverlay = document.getElementById('modalOverlay');
     const modalTitle = document.getElementById('modalTitle');
     const modalDesc = document.getElementById('modalDesc');
     const modalCloseBtn = document.getElementById('modalClose');
 
-    // --- Global user state ---
     let currentUser = null;
 
-    // --- Učitavanje pohrane i inicijalizacija ---
     function loadData(key, defaultValue = []) {
       try {
         const data = localStorage.getItem(key);
@@ -473,11 +417,9 @@
       localStorage.setItem(key, JSON.stringify(value));
     }
 
-    // --- Demo inicijalni podaci, ako nema ---
     function initDemoData() {
       let users = loadData(STORAGE_USERS);
       if (users.length === 0) {
-        // Pretvaramo admin u privilegiranu ulogu
         users = [
           {
             id: 'admin-1',
@@ -528,7 +470,6 @@
 
       let schedules = loadData(STORAGE_SCHEDULES);
       if (schedules.length === 0) {
-        // Primjer rasporeda za učitelja "marko"
         schedules = [
           {
             id: 'sch-1',
@@ -552,21 +493,22 @@
         saveData(STORAGE_SCHEDULES, schedules);
       }
 
-      let mealMenu = loadData(STORAGE_MEALMENU);
+      let mealMenu = loadData(STORAGE_MEALMENU, {});
       if (Object.keys(mealMenu).length === 0) {
         mealMenu = {
-          Monday: "Piletina s rižom, salata",
-          Tuesday: "Špageti Bolognese, voćka",
-          Wednesday: "Riblji file, pire krumpir",
-          Thursday: "Pizza s povrćem",
-          Friday: "Ćevapi s lepinjom i lukom",
+          Monday: 'Piletina s rižom, salata',
+          Tuesday: 'Špageti Bolognese, voćka',
+          Wednesday: 'Riblji file, pire krumpir',
+          Thursday: 'Pizza s povrćem',
+          Friday: 'Ćevapi s lepinjom i lukom',
         };
         saveData(STORAGE_MEALMENU, mealMenu);
       }
+
+      let reports = loadData(STORAGE_REPORTS);
+      if (!Array.isArray(reports)) saveData(STORAGE_REPORTS, []);
     }
 
-    // --- Login/Registracija UI ---
-    // Tab switching
     function switchTab(selected) {
       if (selected === 'login') {
         loginTab.classList.add('active');
@@ -594,13 +536,11 @@
     loginTab.addEventListener('keydown', e => {if(e.key==='Enter' || e.key===' ') {e.preventDefault();switchTab('login');}});
     registerTab.addEventListener('keydown', e => {if(e.key==='Enter' || e.key===' ') {e.preventDefault();switchTab('register');}});
 
-    // --- Korisničke funkcije ---
     function createId(prefix = '') {
       return prefix + '-' + Math.random().toString(36).substr(2, 9);
     }
 
     function hashPassword(password) {
-      // Jednostavan hash za demo, ne za produkciju
       let hash = 0;
       for (let i=0; i<password.length; i++) {
         hash = ((hash<<5)-hash) + password.charCodeAt(i);
@@ -609,7 +549,8 @@
       return hash;
     }
 
-    // --- Prijava korisnika ---
+    void hashPassword;
+
     loginForm.addEventListener('submit', e => {
       e.preventDefault();
       const username = loginForm.username.value.trim();
@@ -619,7 +560,6 @@
         return;
       }
       let users = loadData(STORAGE_USERS);
-      // Pronađi korisnika s tim username
       const user = users.find(u => u.username === username);
       if (!user || user.password !== password) {
         authMessage.textContent = 'Pogrešno korisničko ime ili lozinka.';
@@ -629,7 +569,6 @@
       startDashboard();
     });
 
-    // --- Registracija korisnika ---
     registerForm.addEventListener('submit', e => {
       e.preventDefault();
       const name = registerForm.name.value.trim();
@@ -641,12 +580,10 @@
         return;
       }
       let users = loadData(STORAGE_USERS);
-      // Provjera jedinstvenosti username
       if (users.find(u => u.username === username)) {
         authMessage.textContent = 'Korisničko ime je već zauzeto.';
         return;
       }
-      // Kreiraj novi korisnički objekt
       const newUser = {
         id: createId(role),
         name,
@@ -654,17 +591,12 @@
         password,
         role,
       };
-      if (role === 'teacher') {
-        newUser.classes = []; // Čuva razrede koje predaje
-      }
-      if (role === 'student') {
-        newUser.class = null; // kasnije se dodjeljuje razred
-      }
+      if (role === 'teacher') newUser.classes = [];
+      if (role === 'student') newUser.class = null;
       users.push(newUser);
       saveData(STORAGE_USERS, users);
       authMessage.style.color = 'lightgreen';
       authMessage.textContent = 'Registracija uspješna! Sada se možete prijaviti.';
-      // Reset forma
       registerForm.reset();
       switchTab('login');
       setTimeout(() => {
@@ -673,7 +605,6 @@
       }, 5000);
     });
 
-    // --- Prikaz i upravljanje dashboardom ---
     function startDashboard() {
       authSection.style.display = 'none';
       dashboard.style.display = 'flex';
@@ -697,9 +628,8 @@
       logout();
     });
 
-    // --- Funkcije za izbornik i sadržaj ---
     function renderSideMenu() {
-      sideMenu.innerHTML = ''; // očisti
+      sideMenu.innerHTML = '';
       let buttons = [];
       if (currentUser.role === 'admin') {
         buttons = [
@@ -757,7 +687,6 @@
       }
     }
 
-    // --- Render content based on menu selection ---
     function renderContent(sectionId) {
       mainContent.scrollTo({top:0,behavior:'smooth'});
       switch(sectionId) {
@@ -778,7 +707,6 @@
       }
     }
 
-    // --- ADMIN: Upravljanje razredima ---
     function renderManageClasses() {
       let classes = loadData(STORAGE_CLASSES);
       mainContent.innerHTML = `
@@ -832,7 +760,6 @@
       });
     }
 
-    // --- ADMIN: Upravljanje korisnicima ---
     function renderManageUsers() {
       let users = loadData(STORAGE_USERS);
       let classes = loadData(STORAGE_CLASSES);
@@ -881,7 +808,6 @@
         `;
         tbody.appendChild(tr);
       });
-      // Dodavanje korisnika
       const form = mainContent.querySelector('#addUserForm');
       const roleSelect = form.querySelector('#addUserRole');
       const classSelect = form.querySelector('#addUserClass');
@@ -923,7 +849,6 @@
         saveData(STORAGE_USERS, users);
         renderManageUsers();
       });
-      // Brisanje korisnika
       tbody.querySelectorAll('.deleteUserBtn').forEach(btn => {
         btn.addEventListener('click', () => {
           const id = btn.getAttribute('data-id');
@@ -936,7 +861,6 @@
       });
     }
 
-    // --- ADMIN: Upravljanje rasporedom i učionicama ---
     function renderManageSchedule() {
       let schedules = loadData(STORAGE_SCHEDULES);
       let users = loadData(STORAGE_USERS);
@@ -1006,7 +930,6 @@
         tbody.appendChild(tr);
       });
 
-      // Dodavanje termina
       const form = mainContent.querySelector('#addScheduleForm');
       form.addEventListener('submit', e => {
         e.preventDefault();
@@ -1020,7 +943,6 @@
           alert('Molimo popunite sva polja.');
           return;
         }
-        // Provjeri preklapanje za istu učionicu ili učitelja
         const conflict = schedules.find(s => 
           s.day === day && s.time === time &&
           (s.roomId === roomId || s.teacher === teacherId)
@@ -1042,7 +964,6 @@
         renderManageSchedule();
       });
 
-      // Brisanje termina
       tbody.querySelectorAll('.deleteScheduleBtn').forEach(btn => {
         btn.addEventListener('click', () => {
           const id = btn.getAttribute('data-id');
@@ -1055,9 +976,8 @@
       });
     }
 
-    // --- Jelovnik ---
     function renderMealMenu() {
-      let mealMenu = loadData(STORAGE_MEALMENU);
+      let mealMenu = loadData(STORAGE_MEALMENU, {});
       mainContent.innerHTML = `
         <h3>Jelovnik škole</h3>
         <table aria-label="Jelovnik tjedna">
@@ -1069,19 +989,15 @@
         </table>`;
     }
 
-    // --- Izvještaji ---
     function renderReports() {
-      // Generiramo jednostavan izvještaj o ocjenama učenika ili ukupnim podacima prema roli
       mainContent.innerHTML = '<h3>Generiranje izvještaja (AI simulacija)</h3><p>Izvještaji održavaju rad, temelje se na ocjenama, izostancima i rasporedu.</p>';
 
       let grades = loadData(STORAGE_GRADES);
       let attendance = loadData(STORAGE_ATTENDANCE);
       let users = loadData(STORAGE_USERS);
 
-      // Filtriranje na osnovu rola
       let reportUsers;
       if (currentUser.role === 'admin' || currentUser.role === 'teacher') {
-        // admin i učitelj vide sve ili samo svoj razred za učitelj
         if(currentUser.role === 'teacher') {
           reportUsers = users.filter(u => (u.role==='student' && u.class && currentUser.classes.includes(u.class)));
         } else {
@@ -1102,7 +1018,6 @@
       reportUsers.forEach(student => {
         const li = document.createElement('li');
         li.style.marginBottom = '18px';
-        // Izračun prosječne ocjene
         let studentGrades = grades.filter(g => g.studentId === student.id);
         let avgGrade = 'N/A';
         if (studentGrades.length > 0) {
@@ -1110,7 +1025,6 @@
           const avgNum = sum / studentGrades.length;
           avgGrade = avgNum.toFixed(2);
         }
-        // Konsolidirani izostanci
         const studentAttendance = attendance.filter(a => a.studentId === student.id);
         const absenceCount = studentAttendance.filter(a => a.status === 'absent').length;
         li.innerHTML = `
@@ -1121,7 +1035,6 @@
       });
       mainContent.appendChild(ul);
 
-      // Dynamic AI-style komentari
       function generateComment(avgGrade, absences) {
         let comment = '';
         const avg = parseFloat(avgGrade);
@@ -1147,7 +1060,6 @@
       }
     }
 
-    // --- Postavke ---
     function renderSettings() {
       mainContent.innerHTML = `
         <h3>Postavke korisnika</h3>
@@ -1162,7 +1074,6 @@
       `;
 
       const themeToggle = document.getElementById('toggleTheme');
-      // Lokalna pohrana teme
       const themePref = localStorage.getItem('schoolAppTheme') || 'light';
       themeToggle.checked = themePref === 'dark';
 
@@ -1195,7 +1106,6 @@
       });
     }
 
-    // --- UČITELJ: Moj raspored ---
     function renderMySchedule() {
       let schedules = loadData(STORAGE_SCHEDULES);
       let users = loadData(STORAGE_USERS);
@@ -1245,7 +1155,6 @@
         tbody.appendChild(tr);
       });
 
-      // Otvaranje modal za upravljanje časom
       tbody.querySelectorAll('.btnOpenLesson').forEach(btn => {
         btn.addEventListener('click', () => {
           const id = btn.dataset.id;
@@ -1254,18 +1163,15 @@
       });
     }
 
-    // Otvaranje modala za upravljanje časom (odsutnost, ocjene, lekcije)
     function openLessonModal(scheduleId) {
       let schedules = loadData(STORAGE_SCHEDULES);
       let users = loadData(STORAGE_USERS);
       let attendance = loadData(STORAGE_ATTENDANCE);
       let grades = loadData(STORAGE_GRADES);
-      let classes = loadData(STORAGE_CLASSES);
 
       const schedule = schedules.find(s => s.id === scheduleId);
       if (!schedule) return;
 
-      // Filtriraj učenike iz razreda
       const classId = schedule.classId;
       const studentsInClass = users.filter(u => u.role === 'student' && u.class === classId);
 
@@ -1284,14 +1190,11 @@
           <button type="submit" class="primary" style="margin-top:12px;">Spremi promjene</button>
         </form>
       `;
-      // Popuni tablicu učenika
       const tbody = modalDesc.querySelector('#studentsLessonBody');
       tbody.innerHTML = '';
       studentsInClass.forEach(student => {
-        // Dohvati postojeće ocjene i izostanke za taj čas i učenika
         const att = attendance.find(a => a.scheduleId === scheduleId && a.studentId === student.id);
         const grd = grades.filter(g => g.scheduleId === scheduleId && g.studentId === student.id);
-        // Zadnja ocjena kao trenutna
         const lastGrade = grd.length > 0 ? grd[grd.length-1].grade : '';
         const lastWarning = att && att.warning ? att.warning : '';
         const lastTested = att && att.tested ? att.tested : false;
@@ -1308,10 +1211,8 @@
         tbody.appendChild(tr);
       });
 
-      // Prikaz modala
       showModal();
 
-      // Spremljeno
       const form = modalDesc.querySelector('#lessonForm');
       form.addEventListener('submit', e => {
         e.preventDefault();
@@ -1321,19 +1222,16 @@
           return;
         }
 
-        // Ažuriranje naziva lekcije u rasporedu
         schedule.lessonName = newLessonName;
         schedules = schedules.map(s => s.id === schedule.id ? schedule : s);
         saveData(STORAGE_SCHEDULES, schedules);
 
-        // Za svakog učenika spremi stanje prisutnosti, ocjene, opomene i ispitivanje
         studentsInClass.forEach(student => {
           const presentEl = form.querySelector('.presentCheckbox[data-student="'+student.id+'"]');
           const gradeEl = form.querySelector('.gradeInput[data-student="'+student.id+'"]');
           const warningEl = form.querySelector('.warningInput[data-student="'+student.id+'"]');
           const testedEl = form.querySelector('.testedCheckbox[data-student="'+student.id+'"]');
 
-          // Prisustvo
           let att = attendance.find(a => a.scheduleId === schedule.id && a.studentId === student.id);
           if (!att) {
             att = {id: createId('att'), scheduleId: schedule.id, studentId: student.id};
@@ -1342,7 +1240,6 @@
           att.status = presentEl.checked ? 'present' : 'absent';
           att.warning = warningEl.value.trim();
           att.tested = testedEl.checked;
-          // Ocjene
           if(gradeEl.value) {
             grades.push({
               id: createId('grade'),
@@ -1363,11 +1260,8 @@
       });
     }
 
-    // --- UČITELJ: Učenici i razredi ---
     function renderMyClasses() {
-      // Prikaz liste učenika razreda kojeg učitelj predaje
       let users = loadData(STORAGE_USERS);
-      let classes = loadData(STORAGE_CLASSES);
       const teacherClasses = currentUser.classes || [];
       if(teacherClasses.length === 0) {
         mainContent.innerHTML = '<h3>Ne predajete nijedan razred</h3>';
@@ -1395,14 +1289,10 @@
       });
     }
 
-    // --- UČITELJ: Ocjene i izostanci ---
     function renderGradesAttendance() {
       const users = loadData(STORAGE_USERS);
       const grades = loadData(STORAGE_GRADES);
       const attendance = loadData(STORAGE_ATTENDANCE);
-      const classes = loadData(STORAGE_CLASSES);
-      const schedules = loadData(STORAGE_SCHEDULES);
-
       const teacherClasses = currentUser.classes || [];
       if(teacherClasses.length === 0) {
         mainContent.innerHTML = '<h3>Ne predajete nijedan razred</h3>';
@@ -1444,7 +1334,6 @@
       });
     }
 
-    // --- UČITELJ: Praćenje učitelja ---
     function renderTeacherTracking() {
       const users = loadData(STORAGE_USERS);
       const schedules = loadData(STORAGE_SCHEDULES);
@@ -1458,22 +1347,19 @@
 
       const now = new Date();
       const currentDay = getDayName(now.getDay());
-      const currentTime = now.getHours() + ':' + now.getMinutes();
+      const currentTime = now.getHours() + ':' + String(now.getMinutes()).padStart(2, '0');
 
       function getDayName(dayIndex) {
         const days = ['Nedjelja', 'Ponedjeljak', 'Utorak', 'Srijeda', 'Četvrtak', 'Petak', 'Subota'];
         return days[dayIndex] || '';
       }
 
-      // Inicijalni popis
       const ul = document.createElement('ul');
       ul.style.listStyle = 'none';
       ul.style.padding = '0';
 
       users.filter(u => u.role === 'teacher').forEach(teacher => {
         const teacherSchedule = schedules.filter(s => s.teacher === teacher.id && s.day === currentDay);
-        
-        // Pronađimo termin u kojem je trenutno učitelj, ako postoji, uspoređivanjem vremena (simplificirano)
         let currentRoom = '-';
         for(let sch of teacherSchedule){
           const [start, end] = sch.time.split(' - ');
@@ -1496,17 +1382,12 @@
         const e = parseTime(end);
         return (c >= s && c <= e);
       }
-      // Parses HH:mm to minutes from midnight integer
       function parseTime(t) {
         const [h,m] = t.split(':').map(x => parseInt(x));
         return h*60+m;
       }
     }
 
-    // --- UČENIK: Moj raspored ---
-    // RenderMySchedule se može koristiti za učenike - već implementirano
-
-    // --- UČENIK: Moje ocjene ---
     function renderMyGrades() {
       const grades = loadData(STORAGE_GRADES);
       const schedules = loadData(STORAGE_SCHEDULES);
@@ -1521,7 +1402,6 @@
         return;
       }
       mainContent.innerHTML = '<h3>Moje ocjene</h3>';
-      // Grupiraj po lekciji
       const grouped = {};
       myGrades.forEach(g => {
         const lessonName = schedules.find(s => s.id === g.scheduleId)?.lessonName || 'Nepoznata lekcija';
@@ -1544,7 +1424,6 @@
       }
     }
 
-    // --- UČENIK: Moji izostanci ---
     function renderMyAttendance() {
       let attendance = loadData(STORAGE_ATTENDANCE);
       let schedules = loadData(STORAGE_SCHEDULES);
@@ -1579,7 +1458,6 @@
       mainContent.appendChild(table);
     }
 
-    // --- Modal functions ---
     function showModal() {
       modalOverlay.style.display = 'flex';
       modalOverlay.focus();
@@ -1599,11 +1477,8 @@
       }
     });
 
-    // --- Inicijalizacija ---
     initDemoData();
-
   })();
 </script>
 </body>
 </html>
-
