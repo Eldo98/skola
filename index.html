@@ -3,12 +3,11 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>ŠkolaPro • Firebase RTDB (1 file, invite fix)</title>
+  <title>ŠkolaPro • Firebase RTDB • bez invite code</title>
   <style>
     :root{
       --bg:#f6f7fb; --surface:#fff; --surface2:#fbfcff;
       --text:#0f172a; --muted:#64748b; --border:#e6e8f0;
-      --shadow: 0 10px 30px rgba(15,23,42,.08);
       --shadow2: 0 8px 22px rgba(15,23,42,.06);
       --pri:#2563eb; --pri2:#1d4ed8;
       --ok:#16a34a; --warn:#d97706; --bad:#dc2626;
@@ -18,7 +17,6 @@
     html[data-theme="dark"]{
       --bg:#0b1220; --surface:#101a2f; --surface2:#0f1a31;
       --text:#e8eeff; --muted:#93a4c7; --border:rgba(255,255,255,.10);
-      --shadow: 0 18px 55px rgba(0,0,0,.38);
       --shadow2: 0 10px 32px rgba(0,0,0,.28);
       --pri:#6ea8fe; --pri2:#4f8cff;
     }
@@ -64,6 +62,7 @@
     .btn.ok{border-color: color-mix(in oklab, var(--ok) 35%, var(--border)); background: color-mix(in oklab, var(--ok) 10%, var(--surface))}
     .btn.warn{border-color: color-mix(in oklab, var(--warn) 35%, var(--border)); background: color-mix(in oklab, var(--warn) 10%, var(--surface))}
     .btn.bad{border-color: color-mix(in oklab, var(--bad) 35%, var(--border)); background: color-mix(in oklab, var(--bad) 10%, var(--surface))}
+
     .layout{display:grid; grid-template-columns: 270px 1fr; gap:14px; margin-top:14px}
     .sidebar{
       border:1px solid var(--border); background:var(--surface);
@@ -138,7 +137,7 @@
     .modal{position:fixed; inset:0; display:none; align-items:center; justify-content:center; padding:18px; background: rgba(15,23,42,.45); z-index:50;}
     html[data-theme="dark"] .modal{background: rgba(0,0,0,.58)}
     .modal.open{display:flex}
-    .modal .box{width:min(1150px, 98vw); max-height:90vh; overflow:auto; border-radius:16px; border:1px solid var(--border); background:var(--surface); box-shadow:var(--shadow); padding:14px;}
+    .modal .box{width:min(1150px, 98vw); max-height:90vh; overflow:auto; border-radius:16px; border:1px solid var(--border); background:var(--surface); box-shadow: 0 14px 45px rgba(0,0,0,.22); padding:14px;}
 
     @media (max-width: 980px){
       .layout{grid-template-columns:1fr}
@@ -155,7 +154,7 @@
         <div class="logo"></div>
         <div>
           <h1 id="schoolName">ŠkolaPro</h1>
-          <div class="sub">Firebase Auth + RTDB • Invite fix</div>
+          <div class="sub">Firebase RTDB • admin dodaje korisnike</div>
         </div>
       </div>
       <div class="row">
@@ -176,26 +175,26 @@
       <div class="row" style="justify-content:space-between">
         <div>
           <h3 style="margin:0">Napomena</h3>
-          <div class="hint">Pokreni preko Live Server / http://localhost (ne file://). U Firebase Auth uključi Email/Password.</div>
+          <div class="hint">
+            Ovo je demo bez servera. Najlakše RTDB rules za test: <span class="mono">{".read":true,".write":true}</span>.
+          </div>
         </div>
         <button class="btn small" data-act="closeModal" data-id="helpModal">Zatvori</button>
       </div>
       <div class="sep"></div>
       <div class="notice">
-        <b>Invite code bug fix:</b> sada se “iskorišten” računa samo ako je <span class="mono">usedBy</span> stvarno UID (nije "", null, "null", "undefined").<br/>
-        <div style="margin-top:8px"><b>RTDB Rules (demo):</b> vidi u Firebase Console → Realtime Database → Rules.</div>
+        Login u aplikaciji je: <b>admin/admin</b> (admin kreira ostale korisnike u Admin → Korisnici).
       </div>
     </div>
   </div>
 
-  <!-- admin schedule cell -->
+  <!-- admin cell -->
   <div class="modal" id="cellModal"><div class="box" id="cellBox"></div></div>
   <!-- lesson -->
   <div class="modal" id="lessonModal"><div class="box" id="lessonBox"></div></div>
 
   <!-- Firebase compat -->
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-auth-compat.js"></script>
   <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
 
 <script>
@@ -214,14 +213,74 @@ const firebaseConfig = {
 };
 firebase.initializeApp(firebaseConfig);
 
-/* ---------------- Utils ---------------- */
 const $ = (sel, root=document)=>root.querySelector(sel);
 const $$ = (sel, root=document)=>Array.from(root.querySelectorAll(sel));
 
+/* ====== Pure JS SHA-256 (stable everywhere) ====== */
+function sha256(str){
+  function rrot(n,x){ return (x>>>n) | (x<<(32-n)); }
+  function toBytes(s){
+    const bytes=[];
+    for(let i=0;i<s.length;i++){
+      let c=s.charCodeAt(i);
+      if(c<0x80) bytes.push(c);
+      else if(c<0x800){ bytes.push(0xc0|(c>>6), 0x80|(c&0x3f)); }
+      else if(c<0x10000){ bytes.push(0xe0|(c>>12), 0x80|((c>>6)&0x3f), 0x80|(c&0x3f)); }
+      else { bytes.push(0xf0|(c>>18), 0x80|((c>>12)&0x3f), 0x80|((c>>6)&0x3f), 0x80|(c&0x3f)); }
+    }
+    return bytes;
+  }
+  const K = [
+    0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,
+    0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,
+    0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,
+    0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,
+    0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,
+    0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,
+    0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,
+    0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2
+  ];
+  let H = [0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19];
+
+  const msg = toBytes(String(str));
+  const l = msg.length * 8;
+  msg.push(0x80);
+  while((msg.length % 64) !== 56) msg.push(0);
+  for(let i=7;i>=0;i--) msg.push((l >>> (i*8)) & 0xff);
+
+  const w = new Array(64);
+  for(let i=0;i<msg.length;i+=64){
+    for(let t=0;t<16;t++){
+      const j=i+t*4;
+      w[t] = ((msg[j]<<24) | (msg[j+1]<<16) | (msg[j+2]<<8) | (msg[j+3]))>>>0;
+    }
+    for(let t=16;t<64;t++){
+      const s0 = (rrot(7,w[t-15]) ^ rrot(18,w[t-15]) ^ (w[t-15]>>>3))>>>0;
+      const s1 = (rrot(17,w[t-2]) ^ rrot(19,w[t-2]) ^ (w[t-2]>>>10))>>>0;
+      w[t] = (w[t-16] + s0 + w[t-7] + s1)>>>0;
+    }
+
+    let [a,b,c,d,e,f,g,h] = H;
+    for(let t=0;t<64;t++){
+      const S1 = (rrot(6,e)^rrot(11,e)^rrot(25,e))>>>0;
+      const ch = ((e&f) ^ (~e&g))>>>0;
+      const temp1 = (h + S1 + ch + K[t] + w[t])>>>0;
+      const S0 = (rrot(2,a)^rrot(13,a)^rrot(22,a))>>>0;
+      const maj = ((a&b) ^ (a&c) ^ (b&c))>>>0;
+      const temp2 = (S0 + maj)>>>0;
+
+      h=g; g=f; f=e; e=(d+temp1)>>>0; d=c; c=b; b=a; a=(temp1+temp2)>>>0;
+    }
+    H = [(H[0]+a)>>>0,(H[1]+b)>>>0,(H[2]+c)>>>0,(H[3]+d)>>>0,(H[4]+e)>>>0,(H[5]+f)>>>0,(H[6]+g)>>>0,(H[7]+h)>>>0];
+  }
+  return H.map(x=>x.toString(16).padStart(8,"0")).join("");
+}
+
+/* ---------------- Utils ---------------- */
 const U = {
   esc(s){ return (s??"").toString().replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;"); },
-  nowISO(){ return new Date().toISOString(); },
   uid(prefix="id"){ return prefix+"_"+Math.random().toString(16).slice(2)+"_"+Date.now().toString(16); },
+  nowISO(){ return new Date().toISOString(); },
   toISODate(d){ const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,"0"), da=String(d.getDate()).padStart(2,"0"); return `${y}-${m}-${da}`; },
   fromISODate(s){ const [y,m,d]=s.split("-").map(Number); const dt=new Date(y,m-1,d); dt.setHours(0,0,0,0); return dt; },
   today(){ const d=new Date(); d.setHours(0,0,0,0); return U.toISODate(d); },
@@ -238,240 +297,244 @@ const U = {
     const mon=U.weekStartMonday(iso);
     return [0,1,2,3,4].map(i=>U.addDays(mon,i));
   },
-  lessonKey(classId, weekday, period){ return `${classId}|${weekday}|${period}`; },
-  randomCode(len=8){
-    const a="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-    let s=""; for(let i=0;i<len;i++) s+=a[Math.floor(Math.random()*a.length)];
-    return s;
+  lessonKey(classId, weekday, period){ return `${classId}|${weekday}|${period}`; }
+};
+
+/* ---------------- DB: one node (/schoolDB) ---------------- */
+const DB_PATH = "/schoolDB";
+const DB = {
+  ref(){ return firebase.database().ref(DB_PATH); },
+  async load(){
+    const snap = await DB.ref().get();
+    return snap.exists() ? snap.val() : null;
   },
-  normalizeUsedBy(v){
-    // FIX: treat null/"null"/"undefined"/"" as NOT USED
-    const s = (v ?? "").toString().trim();
-    if (!s) return "";
-    if (s.toLowerCase()==="null") return "";
-    if (s.toLowerCase()==="undefined") return "";
-    return s;
+  async save(db){
+    // demo: save whole db (simple)
+    await DB.ref().set(db);
+  },
+  subscribe(onChange){
+    DB.ref().on("value", snap=>{
+      onChange(snap.exists()?snap.val():null);
+    });
+  },
+  async reset(){
+    await DB.ref().remove();
   }
 };
 
-/* ---------------- RTDB wrapper ---------------- */
-const RT = {
-  ref(path){ return firebase.database().ref(path); },
-  async get(path){ const s=await RT.ref(path).get(); return s.exists()?s.val():null; },
-  set(path,val){ return RT.ref(path).set(val); },
-  update(path,obj){ return RT.ref(path).update(obj); },
-  remove(path){ return RT.ref(path).remove(); },
-  on(path, cb){ RT.ref(path).on("value", snap=>cb(snap.exists()?snap.val():null)); },
-  off(path){ RT.ref(path).off(); },
-  tx(path, fn){ return RT.ref(path).transaction(fn); }
+/* ---------------- App session (app-level login) ---------------- */
+const SESSION_KEY = "schoolAppSession_v1";
+const Session = {
+  get(){ try{return JSON.parse(sessionStorage.getItem(SESSION_KEY)||"");}catch{return null;} },
+  set(s){ sessionStorage.setItem(SESSION_KEY, JSON.stringify(s)); },
+  clear(){ sessionStorage.removeItem(SESSION_KEY); }
 };
 
-/* ---------------- App state ---------------- */
-const Store = {
-  authUser: null,
-  profile: null,   // my profile
-  profiles: {},    // all profiles (for names)
-  settings: null,
-  classes: {},
-  subjects: {},
-  rooms: {},
-  schedule: {},    // schedule[classId][weekday][period] = {subjectId,teacherId,roomId}
-  subsByDate: {},  // substitutions[date][lessonKey] = {...}
-  date: U.today(),
-  view: "loading",
-  theme: localStorage.getItem("theme_schoolpro") || "light",
-  adminClassPick: null,
-  listeners: new Map() // key -> path
+/* ---------------- Domain helpers ---------------- */
+const Domain = {
+  className(db,id){ return db.classes?.find(c=>c.id===id)?.name || "—"; },
+  subjectName(db,id){ return db.subjects?.find(s=>s.id===id)?.name || "—"; },
+  roomName(db,id){ return db.rooms?.find(r=>r.id===id)?.name || "—"; },
+  userById(db,id){ return db.users?.find(u=>u.id===id) || null; },
+  teacherName(db,id){
+    const u = Domain.userById(db,id);
+    return u ? (u.fullName||u.username) : "—";
+  },
+  studentsInClass(db,classId){
+    return (db.users||[]).filter(u=>u.role==="student" && u.classId===classId)
+      .sort((a,b)=>(a.fullName||"").localeCompare(b.fullName||""));
+  },
+  semesterForDate(db, iso){
+    const sems = db.settings?.semesters || [];
+    const s = sems.find(x=>iso>=x.start && iso<=x.end);
+    return s ? s.id : null;
+  }
+};
+
+/* ---------------- App ---------------- */
+const APP = {
+  db: null,
+  state: {
+    view: "login",
+    date: U.today(),
+    adminClassPick: null,
+    theme: localStorage.getItem("theme_schoolpro_nocode") || "light"
+  },
+  currentUser(){
+    const s = Session.get();
+    if(!s?.userId) return null;
+    return APP.db?.users?.find(u=>u.id===s.userId) || null;
+  }
 };
 
 function setTheme(t){
-  Store.theme=t;
+  APP.state.theme=t;
   document.documentElement.setAttribute("data-theme", t);
-  localStorage.setItem("theme_schoolpro", t);
+  localStorage.setItem("theme_schoolpro_nocode", t);
 }
 
-/* ---------------- Derived helpers ---------------- */
-function role(){ return Store.profile?.role || null; }
-function setConn(txt){ $("#connPill").textContent = txt; }
+/* ---------------- Seed ---------------- */
+function seedDB(){
+  const adminId = U.uid("usr");
+  const c1 = U.uid("cls");
+  const t1 = U.uid("usr"), t2 = U.uid("usr");
+  const s1 = U.uid("usr"), s2 = U.uid("usr"), s3 = U.uid("usr");
 
-function profileName(uid){
-  const p = Store.profiles?.[uid];
-  return p?.fullName || p?.email || (uid?uid.slice(0,6):"—");
-}
-function className(id){ return Store.classes?.[id]?.name || "—"; }
-function subjectName(id){ return Store.subjects?.[id]?.name || "—"; }
-function roomName(id){ return Store.rooms?.[id]?.name || "—"; }
+  const subMath=U.uid("sub"), subBos=U.uid("sub"), subIt=U.uid("sub");
+  const r101=U.uid("room"), rIT=U.uid("room");
 
-function semesterForDate(iso){
-  const sems = Store.settings?.semesters || [];
-  const s = sems.find(x=>iso>=x.start && iso<=x.end);
-  return s ? s.id : null;
-}
-
-function resolveTeacherForCell(date, classId, weekday, period, baseTeacherId){
-  const lk = U.lessonKey(classId, weekday, period);
-  const sub = Store.subsByDate?.[date]?.[lk] || null;
-  if(sub && sub.status==="accepted") return {teacherId: sub.toTeacherId, substituted:true, sub};
-  return {teacherId: baseTeacherId, substituted:false, sub:null};
-}
-
-function periods(){
-  const p = (Store.settings?.periods || [
-    {p:1,start:"08:00",end:"08:45"},
-    {p:2,start:"09:00",end:"09:45"},
-    {p:3,start:"10:00",end:"10:45"},
-    {p:4,start:"11:00",end:"11:45"},
-    {p:5,start:"12:00",end:"12:45"},
-    {p:6,start:"13:00",end:"13:45"}
-  ]).slice().sort((a,b)=>a.p-b.p);
-  return p;
-}
-
-/* ---------------- Listeners ---------------- */
-function mount(key, path, assign){
-  if(Store.listeners.has(key)) return;
-  RT.on(path, (val)=>{ assign(val); render(); });
-  Store.listeners.set(key, path);
-}
-function unmountByPrefix(prefix){
-  for(const [k,path] of Array.from(Store.listeners.entries())){
-    if(k.startsWith(prefix)){
-      RT.off(path);
-      Store.listeners.delete(k);
-    }
-  }
-}
-function bindCore(){
-  mount("settings","/settings", v=>Store.settings=v||null);
-  mount("profiles","/profiles", v=>Store.profiles=v||{});
-  mount("classes","/classes", v=>Store.classes=v||{});
-  mount("subjects","/subjects", v=>Store.subjects=v||{});
-  mount("rooms","/rooms", v=>Store.rooms=v||{});
-  mount("schedule","/schedule", v=>Store.schedule=v||{});
-}
-function bindWeekSubs(){
-  unmountByPrefix("subs:");
-  const ds = U.weekDates(Store.date);
-  for(const d of ds){
-    mount("subs:"+d, "/substitutions/"+d, v=>{ Store.subsByDate[d]=v||{}; });
-  }
-}
-
-/* ---------------- Seed settings (if missing) ---------------- */
-async function ensureSeedIfMissing(){
-  const s = await RT.get("/settings");
-  if(!s){
-    await RT.set("/settings", {
+  return {
+    meta:{createdAt:U.nowISO(), version:1},
+    settings:{
       schoolName:"Demo škola",
-      periods: periods(),
+      periods:[
+        {p:1,start:"08:00",end:"08:45"},
+        {p:2,start:"09:00",end:"09:45"},
+        {p:3,start:"10:00",end:"10:45"},
+        {p:4,start:"11:00",end:"11:45"},
+        {p:5,start:"12:00",end:"12:45"},
+        {p:6,start:"13:00",end:"13:45"}
+      ],
       semesters:[
         { id:"S1", name:"1. polugodište", start:"2025-09-01", end:"2026-01-15" },
         { id:"S2", name:"2. polugodište", start:"2026-01-16", end:"2026-06-15" }
       ]
-    });
-  }
-  if(!await RT.get("/classes")) await RT.set("/classes", {});
-  if(!await RT.get("/subjects")) await RT.set("/subjects", {});
-  if(!await RT.get("/rooms")) await RT.set("/rooms", {});
-  if(!await RT.get("/schedule")) await RT.set("/schedule", {});
-  if(!await RT.get("/profiles")) await RT.set("/profiles", {});
+    },
+    users:[
+      { id: adminId, username:"admin", passHash: sha256("admin"), role:"admin", fullName:"Administrator" },
+
+      { id: t1, username:"prof1", passHash: sha256("prof1"), role:"teacher", fullName:"Prof. Aida A.", homeroomClassId:c1 },
+      { id: t2, username:"prof2", passHash: sha256("prof2"), role:"teacher", fullName:"Prof. Marko M." },
+
+      { id: s1, username:"u1", passHash: sha256("u1"), role:"student", fullName:"Učenik 1", classId:c1 },
+      { id: s2, username:"u2", passHash: sha256("u2"), role:"student", fullName:"Učenik 2", classId:c1 },
+      { id: s3, username:"u3", passHash: sha256("u3"), role:"student", fullName:"Učenik 3", classId:c1 }
+    ],
+    classes:[ { id:c1, name:"1-A", homeroomTeacherId: t1 } ],
+    subjects:[ {id:subMath,name:"Matematika"},{id:subBos,name:"Bosanski jezik"},{id:subIt,name:"Informatika"} ],
+    rooms:[ {id:r101,name:"Učionica 101"},{id:rIT,name:"Kabinet IT"} ],
+
+    // schedule[classId][weekday][period] = {subjectId, teacherId, roomId}
+    schedule:{
+      [c1]:{
+        1:{ 1:{subjectId:subMath,teacherId:t1,roomId:r101}, 2:{subjectId:subBos,teacherId:t1,roomId:r101} },
+        2:{ 1:{subjectId:subIt,teacherId:t2,roomId:rIT} },
+        3:{ 3:{subjectId:subMath,teacherId:t1,roomId:r101} },
+        4:{ 2:{subjectId:subIt,teacherId:t2,roomId:rIT} },
+        5:{ 1:{subjectId:subBos,teacherId:t1,roomId:r101} }
+      }
+    },
+
+    // substitutions[date][lessonKey] = {fromTeacherId,toTeacherId,status,note,createdAt,decidedAt}
+    substitutions:{},
+
+    // attendance[date][lessonKey][studentId] = {status,note,teacherId,markedAt}
+    attendance:{},
+
+    // absences[classId][date][studentId][lessonKey] = {...}
+    absences:{},
+
+    // homework[classId][dueDate][id] = {classId,subjectId,teacherId,dueDate,text,createdAt}
+    homework:{},
+    homeworkByDue:{}, // homeworkByDue[dueDate][id] = same record
+
+    // grades[studentId][subjectId][gradeId] = {value,date,type,note,teacherId,classId,semesterId}
+    grades:{},
+
+    // finalGrades[studentId][subjectId][year] = {value, decidedBy, decidedAt}
+    finalGrades:{},
+
+    // reminders[userId][id] = {date,text,done,createdAt}
+    reminders:{}
+  };
 }
 
-/* ---------------- UI templates ---------------- */
+/* ---------------- Render ---------------- */
+function render(){
+  setTheme(APP.state.theme);
+
+  const db = APP.db;
+  $("#schoolName").textContent = db?.settings?.schoolName || "ŠkolaPro";
+
+  const me = APP.currentUser();
+  $("#btnLogout").style.display = me ? "inline-block" : "none";
+  $("#userPill").textContent = me ? `${me.role}: ${me.username}` : "Niste prijavljeni";
+
+  const root = $("#app");
+  if(!db){
+    root.innerHTML = `<div class="card"><div class="hint">Učitavanje baze…</div></div>`;
+    return;
+  }
+
+  if(!me){
+    APP.state.view="login";
+    root.innerHTML = tplLogin();
+    return;
+  }
+
+  // default view
+  if(APP.state.view==="login"){
+    APP.state.view = me.role==="admin" ? "admin-users" : me.role==="teacher" ? "t-week" : "s-week";
+  }
+
+  root.innerHTML = tplShell(me);
+  postRender(me);
+}
+
 function tplLogin(){
   return `
     <div class="card" style="max-width:980px; margin:14px auto">
       <div class="row" style="justify-content:space-between">
         <div>
-          <h2 style="margin:0">Prijava / Registracija</h2>
-          <div class="hint">Firebase Auth (Email/Password). Nakon prijave: aktivacija preko invite code.</div>
+          <h2 style="margin:0">Prijava</h2>
+          <div class="hint">Admin login: <span class="mono">admin/admin</span></div>
         </div>
-        <div class="pill">Datum: <span class="mono">${U.esc(Store.date)}</span></div>
+        <div class="pill">Firebase RTDB</div>
       </div>
       <div class="sep"></div>
 
       <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px">
         <div>
-          <h3 style="margin:0">Prijava</h3>
-          <div class="sep"></div>
-          <label>Email</label><input id="li_email" placeholder="npr. prof@skola.ba" />
-          <label>Lozinka</label><input id="li_pass" type="password" />
-          <div class="row" style="margin-top:10px">
-            <button class="btn pri" data-act="loginEmail">Prijavi se</button>
-          </div>
+          <label>Korisničko ime</label>
+          <input id="li_user" placeholder="admin" />
         </div>
-
         <div>
-          <h3 style="margin:0">Registracija</h3>
-          <div class="sep"></div>
-          <label>Email</label><input id="rg_email" placeholder="npr. ucenik@skola.ba" />
-          <label>Lozinka</label><input id="rg_pass" type="password" />
-          <div class="row" style="margin-top:10px">
-            <button class="btn pri" data-act="registerEmail">Registruj</button>
-          </div>
-          <div class="notice" style="margin-top:10px">
-            <b>Admin bootstrap:</b> ako baza nema nijedan profil, prvi nalog dobija “Postani admin”.
-          </div>
+          <label>Lozinka</label>
+          <input id="li_pass" type="password" placeholder="••••••" />
         </div>
+      </div>
+      <div class="row" style="margin-top:12px">
+        <button class="btn pri" data-act="login">Prijavi se</button>
+      </div>
+      <div class="notice" style="margin-top:10px">
+        Admin poslije dodaje ostale korisnike (teacher/student) i lozinke u Admin → Korisnici.
       </div>
     </div>
   `;
 }
 
-function tplActivate(){
-  const profilesCount = Object.keys(Store.profiles||{}).length;
-  return `
-    <div class="card" style="max-width:980px; margin:14px auto">
-      <h2 style="margin:0">Aktivacija profila</h2>
-      <div class="hint">Prijavljen si, ali nemaš profil u bazi.</div>
-      <div class="sep"></div>
-
-      ${profilesCount===0 ? `
-        <div class="notice">
-          Nema profila u bazi. Možeš postati <b>admin</b>.
-        </div>
-        <label>Puno ime</label>
-        <input id="boot_name" placeholder="Ime i prezime" />
-        <div class="row" style="margin-top:10px">
-          <button class="btn pri" data-act="bootstrapAdmin">Postani admin</button>
-        </div>
-      ` : `
-        <div class="notice">
-          Admin ti mora dati <b>Invite code</b>. Unesi ga ispod.
-        </div>
-        <label>Invite code</label>
-        <input id="inv_code" class="mono" placeholder="npr. A7K9Q2PL" />
-        <label>Puno ime (opcionalno)</label>
-        <input id="inv_name" placeholder="Ime i prezime" />
-        <div class="row" style="margin-top:10px">
-          <button class="btn pri" data-act="claimInvite">Aktiviraj</button>
-        </div>
-      `}
-    </div>
-  `;
-}
-
-function tplShell(){
+function tplShell(me){
   const items = [];
-  if(role()==="admin"){
-    items.push(["admin-dashboard","Dashboard","invite kodovi"]);
+  if(me.role==="admin"){
+    items.push(["admin-users","Korisnici","dodaj/uredi"]);
     items.push(["admin-data","Podaci","razredi/predmeti/učionice/periodi"]);
-    items.push(["admin-schedule","Raspored","grid za razrede"]);
-    items.push(["admin-profiles","Profili","spisak"]);
+    items.push(["admin-schedule","Raspored","grid"]);
+    items.push(["admin-semesters","Semestri","datumi"]);
+    items.push(["admin-backup","Backup","import/export"]);
   }
-  if(role()==="teacher"){
+  if(me.role==="teacher"){
     items.push(["t-week","Sedmica","moj raspored"]);
     items.push(["t-day","Dan","lista časova"]);
     items.push(["t-subs","Zamjene","pregled"]);
     items.push(["t-homework","Zadaće","dodaj/pregled"]);
-    items.push(["t-rem","Podsjetnici","moje"]);
-    if(Store.profile?.homeroomClassId) items.push(["t-homeroom","Razrednik","izostanci"]);
+    items.push(["t-rem","Podsjetnici","moji"]);
+    if(me.homeroomClassId) items.push(["t-homeroom","Razrednik","izostanci"]);
   }
-  if(role()==="student"){
+  if(me.role==="student"){
     items.push(["s-week","Sedmica","raspored"]);
     items.push(["s-day","Dan","raspored + zadaće"]);
     items.push(["s-grades","Ocjene","moje"]);
-    items.push(["s-rem","Podsjetnici","moje"]);
+    items.push(["s-rem","Podsjetnici","moji"]);
   }
 
   return `
@@ -479,7 +542,7 @@ function tplShell(){
       <div class="sidebar">
         <div class="navTitle">Navigacija</div>
         ${items.map(([id,t,h])=>`
-          <div class="navItem ${Store.view===id?'active':''}" data-act="nav" data-view="${id}">
+          <div class="navItem ${APP.state.view===id?'active':''}" data-act="nav" data-view="${id}">
             <div>
               <div style="font-weight:800; font-size:13px">${U.esc(t)}</div>
               <div class="hint">${U.esc(h)}</div>
@@ -488,22 +551,22 @@ function tplShell(){
           </div>
         `).join("")}
         <div class="sep"></div>
-        ${role()==="admin"?`
-          <button class="btn small warn" style="width:100%" data-act="resetDemo">Reset demo (briše većinu podataka)</button>
-          <div class="hint" style="margin-top:8px">Ne briše profiles (nalozi ostaju).</div>
-        `:`<div class="hint">—</div>`}
+        ${me.role==="admin" ? `
+          <button class="btn small warn" style="width:100%" data-act="resetDB">Reset baze</button>
+          <div class="hint" style="margin-top:8px">Briše /schoolDB i pravi seed ponovo.</div>
+        ` : `<div class="hint">—</div>`}
       </div>
 
       <div class="content">
         ${tplDateNav()}
-        ${tplView()}
+        ${tplView(me)}
       </div>
     </div>
   `;
 }
 
 function tplDateNav(){
-  const d=Store.date;
+  const d=APP.state.date;
   const mon=U.weekStartMonday(d);
   const today=U.today();
   return `
@@ -525,80 +588,108 @@ function tplDateNav(){
   `;
 }
 
-function tplView(){
-  switch(Store.view){
-    case "admin-dashboard": return tplAdminDashboard();
+function tplView(me){
+  switch(APP.state.view){
+    // admin
+    case "admin-users": return tplAdminUsers();
     case "admin-data": return tplAdminData();
     case "admin-schedule": return tplAdminSchedule();
-    case "admin-profiles": return tplAdminProfiles();
+    case "admin-semesters": return tplAdminSemesters();
+    case "admin-backup": return tplAdminBackup();
 
-    case "t-week": return tplTeacherWeek();
-    case "t-day": return tplTeacherDay();
-    case "t-subs": return tplTeacherSubs();
-    case "t-homework": return tplTeacherHomework();
-    case "t-rem": return tplReminders();
-    case "t-homeroom": return tplHomeroom();
+    // teacher
+    case "t-week": return tplTeacherWeek(me);
+    case "t-day": return tplTeacherDay(me);
+    case "t-subs": return tplTeacherSubs(me);
+    case "t-homework": return tplTeacherHomework(me);
+    case "t-rem": return tplReminders(me);
+    case "t-homeroom": return tplHomeroom(me);
 
-    case "s-week": return tplStudentWeek();
-    case "s-day": return tplStudentDay();
-    case "s-grades": return tplStudentGrades();
-    case "s-rem": return tplReminders();
+    // student
+    case "s-week": return tplStudentWeek(me);
+    case "s-day": return tplStudentDay(me);
+    case "s-grades": return tplStudentGrades(me);
+    case "s-rem": return tplReminders(me);
+
     default: return `<div class="card">Nepoznat prikaz.</div>`;
   }
 }
 
-/* -------- Admin -------- */
-function tplAdminDashboard(){
+/* ===================== ADMIN ===================== */
+function tplAdminUsers(){
+  const db=APP.db;
+  const users=(db.users||[]).slice().sort((a,b)=>a.username.localeCompare(b.username));
+  const classOpts=(db.classes||[]).map(c=>`<option value="${c.id}">${U.esc(c.name)}</option>`).join("");
+
   return `
     <div class="card">
       <div class="row" style="justify-content:space-between">
         <div>
-          <h2 style="margin:0">Admin dashboard</h2>
-          <div class="hint">Invite kodovi (FIX: isUsed provjera)</div>
+          <h2 style="margin:0">Admin • Korisnici</h2>
+          <div class="hint">Admin dodaje korisnike i lozinke (bez invite koda).</div>
         </div>
-        <div class="pill">Uloga: <b>admin</b></div>
       </div>
       <div class="sep"></div>
 
-      <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px">
+      <div style="display:grid; grid-template-columns:1.3fr .7fr; gap:10px">
         <div>
-          <h3 style="margin:0">Kreiraj invite</h3>
+          <h3 style="margin:0">Lista</h3>
           <div class="sep"></div>
-
-          <label>Uloga</label>
-          <select id="inv_role">
-            <option value="student">student</option>
-            <option value="teacher">teacher</option>
-          </select>
-
-          <label>Razred (za učenika)</label>
-          <select id="inv_class">
-            <option value="">—</option>
-            ${Object.entries(Store.classes||{}).map(([id,c])=>`<option value="${id}">${U.esc(c.name)}</option>`).join("")}
-          </select>
-
-          <label>Razrednik razreda (za profesora)</label>
-          <select id="inv_hr">
-            <option value="">—</option>
-            ${Object.entries(Store.classes||{}).map(([id,c])=>`<option value="${id}">${U.esc(c.name)}</option>`).join("")}
-          </select>
-
-          <label>Puno ime (opcionalno)</label>
-          <input id="inv_fullName" placeholder="Ime i prezime" />
-
-          <div class="row" style="margin-top:10px">
-            <button class="btn pri" data-act="createInvite">Kreiraj</button>
-          </div>
-
-          <div class="notice" style="margin-top:10px">
-            Korisnik se registruje email/lozinka, zatim u “Aktivacija profila” unese invite code.
-          </div>
+          <table>
+            <thead><tr><th>Username</th><th>Uloga</th><th>Ime</th><th>Razred</th><th>Razrednik</th><th></th></tr></thead>
+            <tbody>
+              ${users.map(u=>`
+                <tr>
+                  <td><b>${U.esc(u.username)}</b></td>
+                  <td>${U.esc(u.role)}</td>
+                  <td>${U.esc(u.fullName||"")}</td>
+                  <td>${u.classId?U.esc(Domain.className(db,u.classId)):"—"}</td>
+                  <td>${u.homeroomClassId?U.esc(Domain.className(db,u.homeroomClassId)):"—"}</td>
+                  <td class="right">
+                    ${u.username==="admin" ? `<span class="hint">—</span>` : `
+                      <button class="btn small" data-act="editUser" data-id="${u.id}">Uredi</button>
+                      <button class="btn small bad" data-act="delUser" data-id="${u.id}">Obriši</button>
+                    `}
+                  </td>
+                </tr>
+              `).join("")}
+            </tbody>
+          </table>
         </div>
 
         <div>
-          <h3 style="margin:0">Invite lista (zadnjih 30)</h3>
+          <h3 style="margin:0">Novi korisnik</h3>
           <div class="sep"></div>
-          <div id="invListBox" class="hint">Učitavanje…</div>
+
+          <label>Username</label><input id="au_user" placeholder="npr. prof3" />
+          <label>Lozinka</label><input id="au_pass" placeholder="npr. tajna123" />
+          <label>Puno ime</label><input id="au_name" placeholder="Ime i prezime" />
+
+          <label>Uloga</label>
+          <select id="au_role">
+            <option value="teacher">teacher (profesor)</option>
+            <option value="student">student (učenik)</option>
+          </select>
+
+          <label>Razred (za učenika)</label>
+          <select id="au_class">
+            <option value="">—</option>
+            ${classOpts}
+          </select>
+
+          <label>Razrednik razreda (za profesora)</label>
+          <select id="au_hr">
+            <option value="">—</option>
+            ${classOpts}
+          </select>
+
+          <div class="row" style="margin-top:10px">
+            <button class="btn pri" data-act="addUser">Kreiraj</button>
+          </div>
+
+          <div class="notice" style="margin-top:10px">
+            Učenik mora imati razred. Profesor može biti razrednik.
+          </div>
         </div>
       </div>
     </div>
@@ -606,34 +697,46 @@ function tplAdminDashboard(){
 }
 
 function tplAdminData(){
-  const ps = periods();
+  const db=APP.db;
+  const teachers = (db.users||[]).filter(u=>u.role==="teacher");
+  const teacherOpts = teachers.map(t=>`<option value="${t.id}">${U.esc(t.fullName||t.username)}</option>`).join("");
+
+  const periods = (db.settings?.periods||[]).slice().sort((a,b)=>a.p-b.p);
+
   return `
     <div class="card">
-      <h2 style="margin:0">Podaci škole</h2>
+      <h2 style="margin:0">Admin • Podaci</h2>
       <div class="sep"></div>
 
       <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px">
         <div>
           <h3 style="margin:0">Razredi</h3>
           <div class="sep"></div>
-          <div class="row">
-            <input id="newClassName" placeholder="npr. 2-B" />
-            <button class="btn pri" data-act="addClass">Dodaj</button>
+
+          <label>Naziv razreda</label>
+          <input id="ac_name" placeholder="npr. 2-B" />
+
+          <label>Razrednik (opcionalno)</label>
+          <select id="ac_hr">
+            <option value="">—</option>
+            ${teacherOpts}
+          </select>
+
+          <div class="row" style="margin-top:10px">
+            <button class="btn pri" data-act="addClass">Dodaj razred</button>
           </div>
+
           <div class="sep"></div>
           <table>
             <thead><tr><th>Razred</th><th>Razrednik</th><th></th></tr></thead>
             <tbody>
-              ${Object.entries(Store.classes||{}).map(([id,c])=>{
-                const hr = c.homeroomTeacherId ? profileName(c.homeroomTeacherId) : "—";
-                return `
-                  <tr>
-                    <td><b>${U.esc(c.name)}</b></td>
-                    <td class="hint">${U.esc(hr)}</td>
-                    <td class="right"><button class="btn small bad" data-act="delClass" data-id="${id}">Obriši</button></td>
-                  </tr>
-                `;
-              }).join("")}
+              ${(db.classes||[]).map(c=>`
+                <tr>
+                  <td><b>${U.esc(c.name)}</b></td>
+                  <td class="hint">${c.homeroomTeacherId?U.esc(Domain.teacherName(db,c.homeroomTeacherId)):"—"}</td>
+                  <td class="right"><button class="btn small bad" data-act="delClass" data-id="${c.id}">Obriši</button></td>
+                </tr>
+              `).join("")}
             </tbody>
           </table>
         </div>
@@ -646,17 +749,17 @@ function tplAdminData(){
             <div>
               <label>Novi predmet</label>
               <div class="row">
-                <input id="newSubName" placeholder="npr. Historija" />
+                <input id="as_name" placeholder="npr. Historija" />
                 <button class="btn pri" data-act="addSubject">Dodaj</button>
               </div>
               <div class="sep"></div>
               <table>
                 <thead><tr><th>Predmet</th><th></th></tr></thead>
                 <tbody>
-                  ${Object.entries(Store.subjects||{}).map(([id,s])=>`
+                  ${(db.subjects||[]).map(s=>`
                     <tr>
                       <td><b>${U.esc(s.name)}</b></td>
-                      <td class="right"><button class="btn small bad" data-act="delSubject" data-id="${id}">Obriši</button></td>
+                      <td class="right"><button class="btn small bad" data-act="delSubject" data-id="${s.id}">Obriši</button></td>
                     </tr>
                   `).join("")}
                 </tbody>
@@ -666,17 +769,17 @@ function tplAdminData(){
             <div>
               <label>Nova učionica</label>
               <div class="row">
-                <input id="newRoomName" placeholder="npr. 203" />
+                <input id="ar_name" placeholder="npr. 203" />
                 <button class="btn pri" data-act="addRoom">Dodaj</button>
               </div>
               <div class="sep"></div>
               <table>
                 <thead><tr><th>Učionica</th><th></th></tr></thead>
                 <tbody>
-                  ${Object.entries(Store.rooms||{}).map(([id,r])=>`
+                  ${(db.rooms||[]).map(r=>`
                     <tr>
                       <td><b>${U.esc(r.name)}</b></td>
-                      <td class="right"><button class="btn small bad" data-act="delRoom" data-id="${id}">Obriši</button></td>
+                      <td class="right"><button class="btn small bad" data-act="delRoom" data-id="${r.id}">Obriši</button></td>
                     </tr>
                   `).join("")}
                 </tbody>
@@ -687,10 +790,11 @@ function tplAdminData(){
           <div class="sep"></div>
           <h3 style="margin:0">Periodi (vremena časova)</h3>
           <div class="sep"></div>
+
           <table>
             <thead><tr><th>Čas</th><th>Start</th><th>Kraj</th><th></th></tr></thead>
             <tbody>
-              ${ps.map(p=>`
+              ${periods.map(p=>`
                 <tr>
                   <td><b>${p.p}.</b></td>
                   <td class="mono">${U.esc(p.start)}</td>
@@ -714,28 +818,40 @@ function tplAdminData(){
 }
 
 function tplAdminSchedule(){
-  const classIds = Object.keys(Store.classes||{});
-  if(!Store.adminClassPick) Store.adminClassPick = classIds[0] || null;
-  const clsId = Store.adminClassPick;
-  const dates = U.weekDates(Store.date);
-  const ps = periods();
+  const db=APP.db;
+  const classIds = (db.classes||[]).map(c=>c.id);
+  if(!APP.state.adminClassPick) APP.state.adminClassPick = classIds[0] || null;
+  const clsId = APP.state.adminClassPick;
+
+  const dates = U.weekDates(APP.state.date);
+  const periods = (db.settings?.periods || []).slice().sort((a,b)=>a.p-b.p);
+
+  const teacherOpts = (db.users||[]).filter(u=>u.role==="teacher")
+    .map(t=>`<option value="${t.id}">${U.esc(t.fullName||t.username)}</option>`).join("");
+  const subjOpts = (db.subjects||[]).map(s=>`<option value="${s.id}">${U.esc(s.name)}</option>`).join("");
+  const roomOpts = (db.rooms||[]).map(r=>`<option value="${r.id}">${U.esc(r.name)}</option>`).join("");
+
+  function cell(clsId, wd, p){
+    return db.schedule?.[clsId]?.[wd]?.[p] || null;
+  }
 
   return `
     <div class="card">
       <div class="row" style="justify-content:space-between">
         <div>
-          <h2 style="margin:0">Raspored (grid)</h2>
-          <div class="hint">Klik na ćeliju → predmet / profesor / učionica. (Ima provjeru konflikta.)</div>
+          <h2 style="margin:0">Admin • Raspored</h2>
+          <div class="hint">Klik na ćeliju (dan × čas).</div>
         </div>
         <div class="row">
           <label style="margin:0">
             <div class="hint" style="margin-bottom:6px">Razred</div>
             <select data-act="pickAdminClass" style="width:220px">
-              ${classIds.map(id=>`<option value="${id}" ${id===clsId?'selected':''}>${U.esc(Store.classes[id].name)}</option>`).join("")}
+              ${classIds.map(id=>`<option value="${id}" ${id===clsId?'selected':''}>${U.esc(Domain.className(db,id))}</option>`).join("")}
             </select>
           </label>
         </div>
       </div>
+
       <div class="sep"></div>
 
       <div class="ttWrap">
@@ -748,11 +864,11 @@ function tplAdminSchedule(){
             }).join("")}
           </div>
 
-          ${ps.map(p=>{
+          ${periods.map(p=>{
             const cells = dates.map(dt=>{
               const wd=U.fromISODate(dt).getDay();
-              const cell = Store.schedule?.[clsId]?.[wd]?.[p.p] || null;
-              if(!cell){
+              const c = cell(clsId, wd, p.p);
+              if(!c){
                 return `<div class="ttCell">
                   <div class="lesson" style="border-style:dashed; background:var(--surface2)"
                     data-act="editCell" data-class="${clsId}" data-weekday="${wd}" data-period="${p.p}">
@@ -762,12 +878,11 @@ function tplAdminSchedule(){
               }
               return `<div class="ttCell">
                 <div class="lesson" data-act="editCell" data-class="${clsId}" data-weekday="${wd}" data-period="${p.p}">
-                  <div class="title">${U.esc(subjectName(cell.subjectId))}</div>
-                  <div class="meta">${U.esc(profileName(cell.teacherId))} • ${U.esc(roomName(cell.roomId))}</div>
+                  <div class="title">${U.esc(Domain.subjectName(db,c.subjectId))}</div>
+                  <div class="meta">${U.esc(Domain.teacherName(db,c.teacherId))} • ${U.esc(Domain.roomName(db,c.roomId))}</div>
                 </div>
               </div>`;
             }).join("");
-
             return `<div class="ttRow">
               <div class="ttTime"><div style="font-weight:800">${p.p}.</div><div class="mono">${U.esc(p.start)}–${U.esc(p.end)}</div></div>
               ${cells}
@@ -775,53 +890,127 @@ function tplAdminSchedule(){
           }).join("")}
         </div>
       </div>
+
+      <template id="cellTpl">
+        <div class="row" style="justify-content:space-between">
+          <div>
+            <h3 style="margin:0">Uredi ćeliju</h3>
+            <div class="hint" id="cm_info"></div>
+          </div>
+          <button class="btn small" data-act="closeModal" data-id="cellModal">Zatvori</button>
+        </div>
+        <div class="sep"></div>
+        <label>Predmet</label>
+        <select id="cm_sub">${subjOpts}</select>
+        <label>Profesor</label>
+        <select id="cm_teacher">${teacherOpts}</select>
+        <label>Učionica</label>
+        <select id="cm_room">${roomOpts}</select>
+        <div class="sep"></div>
+        <div class="row" style="justify-content:space-between">
+          <div class="hint">Provjera konflikta (prof/učionica) je informativna.</div>
+          <div class="row">
+            <button class="btn bad" id="cm_del" style="display:none">Obriši</button>
+            <button class="btn pri" id="cm_save">Sačuvaj</button>
+          </div>
+        </div>
+      </template>
     </div>
   `;
 }
 
-function tplAdminProfiles(){
-  const list = Object.entries(Store.profiles||{}).map(([uid,p])=>({uid,...p}))
-    .sort((a,b)=>(a.fullName||"").localeCompare(b.fullName||""));
+function tplAdminSemesters(){
+  const db=APP.db;
+  const sems=(db.settings?.semesters||[]).slice();
   return `
     <div class="card">
-      <h2 style="margin:0">Profili</h2>
-      <div class="hint">UID iz Firebase Auth, uloga iz /profiles.</div>
+      <h2 style="margin:0">Admin • Semestri</h2>
       <div class="sep"></div>
-      <table>
-        <thead><tr><th>Ime</th><th>Email</th><th>Uloga</th><th>Razred</th><th>Razrednik</th><th></th></tr></thead>
-        <tbody>
-          ${list.map(p=>`
-            <tr>
-              <td><b>${U.esc(p.fullName||"—")}</b></td>
-              <td class="hint">${U.esc(p.email||"")}</td>
-              <td>${U.esc(p.role||"")}</td>
-              <td>${p.classId?U.esc(className(p.classId)):"—"}</td>
-              <td>${p.homeroomClassId?U.esc(className(p.homeroomClassId)):"—"}</td>
-              <td class="right"><button class="btn small" data-act="editProfile" data-uid="${p.uid}">Uredi ime</button></td>
-            </tr>
-          `).join("")}
-        </tbody>
-      </table>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px">
+        <div>
+          <h3 style="margin:0">Lista</h3>
+          <div class="sep"></div>
+          <table>
+            <thead><tr><th>ID</th><th>Naziv</th><th>Start</th><th>Kraj</th><th></th></tr></thead>
+            <tbody>
+              ${sems.map(s=>`
+                <tr>
+                  <td><b>${U.esc(s.id)}</b></td>
+                  <td>${U.esc(s.name)}</td>
+                  <td class="mono">${U.esc(s.start)}</td>
+                  <td class="mono">${U.esc(s.end)}</td>
+                  <td class="right"><button class="btn small bad" data-act="delSem" data-id="${U.esc(s.id)}">Obriši</button></td>
+                </tr>
+              `).join("")}
+            </tbody>
+          </table>
+        </div>
+        <div>
+          <h3 style="margin:0">Dodaj</h3>
+          <div class="sep"></div>
+          <label>ID</label><input id="sem_id" placeholder="S3" />
+          <label>Naziv</label><input id="sem_name" placeholder="3. period" />
+          <div class="row">
+            <div style="flex:1">
+              <label>Start</label><input id="sem_start" type="date" />
+            </div>
+            <div style="flex:1">
+              <label>Kraj</label><input id="sem_end" type="date" />
+            </div>
+          </div>
+          <div class="row" style="margin-top:10px"><button class="btn pri" data-act="addSem">Dodaj</button></div>
+        </div>
+      </div>
     </div>
   `;
 }
 
-/* -------- Teacher -------- */
-function tplTeacherWeek(){
-  bindWeekSubs();
-  const uid = Store.authUser.uid;
-  const dates=U.weekDates(Store.date);
-  const ps=periods();
-  const classIds=Object.keys(Store.classes||{});
+function tplAdminBackup(){
+  return `
+    <div class="card">
+      <h2 style="margin:0">Admin • Backup</h2>
+      <div class="sep"></div>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px">
+        <div>
+          <h3 style="margin:0">Export</h3>
+          <div class="sep"></div>
+          <button class="btn pri" data-act="exportDB">Preuzmi JSON</button>
+        </div>
+        <div>
+          <h3 style="margin:0">Import</h3>
+          <div class="sep"></div>
+          <input type="file" id="importFile" accept="application/json" />
+          <div class="row" style="margin-top:10px">
+            <button class="btn warn" data-act="importDB">Učitaj i zamijeni</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+/* ===================== TEACHER / STUDENT ===================== */
+function tplTeacherWeek(me){
+  const db=APP.db;
+  const dates=U.weekDates(APP.state.date);
+  const periods=(db.settings?.periods||[]).slice().sort((a,b)=>a.p-b.p);
+  const classIds=(db.classes||[]).map(c=>c.id);
+
+  function resolveTeacher(date, classId, wd, p, baseTeacherId){
+    const lk=U.lessonKey(classId, wd, p);
+    const sub=db.substitutions?.[date]?.[lk] || null;
+    if(sub && sub.status==="accepted") return {teacherId: sub.toTeacherId, substituted:true};
+    return {teacherId: baseTeacherId, substituted:false};
+  }
 
   function lessonsFor(dt, p){
-    const wd = U.fromISODate(dt).getDay();
-    const items = [];
+    const wd=U.fromISODate(dt).getDay();
+    const items=[];
     for(const clsId of classIds){
-      const cell = Store.schedule?.[clsId]?.[wd]?.[p.p] || null;
+      const cell=db.schedule?.[clsId]?.[wd]?.[p.p];
       if(!cell) continue;
-      const r = resolveTeacherForCell(dt, clsId, wd, p.p, cell.teacherId);
-      if(r.teacherId !== uid) continue;
+      const r=resolveTeacher(dt, clsId, wd, p.p, cell.teacherId);
+      if(r.teacherId!==me.id) continue;
       items.push({dt, clsId, wd, period:p.p, subjectId:cell.subjectId, roomId:cell.roomId, substituted:r.substituted});
     }
     return items;
@@ -829,13 +1018,8 @@ function tplTeacherWeek(){
 
   return `
     <div class="card">
-      <div class="row" style="justify-content:space-between">
-        <div>
-          <h2 style="margin:0">Profesor • Sedmica</h2>
-          <div class="hint">Klik na čas → prisustvo/ocjene/zadaća/zamjena</div>
-        </div>
-        <div class="pill">Ja: <b>${U.esc(Store.profile.fullName||Store.profile.email||"")}</b></div>
-      </div>
+      <h2 style="margin:0">Profesor • Sedmica</h2>
+      <div class="hint">Klik na čas → prisustvo/ocjene/zadaća/zamjena</div>
       <div class="sep"></div>
 
       <div class="ttWrap">
@@ -848,16 +1032,16 @@ function tplTeacherWeek(){
             }).join("")}
           </div>
 
-          ${ps.map(p=>{
+          ${periods.map(p=>{
             const cells = dates.map(dt=>{
-              const its = lessonsFor(dt,p);
+              const its=lessonsFor(dt,p);
               if(!its.length) return `<div class="ttCell"><div class="empty">—</div></div>`;
               return `<div class="ttCell">${its.map(L=>`
-                <div class="lesson" data-act="openLesson" data-date="${L.dt}" data-class="${L.clsId}" data-weekday="${L.wd}" data-period="${L.period}">
-                  <div class="title">${U.esc(className(L.clsId))} • ${U.esc(subjectName(L.subjectId))}
+                <div class="lesson" data-act="openLesson" data-date="${U.esc(L.dt)}" data-class="${U.esc(L.clsId)}" data-weekday="${L.wd}" data-period="${L.period}">
+                  <div class="title">${U.esc(Domain.className(db,L.clsId))} • ${U.esc(Domain.subjectName(db,L.subjectId))}
                     ${L.substituted?`<span class="badgeTag warn">zamjena</span>`:""}
                   </div>
-                  <div class="meta">${U.esc(roomName(L.roomId))}</div>
+                  <div class="meta">${U.esc(Domain.roomName(db,L.roomId))}</div>
                 </div>
               `).join("<div style='height:8px'></div>")}</div>`;
             }).join("");
@@ -873,21 +1057,27 @@ function tplTeacherWeek(){
   `;
 }
 
-function tplTeacherDay(){
-  bindWeekSubs();
-  const uid=Store.authUser.uid;
-  const date=Store.date;
+function tplTeacherDay(me){
+  const db=APP.db;
+  const date=APP.state.date;
   const wd=U.fromISODate(date).getDay();
-  const classIds=Object.keys(Store.classes||{});
-  const ps=periods();
+  const periods=(db.settings?.periods||[]).slice().sort((a,b)=>a.p-b.p);
+  const classIds=(db.classes||[]).map(c=>c.id);
+
+  function resolveTeacher(date, classId, wd, p, baseTeacherId){
+    const lk=U.lessonKey(classId, wd, p);
+    const sub=db.substitutions?.[date]?.[lk] || null;
+    if(sub && sub.status==="accepted") return {teacherId: sub.toTeacherId, substituted:true};
+    return {teacherId: baseTeacherId, substituted:false};
+  }
 
   const lessons=[];
   for(const clsId of classIds){
-    for(const p of ps){
-      const cell = Store.schedule?.[clsId]?.[wd]?.[p.p] || null;
+    for(const p of periods){
+      const cell=db.schedule?.[clsId]?.[wd]?.[p.p];
       if(!cell) continue;
-      const r = resolveTeacherForCell(date, clsId, wd, p.p, cell.teacherId);
-      if(r.teacherId!==uid) continue;
+      const r=resolveTeacher(date, clsId, wd, p.p, cell.teacherId);
+      if(r.teacherId!==me.id) continue;
       lessons.push({clsId, period:p.p, subjectId:cell.subjectId, roomId:cell.roomId, substituted:r.substituted});
     }
   }
@@ -906,9 +1096,9 @@ function tplTeacherDay(){
             ${lessons.map(L=>`
               <tr>
                 <td><b>${L.period}.</b></td>
-                <td><b>${U.esc(className(L.clsId))}</b></td>
-                <td>${U.esc(subjectName(L.subjectId))} ${L.substituted?`<span class="badgeTag warn">zamjena</span>`:""}</td>
-                <td>${U.esc(roomName(L.roomId))}</td>
+                <td><b>${U.esc(Domain.className(db,L.clsId))}</b></td>
+                <td>${U.esc(Domain.subjectName(db,L.subjectId))} ${L.substituted?`<span class="badgeTag warn">zamjena</span>`:""}</td>
+                <td>${U.esc(Domain.roomName(db,L.roomId))}</td>
                 <td class="right">
                   <button class="btn small pri" data-act="openLesson" data-date="${U.esc(date)}" data-class="${U.esc(L.clsId)}" data-weekday="${wd}" data-period="${L.period}">Otvori</button>
                 </td>
@@ -921,16 +1111,14 @@ function tplTeacherDay(){
   `;
 }
 
-function tplTeacherSubs(){
-  bindWeekSubs();
-  const uid=Store.authUser.uid;
-  const dates=U.weekDates(Store.date);
-
+function tplTeacherSubs(me){
+  const db=APP.db;
+  const dates=U.weekDates(APP.state.date);
   const list=[];
   for(const d of dates){
-    const daySubs = Store.subsByDate[d] || {};
+    const daySubs = db.substitutions?.[d] || {};
     for(const [lk,s] of Object.entries(daySubs)){
-      if(s.fromTeacherId===uid || s.toTeacherId===uid) list.push({date:d, lk, ...s});
+      if(s.fromTeacherId===me.id || s.toTeacherId===me.id) list.push({date:d, lk, ...s});
     }
   }
   list.sort((a,b)=>a.date.localeCompare(b.date));
@@ -938,7 +1126,6 @@ function tplTeacherSubs(){
   return `
     <div class="card">
       <h2 style="margin:0">Zamjene</h2>
-      <div class="hint">Zahtjev se veže za tačan datum i čas.</div>
       <div class="sep"></div>
       ${list.length ? `
         <table>
@@ -946,17 +1133,17 @@ function tplTeacherSubs(){
           <tbody>
             ${list.map(s=>{
               const st = s.status==="pending"?`<span class="badgeTag warn">pending</span>`:s.status==="accepted"?`<span class="badgeTag ok">accepted</span>`:`<span class="badgeTag bad">declined</span>`;
-              const can = (s.toTeacherId===uid && s.status==="pending");
+              const can = (s.toTeacherId===me.id && s.status==="pending");
               return `
                 <tr>
                   <td class="mono">${U.esc(s.date)}</td>
-                  <td>${U.esc(profileName(s.fromTeacherId))}</td>
-                  <td>${U.esc(profileName(s.toTeacherId))}</td>
+                  <td>${U.esc(Domain.teacherName(db,s.fromTeacherId))}</td>
+                  <td>${U.esc(Domain.teacherName(db,s.toTeacherId))}</td>
                   <td>${st}</td>
                   <td class="right">
                     ${can?`
-                      <button class="btn small ok" data-act="subAccept" data-date="${s.date}" data-lk="${s.lk}">Prihvati</button>
-                      <button class="btn small bad" data-act="subDecline" data-date="${s.date}" data-lk="${s.lk}">Odbij</button>
+                      <button class="btn small ok" data-act="subAccept" data-date="${U.esc(s.date)}" data-lk="${U.esc(s.lk)}">Prihvati</button>
+                      <button class="btn small bad" data-act="subDecline" data-date="${U.esc(s.date)}" data-lk="${U.esc(s.lk)}">Odbij</button>
                     `:`<span class="hint">—</span>`}
                   </td>
                 </tr>
@@ -969,27 +1156,27 @@ function tplTeacherSubs(){
   `;
 }
 
-function tplTeacherHomework(){
-  const classOpts=Object.entries(Store.classes||{}).map(([id,c])=>`<option value="${id}">${U.esc(c.name)}</option>`).join("");
-  const subOpts=Object.entries(Store.subjects||{}).map(([id,s])=>`<option value="${id}">${U.esc(s.name)}</option>`).join("");
+function tplTeacherHomework(me){
+  const db=APP.db;
+  const classOpts=(db.classes||[]).map(c=>`<option value="${c.id}">${U.esc(c.name)}</option>`).join("");
+  const subOpts=(db.subjects||[]).map(s=>`<option value="${s.id}">${U.esc(s.name)}</option>`).join("");
 
   return `
     <div class="card">
       <h2 style="margin:0">Zadaće</h2>
       <div class="sep"></div>
-
       <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px">
         <div>
           <h3 style="margin:0">Dodaj zadaću</h3>
           <div class="sep"></div>
           <label>Razred</label><select id="hw_class">${classOpts}</select>
           <label>Predmet</label><select id="hw_sub">${subOpts}</select>
-          <label>Rok</label><input id="hw_due" type="date" value="${U.esc(Store.date)}" />
+          <label>Rok</label><input id="hw_due" type="date" value="${U.esc(APP.state.date)}" />
           <label>Opis</label><textarea id="hw_text"></textarea>
           <div class="row" style="margin-top:10px"><button class="btn pri" data-act="addHW">Dodaj</button></div>
         </div>
         <div>
-          <h3 style="margin:0">Rok danas (${U.esc(Store.date)})</h3>
+          <h3 style="margin:0">Rok danas (${U.esc(APP.state.date)})</h3>
           <div class="sep"></div>
           <div id="hwTodayBox" class="hint">Učitavanje…</div>
         </div>
@@ -998,28 +1185,34 @@ function tplTeacherHomework(){
   `;
 }
 
-function tplHomeroom(){
+function tplHomeroom(me){
   return `
     <div class="card">
       <h2 style="margin:0">Razrednik: izostanci</h2>
-      <div class="hint">Razred: <b>${U.esc(className(Store.profile.homeroomClassId))}</b></div>
+      <div class="hint">Razred: <b>${U.esc(Domain.className(APP.db, me.homeroomClassId))}</b></div>
       <div class="sep"></div>
       <div id="homeroomBox" class="hint">Učitavanje…</div>
     </div>
   `;
 }
 
-/* -------- Student -------- */
-function tplStudentWeek(){
-  bindWeekSubs();
-  const clsId=Store.profile.classId;
-  const dates=U.weekDates(Store.date);
-  const ps=periods();
+function tplStudentWeek(me){
+  const db=APP.db;
+  const clsId=me.classId;
+  const dates=U.weekDates(APP.state.date);
+  const periods=(db.settings?.periods||[]).slice().sort((a,b)=>a.p-b.p);
+
+  function resolveTeacher(date, classId, wd, p, baseTeacherId){
+    const lk=U.lessonKey(classId, wd, p);
+    const sub=db.substitutions?.[date]?.[lk] || null;
+    if(sub && sub.status==="accepted") return {teacherId: sub.toTeacherId, substituted:true};
+    return {teacherId: baseTeacherId, substituted:false};
+  }
 
   return `
     <div class="card">
       <h2 style="margin:0">Učenik • Sedmica</h2>
-      <div class="hint">Razred: <b>${U.esc(className(clsId))}</b></div>
+      <div class="hint">Razred: <b>${U.esc(Domain.className(db,clsId))}</b></div>
       <div class="sep"></div>
 
       <div class="ttWrap">
@@ -1032,16 +1225,19 @@ function tplStudentWeek(){
             }).join("")}
           </div>
 
-          ${ps.map(p=>{
+          ${periods.map(p=>{
             const cells = dates.map(dt=>{
               const wd=U.fromISODate(dt).getDay();
-              const cell = Store.schedule?.[clsId]?.[wd]?.[p.p] || null;
+              const cell=db.schedule?.[clsId]?.[wd]?.[p.p] || null;
               if(!cell) return `<div class="ttCell"><div class="empty">—</div></div>`;
-              const r = resolveTeacherForCell(dt, clsId, wd, p.p, cell.teacherId);
+              const r=resolveTeacher(dt, clsId, wd, p.p, cell.teacherId);
+              const hw = !!db.homework?.[clsId]?.[dt]; // coarse check
               return `<div class="ttCell">
                 <div class="lesson">
-                  <div class="title">${U.esc(subjectName(cell.subjectId))} ${r.substituted?`<span class="badgeTag warn">zamjena</span>`:""}</div>
-                  <div class="meta">${U.esc(profileName(r.teacherId))} • ${U.esc(roomName(cell.roomId))}</div>
+                  <div class="title">${U.esc(Domain.subjectName(db,cell.subjectId))}
+                    ${r.substituted?`<span class="badgeTag warn">zamjena</span>`:""}
+                  </div>
+                  <div class="meta">${U.esc(Domain.teacherName(db,r.teacherId))} • ${U.esc(Domain.roomName(db,cell.roomId))}</div>
                 </div>
               </div>`;
             }).join("");
@@ -1057,18 +1253,25 @@ function tplStudentWeek(){
   `;
 }
 
-function tplStudentDay(){
-  bindWeekSubs();
-  const clsId=Store.profile.classId;
-  const date=Store.date;
+function tplStudentDay(me){
+  const db=APP.db;
+  const clsId=me.classId;
+  const date=APP.state.date;
   const wd=U.fromISODate(date).getDay();
-  const ps=periods();
+  const periods=(db.settings?.periods||[]).slice().sort((a,b)=>a.p-b.p);
+
+  function resolveTeacher(date, classId, wd, p, baseTeacherId){
+    const lk=U.lessonKey(classId, wd, p);
+    const sub=db.substitutions?.[date]?.[lk] || null;
+    if(sub && sub.status==="accepted") return {teacherId: sub.toTeacherId, substituted:true};
+    return {teacherId: baseTeacherId, substituted:false};
+  }
 
   const lessons=[];
-  for(const p of ps){
-    const cell = Store.schedule?.[clsId]?.[wd]?.[p.p] || null;
+  for(const p of periods){
+    const cell=db.schedule?.[clsId]?.[wd]?.[p.p] || null;
     if(!cell) continue;
-    const r = resolveTeacherForCell(date, clsId, wd, p.p, cell.teacherId);
+    const r=resolveTeacher(date, clsId, wd, p.p, cell.teacherId);
     lessons.push({period:p.p, subjectId:cell.subjectId, roomId:cell.roomId, teacherId:r.teacherId, substituted:r.substituted});
   }
   lessons.sort((a,b)=>a.period-b.period);
@@ -1076,7 +1279,7 @@ function tplStudentDay(){
   return `
     <div class="card">
       <h2 style="margin:0">Učenik • Dan</h2>
-      <div class="hint">${U.esc(className(clsId))} • <span class="mono">${U.esc(date)}</span></div>
+      <div class="hint">${U.esc(Domain.className(db,clsId))} • <span class="mono">${U.esc(date)}</span></div>
       <div class="sep"></div>
 
       <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px">
@@ -1090,9 +1293,9 @@ function tplStudentDay(){
                 ${lessons.map(L=>`
                   <tr>
                     <td><b>${L.period}.</b></td>
-                    <td><b>${U.esc(subjectName(L.subjectId))}</b> ${L.substituted?`<span class="badgeTag warn">zamjena</span>`:""}</td>
-                    <td>${U.esc(profileName(L.teacherId))}</td>
-                    <td>${U.esc(roomName(L.roomId))}</td>
+                    <td><b>${U.esc(Domain.subjectName(db,L.subjectId))}</b> ${L.substituted?`<span class="badgeTag warn">zamjena</span>`:""}</td>
+                    <td>${U.esc(Domain.teacherName(db,L.teacherId))}</td>
+                    <td>${U.esc(Domain.roomName(db,L.roomId))}</td>
                   </tr>
                 `).join("")}
               </tbody>
@@ -1109,19 +1312,17 @@ function tplStudentDay(){
   `;
 }
 
-function tplStudentGrades(){
+function tplStudentGrades(me){
   return `
     <div class="card">
       <h2 style="margin:0">Ocjene</h2>
-      <div class="hint">Samo tvoje ocjene (po predmetu).</div>
       <div class="sep"></div>
       <div id="gradesBox" class="hint">Učitavanje…</div>
     </div>
   `;
 }
 
-/* -------- Reminders (teacher/student) -------- */
-function tplReminders(){
+function tplReminders(me){
   return `
     <div class="card">
       <h2 style="margin:0">Podsjetnici</h2>
@@ -1130,7 +1331,7 @@ function tplReminders(){
         <div>
           <h3 style="margin:0">Dodaj</h3>
           <div class="sep"></div>
-          <label>Datum</label><input id="rem_date" type="date" value="${U.esc(Store.date)}" />
+          <label>Datum</label><input id="rem_date" type="date" value="${U.esc(APP.state.date)}" />
           <label>Tekst</label><input id="rem_text" placeholder="npr. pripremiti kontrolni" />
           <div class="row" style="margin-top:10px"><button class="btn pri" data-act="addRem">Dodaj</button></div>
         </div>
@@ -1144,270 +1345,18 @@ function tplReminders(){
   `;
 }
 
-/* ---------------- Admin conflicts check ---------------- */
-function checkConflicts(weekday, period, teacherId, roomId, excludeClassId){
-  const teacherConf = [];
-  const roomConf = [];
-  for(const [clsId, byDay] of Object.entries(Store.schedule||{})){
-    if(clsId===excludeClassId) continue;
-    const cell = byDay?.[weekday]?.[period] || null;
-    if(!cell) continue;
-    if(teacherId && cell.teacherId===teacherId) teacherConf.push({clsId});
-    if(roomId && cell.roomId===roomId) roomConf.push({clsId});
-  }
-  return {teacherConf, roomConf};
-}
+/* ---------------- Post-render dynamic boxes ---------------- */
+function postRender(me){
+  const db=APP.db;
 
-/* ---------------- Modals ---------------- */
-function openCellModal({classId, weekday, period}){
-  const existing = Store.schedule?.[classId]?.[weekday]?.[period] || null;
-
-  const subOpts = Object.entries(Store.subjects||{}).map(([id,s])=>`<option value="${id}">${U.esc(s.name)}</option>`).join("");
-  const teacherOpts = Object.entries(Store.profiles||{})
-    .filter(([uid,p])=>p.role==="teacher")
-    .map(([uid,p])=>`<option value="${uid}">${U.esc(p.fullName||p.email||uid)}</option>`).join("");
-  const roomOpts = Object.entries(Store.rooms||{}).map(([id,r])=>`<option value="${id}">${U.esc(r.name)}</option>`).join("");
-
-  $("#cellBox").innerHTML = `
-    <div class="row" style="justify-content:space-between">
-      <div>
-        <h3 style="margin:0">Uredi raspored</h3>
-        <div class="hint">Razred: <b>${U.esc(className(classId))}</b> • Dan: <b>${U.esc(U.weekdayName(weekday))}</b> • Čas: <b>${period}.</b></div>
-      </div>
-      <button class="btn small" data-act="closeModal" data-id="cellModal">Zatvori</button>
-    </div>
-    <div class="sep"></div>
-
-    <label>Predmet</label><select id="cm_sub">${subOpts}</select>
-    <label>Profesor</label><select id="cm_teacher">${teacherOpts}</select>
-    <label>Učionica</label><select id="cm_room">${roomOpts}</select>
-
-    <div class="sep"></div>
-    <div class="row" style="justify-content:space-between">
-      <div class="hint">${existing?`<span class="badgeTag ok">postojeći</span>`:`<span class="badgeTag">novi</span>`}</div>
-      <div class="row">
-        ${existing?`<button class="btn bad" data-act="delCell" data-class="${classId}" data-weekday="${weekday}" data-period="${period}">Obriši</button>`:""}
-        <button class="btn pri" data-act="saveCell" data-class="${classId}" data-weekday="${weekday}" data-period="${period}">Sačuvaj</button>
-      </div>
-    </div>
-    <div class="notice" style="margin-top:10px">Provjera konflikta: isti dan/čas profesor ili učionica u drugom razredu.</div>
-  `;
-
-  if(existing){
-    $("#cm_sub").value = existing.subjectId;
-    $("#cm_teacher").value = existing.teacherId;
-    $("#cm_room").value = existing.roomId;
-  }
-
-  $("#cellModal").classList.add("open");
-}
-
-async function openLessonModal({date, classId, weekday, period}){
-  const lk = U.lessonKey(classId, weekday, period);
-  const cell = Store.schedule?.[classId]?.[weekday]?.[period] || null;
-  if(!cell) return alert("Nema časa u rasporedu.");
-
-  const resolved = resolveTeacherForCell(date, classId, weekday, period, cell.teacherId);
-  if(role()!=="teacher" || resolved.teacherId !== Store.authUser.uid){
-    return alert("Nemate pravo na ovaj čas.");
-  }
-
-  const classStudents = await RT.get(`/classStudents/${classId}`) || {};
-  const studentIds = Object.keys(classStudents);
-
-  const att = await RT.get(`/attendance/${date}/${lk}`) || {};
-  const sub = await RT.get(`/substitutions/${date}/${lk}`) || null;
-
-  const pObj = periods().find(x=>x.p===Number(period)) || {start:"??:??", end:"??:??"};
-
-  $("#lessonBox").innerHTML = `
-    <div class="row" style="justify-content:space-between">
-      <div>
-        <h3 style="margin:0">${U.esc(className(classId))} • ${U.esc(subjectName(cell.subjectId))}</h3>
-        <div class="hint">
-          <span class="mono">${U.esc(date)}</span> • <b>${period}.</b> <span class="mono">${U.esc(pObj.start)}–${U.esc(pObj.end)}</span> • ${U.esc(roomName(cell.roomId))}
-          ${resolved.substituted?` • <span class="badgeTag warn">zamjena</span>`:""}
-        </div>
-      </div>
-      <button class="btn small" data-act="closeModal" data-id="lessonModal">Zatvori</button>
-    </div>
-
-    <div class="sep"></div>
-
-    <div class="row" style="justify-content:space-between">
-      <div class="notice">Prisustvo: odsutan → ide razredniku</div>
-      <button class="btn ok" data-act="saveAttendance" data-date="${U.esc(date)}" data-lk="${U.esc(lk)}" data-class="${U.esc(classId)}" data-sub="${U.esc(cell.subjectId)}">Sačuvaj prisustvo</button>
-    </div>
-
-    <div class="sep"></div>
-
-    <table>
-      <thead><tr><th>Učenik</th><th>Status</th><th>Napomena</th></tr></thead>
-      <tbody>
-        ${studentIds.map(sid=>{
-          const p = Store.profiles?.[sid] || {};
-          const a = att?.[sid] || {};
-          const st = a.status || "present";
-          const note = a.note || "";
-          return `
-            <tr>
-              <td><b>${U.esc(p.fullName||p.email||sid)}</b></td>
-              <td style="width:210px">
-                <select data-att-status="${sid}">
-                  <option value="present" ${st==="present"?"selected":""}>Prisutan</option>
-                  <option value="late" ${st==="late"?"selected":""}>Kasni</option>
-                  <option value="absent" ${st==="absent"?"selected":""}>Odsutan</option>
-                </select>
-              </td>
-              <td><input data-att-note="${sid}" value="${U.esc(note)}" /></td>
-            </tr>
-          `;
-        }).join("")}
-      </tbody>
-    </table>
-
-    <div class="sep"></div>
-
-    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px">
-      <div>
-        <h3 style="margin:0">Dodaj ocjenu</h3>
-        <div class="sep"></div>
-        <label>Učenik</label>
-        <select id="gr_st">
-          ${studentIds.map(sid=>{
-            const p = Store.profiles?.[sid] || {};
-            return `<option value="${sid}">${U.esc(p.fullName||p.email||sid)}</option>`;
-          }).join("")}
-        </select>
-
-        <div class="row">
-          <div style="flex:1">
-            <label>Datum</label><input id="gr_date" type="date" value="${U.esc(date)}" />
-          </div>
-          <div style="width:140px">
-            <label>Ocjena</label>
-            <select id="gr_val"><option>1</option><option>2</option><option>3</option><option selected>4</option><option>5</option></select>
-          </div>
-        </div>
-
-        <label>Tip</label>
-        <select id="gr_type"><option>Usmeno</option><option>Pismeno</option><option>Aktivnost</option><option>Zadaća</option><option>Kontrolni</option></select>
-
-        <label>Napomena</label>
-        <input id="gr_note" />
-
-        <div class="row" style="margin-top:10px">
-          <button class="btn pri" data-act="addGrade" data-class="${U.esc(classId)}" data-sub="${U.esc(cell.subjectId)}">Dodaj ocjenu</button>
-        </div>
-      </div>
-
-      <div>
-        <h3 style="margin:0">Zadaća</h3>
-        <div class="sep"></div>
-        <label>Rok</label>
-        <input id="lhw_due" type="date" value="${U.esc(date)}" />
-        <label>Opis</label>
-        <textarea id="lhw_text"></textarea>
-        <div class="row" style="margin-top:10px">
-          <button class="btn pri" data-act="addLessonHW" data-class="${U.esc(classId)}" data-sub="${U.esc(cell.subjectId)}">Dodaj zadaću</button>
-        </div>
-
-        <div class="sep"></div>
-
-        <h3 style="margin:0">Zamjena (ovaj čas)</h3>
-        <div class="hint">
-          ${sub ? `Status: <b>${U.esc(sub.status)}</b>` : `Nema zahtjeva.`}
-        </div>
-        <div class="sep"></div>
-
-        <label>Ko mijenja</label>
-        <select id="sub_toTeacher">
-          ${Object.entries(Store.profiles||{})
-            .filter(([uid,p])=>p.role==="teacher" && uid!==Store.authUser.uid)
-            .map(([uid,p])=>`<option value="${uid}">${U.esc(p.fullName||p.email||uid)}</option>`).join("")}
-        </select>
-
-        <label>Napomena</label>
-        <input id="sub_note" placeholder="npr. bolest" />
-
-        <div class="row" style="margin-top:10px">
-          <button class="btn warn" data-act="requestSub" data-date="${U.esc(date)}" data-lk="${U.esc(lk)}">Pošalji zahtjev</button>
-        </div>
-      </div>
-    </div>
-  `;
-
-  $("#lessonModal").classList.add("open");
-}
-
-/* ---------------- Render ---------------- */
-async function render(){
-  setTheme(Store.theme);
-
-  $("#btnLogout").style.display = Store.authUser ? "inline-block" : "none";
-  $("#userPill").textContent = Store.authUser
-    ? (Store.profile ? `${Store.profile.role}: ${Store.profile.fullName||Store.profile.email}` : `Prijavljen: ${Store.authUser.email}`)
-    : "Niste prijavljeni";
-  $("#schoolName").textContent = Store.settings?.schoolName || "ŠkolaPro";
-
-  const root=$("#app");
-
-  if(!Store.authUser){
-    Store.view="login";
-    root.innerHTML = tplLogin();
-    return;
-  }
-
-  if(!Store.profile){
-    Store.view="activate";
-    root.innerHTML = tplActivate();
-    return;
-  }
-
-  if(["login","activate","loading"].includes(Store.view)){
-    Store.view = role()==="admin" ? "admin-dashboard" : role()==="teacher" ? "t-week" : "s-week";
-  }
-
-  root.innerHTML = tplShell();
-
-  // admin dashboard invite list
-  if(Store.view==="admin-dashboard"){
-    const invs = await RT.get("/invites") || {};
-    const arr = Object.entries(invs).map(([code,v])=>({code, ...v}))
-      .sort((a,b)=>(b.createdAt||"").localeCompare(a.createdAt||""))
-      .slice(0,30);
-
-    $("#invListBox").innerHTML = arr.length ? `
-      <table>
-        <thead><tr><th>Kod</th><th>Uloga</th><th>Razred</th><th>Used</th><th></th></tr></thead>
-        <tbody>
-          ${arr.map(x=>{
-            const usedBy = U.normalizeUsedBy(x.usedBy);
-            return `
-              <tr>
-                <td class="mono"><b>${U.esc(x.code)}</b></td>
-                <td>${U.esc(x.role||"")}</td>
-                <td>${x.classId?U.esc(className(x.classId)):"—"}</td>
-                <td>${usedBy?`<span class="badgeTag ok">DA</span>`:`<span class="badgeTag">NE</span>`}</td>
-                <td class="right"><button class="btn small bad" data-act="delInvite" data-code="${U.esc(x.code)}">Obriši</button></td>
-              </tr>
-            `;
-          }).join("")}
-        </tbody>
-      </table>
-    ` : `<div class="notice">Nema invite kodova.</div>`;
-  }
-
-  // teacher homework today (index)
-  if(Store.view==="t-homework"){
-    const due = Store.date;
-    const hw = await RT.get(`/homeworkByDue/${due}`) || {};
-    const arr = Object.entries(hw).map(([id,v])=>({id,...v}))
-      .filter(x=>x.teacherId===Store.authUser.uid)
-      .sort((a,b)=> (a.classId||"").localeCompare(b.classId||""));
+  // teacher homework today
+  if(APP.state.view==="t-homework"){
+    const due = APP.state.date;
+    const hw = db.homeworkByDue?.[due] || {};
+    const arr = Object.entries(hw).map(([id,v])=>({id,...v})).filter(x=>x.teacherId===me.id);
     $("#hwTodayBox").innerHTML = arr.length ? arr.map(h=>`
       <div class="notice" style="margin-bottom:8px">
-        <b>${U.esc(className(h.classId))}</b> • ${U.esc(subjectName(h.subjectId))}<br/>
+        <b>${U.esc(Domain.className(db,h.classId))}</b> • ${U.esc(Domain.subjectName(db,h.subjectId))}<br/>
         <span class="hint">${U.esc(h.text)}</span>
         <div class="row" style="margin-top:8px">
           <button class="btn small bad" data-act="delHW" data-due="${U.esc(due)}" data-id="${U.esc(h.id)}">Obriši</button>
@@ -1417,26 +1366,23 @@ async function render(){
   }
 
   // student homework today
-  if(Store.view==="s-day"){
-    const due=Store.date;
-    const clsId=Store.profile.classId;
-    const hw = await RT.get(`/homework/${clsId}/${due}`) || {};
-    const arr = Object.entries(hw).map(([id,v])=>({id,...v}))
-      .sort((a,b)=> (a.subjectId||"").localeCompare(b.subjectId||""));
+  if(APP.state.view==="s-day"){
+    const due=APP.state.date;
+    const clsId=me.classId;
+    const hw = db.homework?.[clsId]?.[due] || {};
+    const arr = Object.entries(hw).map(([id,v])=>({id,...v}));
     $("#studentHwBox").innerHTML = arr.length ? arr.map(h=>`
       <div class="notice" style="margin-bottom:8px">
-        <b>${U.esc(subjectName(h.subjectId))}</b>: ${U.esc(h.text)}
-        <div class="hint" style="margin-top:6px">Profesor: ${U.esc(profileName(h.teacherId))}</div>
+        <b>${U.esc(Domain.subjectName(db,h.subjectId))}</b>: ${U.esc(h.text)}
+        <div class="hint" style="margin-top:6px">Profesor: ${U.esc(Domain.teacherName(db,h.teacherId))}</div>
       </div>
     `).join("") : `<div class="notice">Nema zadaća za danas.</div>`;
   }
 
-  // reminders list
-  if(Store.view==="t-rem" || Store.view==="s-rem"){
-    const uid=Store.authUser.uid;
-    const rem = await RT.get(`/reminders/${uid}`) || {};
-    const arr = Object.entries(rem).map(([id,v])=>({id,...v}))
-      .sort((a,b)=>(a.date||"").localeCompare(b.date||""));
+  // reminders
+  if(APP.state.view==="t-rem" || APP.state.view==="s-rem"){
+    const rem = db.reminders?.[me.id] || {};
+    const arr = Object.entries(rem).map(([id,v])=>({id,...v})).sort((a,b)=>(a.date||"").localeCompare(b.date||""));
     $("#remListBox").innerHTML = arr.length ? arr.map(r=>`
       <div class="notice" style="margin-bottom:8px">
         <div class="row" style="justify-content:space-between">
@@ -1451,11 +1397,10 @@ async function render(){
   }
 
   // student grades
-  if(Store.view==="s-grades"){
-    const uid=Store.authUser.uid;
-    const g = await RT.get(`/grades/${uid}`) || {};
-    const subjects = Object.entries(Store.subjects||{}).map(([id,s])=>({id,name:s.name})).sort((a,b)=>a.name.localeCompare(b.name));
-    const sems = Store.settings?.semesters || [];
+  if(APP.state.view==="s-grades"){
+    const g = db.grades?.[me.id] || {};
+    const subjects = (db.subjects||[]).slice().sort((a,b)=>a.name.localeCompare(b.name));
+    const sems = db.settings?.semesters || [];
 
     $("#gradesBox").innerHTML = `
       <table>
@@ -1486,9 +1431,9 @@ async function render(){
   }
 
   // homeroom absences
-  if(Store.view==="t-homeroom"){
-    const clsId = Store.profile.homeroomClassId;
-    const abs = await RT.get(`/absences/${clsId}`) || {};
+  if(APP.state.view==="t-homeroom"){
+    const clsId = me.homeroomClassId;
+    const abs = db.absences?.[clsId] || {};
     const rows=[];
     for(const [date, perStud] of Object.entries(abs)){
       for(const [sid, perLesson] of Object.entries(perStud||{})){
@@ -1505,12 +1450,13 @@ async function render(){
         <tbody>
           ${rows.slice(0,200).map(r=>{
             const st = r.justified ? `<span class="badgeTag ok">pravdan</span>` : `<span class="badgeTag bad">nepravdan</span>`;
+            const stud = Domain.userById(db, r.sid);
             return `
               <tr>
                 <td class="mono">${U.esc(r.date)}</td>
-                <td><b>${U.esc(profileName(r.sid))}</b></td>
-                <td>${U.esc(subjectName(r.subjectId))}</td>
-                <td>${U.esc(profileName(r.teacherId))}</td>
+                <td><b>${U.esc(stud?.fullName||stud?.username||r.sid)}</b></td>
+                <td>${U.esc(Domain.subjectName(db,r.subjectId))}</td>
+                <td>${U.esc(Domain.teacherName(db,r.teacherId))}</td>
                 <td>${st}</td>
                 <td class="hint">${U.esc(r.reason||"")}</td>
                 <td class="right">
@@ -1531,7 +1477,193 @@ async function render(){
   }
 }
 
-/* ---------------- Global events ---------------- */
+/* ---------------- Admin cell modal open ---------------- */
+function openCellModal({classId, weekday, period}){
+  const db=APP.db;
+  const existing = db.schedule?.[classId]?.[weekday]?.[period] || null;
+
+  // build modal from template inside schedule card
+  const tpl = document.querySelector("#cellTpl");
+  const frag = tpl.content.cloneNode(true);
+  const box=$("#cellBox");
+  box.innerHTML="";
+  box.appendChild(frag);
+
+  $("#cm_info").innerHTML = `Razred: <b>${U.esc(Domain.className(db,classId))}</b> • Dan: <b>${U.esc(U.weekdayName(weekday))}</b> • Čas: <b>${period}.</b>`;
+
+  if(existing){
+    $("#cm_sub").value = existing.subjectId;
+    $("#cm_teacher").value = existing.teacherId;
+    $("#cm_room").value = existing.roomId;
+    $("#cm_del").style.display = "inline-block";
+  }
+
+  $("#cm_save").onclick = async ()=>{
+    const subjectId = $("#cm_sub").value;
+    const teacherId = $("#cm_teacher").value;
+    const roomId = $("#cm_room").value;
+
+    // (informativna) provjera konflikta
+    const conflicts = {teacher:[], room:[]};
+    for(const c of (db.classes||[])){
+      if(c.id===classId) continue;
+      const other = db.schedule?.[c.id]?.[weekday]?.[period];
+      if(!other) continue;
+      if(other.teacherId===teacherId) conflicts.teacher.push(c.name);
+      if(other.roomId===roomId) conflicts.room.push(c.name);
+    }
+    if(conflicts.teacher.length || conflicts.room.length){
+      let msg="Konflikt:\n";
+      if(conflicts.teacher.length) msg += `- Profesor već predaje: ${conflicts.teacher.join(", ")}\n`;
+      if(conflicts.room.length) msg += `- Učionica zauzeta: ${conflicts.room.join(", ")}\n`;
+      msg += "Sačuvati ipak?";
+      if(!confirm(msg)) return;
+    }
+
+    db.schedule ||= {};
+    db.schedule[classId] ||= {};
+    db.schedule[classId][weekday] ||= {};
+    db.schedule[classId][weekday][period] = {subjectId, teacherId, roomId};
+
+    await DB.save(db);
+    $("#cellModal").classList.remove("open");
+  };
+
+  $("#cm_del").onclick = async ()=>{
+    if(!confirm("Obrisati ovaj čas iz rasporeda?")) return;
+    if(db.schedule?.[classId]?.[weekday]?.[period]){
+      delete db.schedule[classId][weekday][period];
+      await DB.save(db);
+    }
+    $("#cellModal").classList.remove("open");
+  };
+
+  $("#cellModal").classList.add("open");
+}
+
+/* ---------------- Teacher lesson modal ---------------- */
+async function openLessonModal({date, classId, weekday, period}){
+  const db=APP.db;
+  const me=APP.currentUser();
+  const cell = db.schedule?.[classId]?.[weekday]?.[period];
+  if(!cell) return alert("Nema časa u rasporedu.");
+
+  // resolve substitution
+  const lk = U.lessonKey(classId, weekday, period);
+  const sub = db.substitutions?.[date]?.[lk] || null;
+  const teacherId = (sub && sub.status==="accepted") ? sub.toTeacherId : cell.teacherId;
+
+  if(me.role!=="teacher" || teacherId!==me.id){
+    return alert("Nemate pravo na ovaj čas.");
+  }
+
+  const students = Domain.studentsInClass(db, classId);
+  const att = db.attendance?.[date]?.[lk] || {};
+
+  const pObj = (db.settings?.periods||[]).find(x=>x.p===Number(period)) || {start:"??:??", end:"??:??"};
+
+  $("#lessonBox").innerHTML = `
+    <div class="row" style="justify-content:space-between">
+      <div>
+        <h3 style="margin:0">${U.esc(Domain.className(db,classId))} • ${U.esc(Domain.subjectName(db,cell.subjectId))}</h3>
+        <div class="hint">
+          <span class="mono">${U.esc(date)}</span> • <b>${period}.</b> <span class="mono">${U.esc(pObj.start)}–${U.esc(pObj.end)}</span> • ${U.esc(Domain.roomName(db,cell.roomId))}
+          ${sub && sub.status==="accepted" ? ` • <span class="badgeTag warn">zamjena</span>` : ``}
+        </div>
+      </div>
+      <button class="btn small" data-act="closeModal" data-id="lessonModal">Zatvori</button>
+    </div>
+
+    <div class="sep"></div>
+
+    <div class="row" style="justify-content:space-between">
+      <div class="notice">Prisustvo: odsutan → ide razredniku</div>
+      <button class="btn ok" data-act="saveAttendance" data-date="${U.esc(date)}" data-lk="${U.esc(lk)}" data-class="${U.esc(classId)}" data-sub="${U.esc(cell.subjectId)}">Sačuvaj prisustvo</button>
+    </div>
+
+    <div class="sep"></div>
+
+    <table>
+      <thead><tr><th>Učenik</th><th>Status</th><th>Napomena</th></tr></thead>
+      <tbody>
+        ${students.map(st=>{
+          const a=att?.[st.id] || {};
+          const status=a.status || "present";
+          const note=a.note || "";
+          return `
+            <tr>
+              <td><b>${U.esc(st.fullName||st.username)}</b></td>
+              <td style="width:210px">
+                <select data-att-status="${st.id}">
+                  <option value="present" ${status==="present"?"selected":""}>Prisutan</option>
+                  <option value="late" ${status==="late"?"selected":""}>Kasni</option>
+                  <option value="absent" ${status==="absent"?"selected":""}>Odsutan</option>
+                </select>
+              </td>
+              <td><input data-att-note="${st.id}" value="${U.esc(note)}" /></td>
+            </tr>
+          `;
+        }).join("")}
+      </tbody>
+    </table>
+
+    <div class="sep"></div>
+
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px">
+      <div>
+        <h3 style="margin:0">Dodaj ocjenu</h3>
+        <div class="sep"></div>
+        <label>Učenik</label>
+        <select id="gr_st">
+          ${students.map(st=>`<option value="${st.id}">${U.esc(st.fullName||st.username)}</option>`).join("")}
+        </select>
+        <div class="row">
+          <div style="flex:1">
+            <label>Datum</label><input id="gr_date" type="date" value="${U.esc(date)}" />
+          </div>
+          <div style="width:140px">
+            <label>Ocjena</label>
+            <select id="gr_val"><option>1</option><option>2</option><option>3</option><option selected>4</option><option>5</option></select>
+          </div>
+        </div>
+        <label>Tip</label>
+        <select id="gr_type"><option>Usmeno</option><option>Pismeno</option><option>Aktivnost</option><option>Zadaća</option><option>Kontrolni</option></select>
+        <label>Napomena</label><input id="gr_note" />
+        <div class="row" style="margin-top:10px">
+          <button class="btn pri" data-act="addGrade" data-class="${U.esc(classId)}" data-sub="${U.esc(cell.subjectId)}">Dodaj ocjenu</button>
+        </div>
+      </div>
+
+      <div>
+        <h3 style="margin:0">Zadaća</h3>
+        <div class="sep"></div>
+        <label>Rok</label><input id="lhw_due" type="date" value="${U.esc(date)}" />
+        <label>Opis</label><textarea id="lhw_text"></textarea>
+        <div class="row" style="margin-top:10px">
+          <button class="btn pri" data-act="addLessonHW" data-class="${U.esc(classId)}" data-sub="${U.esc(cell.subjectId)}">Dodaj zadaću</button>
+        </div>
+
+        <div class="sep"></div>
+
+        <h3 style="margin:0">Zamjena (ovaj čas)</h3>
+        <div class="sep"></div>
+        <label>Ko mijenja</label>
+        <select id="sub_toTeacher">
+          ${(db.users||[]).filter(u=>u.role==="teacher" && u.id!==me.id)
+            .map(t=>`<option value="${t.id}">${U.esc(t.fullName||t.username)}</option>`).join("")}
+        </select>
+        <label>Napomena</label><input id="sub_note" placeholder="npr. bolest" />
+        <div class="row" style="margin-top:10px">
+          <button class="btn warn" data-act="requestSub" data-date="${U.esc(date)}" data-lk="${U.esc(lk)}">Pošalji zahtjev</button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  $("#lessonModal").classList.add("open");
+}
+
+/* ---------------- Actions ---------------- */
 document.addEventListener("click", async (e)=>{
   const b = e.target.closest("[data-act]");
   if(!b) return;
@@ -1540,200 +1672,191 @@ document.addEventListener("click", async (e)=>{
   // global
   if(act==="help"){ $("#helpModal").classList.add("open"); return; }
   if(act==="closeModal"){ $("#"+b.getAttribute("data-id")).classList.remove("open"); return; }
-  if(act==="theme"){ setTheme(Store.theme==="light"?"dark":"light"); render(); return; }
-  if(act==="logout"){ await firebase.auth().signOut(); return; }
+  if(act==="theme"){ setTheme(APP.state.theme==="light"?"dark":"light"); render(); return; }
+  if(act==="logout"){ Session.clear(); APP.state.view="login"; render(); return; }
 
   // date nav
-  if(act==="prevDay"){ Store.date = U.addDays(Store.date,-1); bindWeekSubs(); render(); return; }
-  if(act==="nextDay"){ Store.date = U.addDays(Store.date, 1); bindWeekSubs(); render(); return; }
-  if(act==="prevWeek"){ Store.date = U.addDays(Store.date,-7); bindWeekSubs(); render(); return; }
-  if(act==="nextWeek"){ Store.date = U.addDays(Store.date, 7); bindWeekSubs(); render(); return; }
+  if(act==="prevDay"){ APP.state.date=U.addDays(APP.state.date,-1); render(); return; }
+  if(act==="nextDay"){ APP.state.date=U.addDays(APP.state.date, 1); render(); return; }
+  if(act==="prevWeek"){ APP.state.date=U.addDays(APP.state.date,-7); render(); return; }
+  if(act==="nextWeek"){ APP.state.date=U.addDays(APP.state.date, 7); render(); return; }
 
-  // login/register
-  if(act==="loginEmail"){
-    const email=$("#li_email")?.value?.trim();
-    const pass=$("#li_pass")?.value;
-    if(!email||!pass) return alert("Unesi email i lozinku.");
-    try{ await firebase.auth().signInWithEmailAndPassword(email, pass); }
-    catch(err){ alert(err.message); }
-    return;
-  }
-  if(act==="registerEmail"){
-    const email=$("#rg_email")?.value?.trim();
-    const pass=$("#rg_pass")?.value;
-    if(!email||!pass) return alert("Unesi email i lozinku.");
-    try{ await firebase.auth().createUserWithEmailAndPassword(email, pass); }
-    catch(err){ alert(err.message); }
-    return;
-  }
-
-  // must be auth for remaining
-  if(!Store.authUser) return;
-
-  // activation
-  if(act==="bootstrapAdmin"){
-    const nm = ($("#boot_name")?.value||"").trim();
-    if(!nm) return alert("Unesi puno ime.");
-    await ensureSeedIfMissing();
-    await RT.set(`/profiles/${Store.authUser.uid}`, { role:"admin", fullName:nm, email:Store.authUser.email, createdAt:U.nowISO() });
-    Store.profile = await RT.get(`/profiles/${Store.authUser.uid}`);
-    Store.view="admin-dashboard";
+  // login
+  if(act==="login"){
+    const user = ($("#li_user")?.value||"").trim();
+    const pass = ($("#li_pass")?.value||"");
+    const u = (APP.db.users||[]).find(x=>x.username.toLowerCase()===user.toLowerCase());
+    if(!u) return alert("Pogrešan korisnik ili lozinka.");
+    if(u.passHash !== sha256(pass)) return alert("Pogrešan korisnik ili lozinka.");
+    Session.set({userId: u.id, at: U.nowISO()});
+    APP.state.view="login";
     render();
     return;
   }
 
-  if(act==="claimInvite"){
-    const codeRaw = ($("#inv_code")?.value||"").trim().toUpperCase();
-    const code = codeRaw.replaceAll(" ", "");
-    if(!code) return alert("Unesi invite code.");
+  const me = APP.currentUser();
+  if(!me) return;
 
-    const nameOverride = ($("#inv_name")?.value||"").trim();
-    const invPath = `/invites/${code}`;
+  // nav
+  if(act==="nav"){ APP.state.view=b.getAttribute("data-view"); render(); return; }
 
-    const inv = await RT.get(invPath);
-    if(!inv) return alert("Ne postoji invite code.");
-
-    // FIX: robust used check
-    const usedBy0 = U.normalizeUsedBy(inv.usedBy);
-    if(usedBy0) return alert("Invite je već iskorišten.");
-
-    // transaction claim
-    const tx = await RT.tx(invPath, (cur)=>{
-      if(!cur) return; // abort
-      const usedBy = U.normalizeUsedBy(cur.usedBy);
-      if(usedBy) return; // abort
-      cur.usedBy = Store.authUser.uid;   // always UID string
-      cur.usedAt = U.nowISO();
-      return cur;
-    });
-    if(!tx.committed) return alert("Invite nije moguće preuzeti (možda ga je neko upravo iskoristio).");
-
-    await ensureSeedIfMissing();
-
-    const prof = {
-      role: inv.role,
-      fullName: (inv.fullName||"").trim() || nameOverride || "",
-      email: Store.authUser.email,
-      classId: inv.role==="student" ? (inv.classId||null) : null,
-      homeroomClassId: inv.role==="teacher" ? (inv.homeroomClassId||null) : null,
-      createdAt: U.nowISO()
-    };
-    await RT.set(`/profiles/${Store.authUser.uid}`, prof);
-
-    if(prof.role==="student" && prof.classId){
-      await RT.set(`/classStudents/${prof.classId}/${Store.authUser.uid}`, true);
-    }
-    if(prof.role==="teacher" && prof.homeroomClassId){
-      await RT.update(`/classes/${prof.homeroomClassId}`, { homeroomTeacherId: Store.authUser.uid });
-    }
-
-    Store.profile = prof;
-    Store.view = prof.role==="teacher" ? "t-week" : prof.role==="student" ? "s-week" : "admin-dashboard";
-    render();
-    return;
-  }
-
-  // if profile missing stop
-  if(!Store.profile) return;
-
-  // navigation
-  if(act==="nav"){ Store.view = b.getAttribute("data-view"); render(); return; }
-
-  // change admin class pick (select)
-  if(act==="pickAdminClass"){ Store.adminClassPick = b.value; render(); return; }
-
-  // admin actions
-  if(role()==="admin"){
-    if(act==="createInvite"){
-      const code = U.randomCode(8);
-      const r = $("#inv_role").value;
-      const classId = $("#inv_class").value || null;
-      const hr = $("#inv_hr").value || null;
-      const fullName = ($("#inv_fullName").value||"").trim();
-
-      const invRec = {
-        role: r,
-        classId: r==="student" ? classId : null,
-        homeroomClassId: r==="teacher" ? hr : null,
-        fullName,
-        createdAt: U.nowISO(),
-        createdBy: Store.authUser.uid,
-        // FIX: always store as empty string when not used
-        usedBy: "",
-        usedAt: ""
-      };
-
-      await RT.set(`/invites/${code}`, invRec);
-      alert("Invite code: " + code);
+  /* ===== ADMIN ===== */
+  if(me.role==="admin"){
+    if(act==="resetDB"){
+      if(!confirm("Reset baze?")) return;
+      await DB.reset();
+      APP.db = seedDB();
+      await DB.save(APP.db);
+      Session.clear();
+      APP.state.view="login";
       render();
       return;
     }
 
-    if(act==="delInvite"){
-      const code=b.getAttribute("data-code");
-      if(!confirm("Obrisati invite?")) return;
-      await RT.remove(`/invites/${code}`);
+    if(act==="addUser"){
+      const username=($("#au_user")?.value||"").trim();
+      const password=$("#au_pass")?.value||"";
+      const fullName=($("#au_name")?.value||"").trim();
+      const role=$("#au_role")?.value;
+      const classId=$("#au_class")?.value || null;
+      const hr=$("#au_hr")?.value || null;
+
+      if(!username || !password) return alert("Unesi username i lozinku.");
+      if((APP.db.users||[]).some(u=>u.username.toLowerCase()===username.toLowerCase())) return alert("Username već postoji.");
+      if(role==="student" && !classId) return alert("Učenik mora imati razred.");
+
+      const id=U.uid("usr");
+      const rec = {
+        id, username, passHash: sha256(password),
+        role, fullName,
+        classId: role==="student" ? classId : null,
+        homeroomClassId: role==="teacher" ? hr : null
+      };
+      APP.db.users.push(rec);
+
+      // if teacher homeroom, also set class.homeroomTeacherId
+      if(role==="teacher" && hr){
+        const c = APP.db.classes.find(x=>x.id===hr);
+        if(c) c.homeroomTeacherId = id;
+      }
+
+      await DB.save(APP.db);
+      render();
+      return;
+    }
+
+    if(act==="delUser"){
+      const id=b.getAttribute("data-id");
+      const u=APP.db.users.find(x=>x.id===id);
+      if(!u) return;
+      if(!confirm("Obrisati korisnika?")) return;
+      APP.db.users = APP.db.users.filter(x=>x.id!==id);
+      await DB.save(APP.db);
+      render();
+      return;
+    }
+
+    if(act==="editUser"){
+      const id=b.getAttribute("data-id");
+      const u=APP.db.users.find(x=>x.id===id);
+      if(!u) return;
+      const nm = prompt("Novo puno ime:", u.fullName||"");
+      if(nm===null) return;
+      u.fullName = nm.trim();
+      const np = prompt("Nova lozinka (prazno=bez promjene):", "");
+      if(np) u.passHash = sha256(np);
+      await DB.save(APP.db);
       render();
       return;
     }
 
     if(act==="addClass"){
-      const name = ($("#newClassName").value||"").trim();
+      const name=($("#ac_name")?.value||"").trim();
+      const hr=$("#ac_hr")?.value || null;
       if(!name) return alert("Unesi naziv razreda.");
       const id=U.uid("cls");
-      await RT.set(`/classes/${id}`, {name, homeroomTeacherId:""});
-      $("#newClassName").value="";
+      APP.db.classes.push({id,name, homeroomTeacherId: hr||null});
+      if(hr){
+        const t=APP.db.users.find(x=>x.id===hr);
+        if(t) t.homeroomClassId=id;
+      }
+      await DB.save(APP.db);
+      render();
       return;
     }
+
     if(act==="delClass"){
+      const id=b.getAttribute("data-id");
       if(!confirm("Obrisati razred?")) return;
-      await RT.remove(`/classes/${b.getAttribute("data-id")}`);
+      APP.db.classes = APP.db.classes.filter(c=>c.id!==id);
+      // detach users
+      APP.db.users.forEach(u=>{
+        if(u.classId===id) u.classId=null;
+        if(u.homeroomClassId===id) u.homeroomClassId=null;
+      });
+      delete (APP.db.schedule||{})[id];
+      await DB.save(APP.db);
+      render();
       return;
     }
 
     if(act==="addSubject"){
-      const name = ($("#newSubName").value||"").trim();
+      const name=($("#as_name")?.value||"").trim();
       if(!name) return alert("Unesi naziv predmeta.");
-      const id=U.uid("sub");
-      await RT.set(`/subjects/${id}`, {name});
-      $("#newSubName").value="";
+      APP.db.subjects.push({id:U.uid("sub"), name});
+      await DB.save(APP.db);
+      render();
       return;
     }
     if(act==="delSubject"){
+      const id=b.getAttribute("data-id");
       if(!confirm("Obrisati predmet?")) return;
-      await RT.remove(`/subjects/${b.getAttribute("data-id")}`);
+      APP.db.subjects = APP.db.subjects.filter(s=>s.id!==id);
+      await DB.save(APP.db);
+      render();
       return;
     }
 
     if(act==="addRoom"){
-      const name = ($("#newRoomName").value||"").trim();
+      const name=($("#ar_name")?.value||"").trim();
       if(!name) return alert("Unesi naziv učionice.");
-      const id=U.uid("room");
-      await RT.set(`/rooms/${id}`, {name});
-      $("#newRoomName").value="";
+      APP.db.rooms.push({id:U.uid("room"), name});
+      await DB.save(APP.db);
+      render();
       return;
     }
     if(act==="delRoom"){
+      const id=b.getAttribute("data-id");
       if(!confirm("Obrisati učionicu?")) return;
-      await RT.remove(`/rooms/${b.getAttribute("data-id")}`);
+      APP.db.rooms = APP.db.rooms.filter(r=>r.id!==id);
+      await DB.save(APP.db);
+      render();
       return;
     }
 
     if(act==="addPeriod"){
-      const p = Number($("#per_p").value);
-      const s = $("#per_s").value;
-      const e2 = $("#per_e").value;
+      const p=Number($("#per_p")?.value);
+      const s=$("#per_s")?.value;
+      const e2=$("#per_e")?.value;
       if(!p||!s||!e2) return alert("Popuni period.");
       if(U.timeToMin(e2)<=U.timeToMin(s)) return alert("Kraj mora biti poslije starta.");
-      const newPeriods = (Store.settings?.periods||[]).filter(x=>x.p!==p).concat([{p,start:s,end:e2}]).sort((a,b)=>a.p-b.p);
-      await RT.update("/settings", {periods:newPeriods});
-      $("#per_p").value="";
+      const periods = (APP.db.settings.periods||[]).filter(x=>x.p!==p).concat([{p,start:s,end:e2}]).sort((a,b)=>a.p-b.p);
+      APP.db.settings.periods = periods;
+      await DB.save(APP.db);
+      render();
       return;
     }
     if(act==="delPeriod"){
-      const p = Number(b.getAttribute("data-p"));
-      const newPeriods = (Store.settings?.periods||[]).filter(x=>x.p!==p).sort((a,b)=>a.p-b.p);
-      await RT.update("/settings", {periods:newPeriods});
+      const p=Number(b.getAttribute("data-p"));
+      APP.db.settings.periods = (APP.db.settings.periods||[]).filter(x=>x.p!==p).sort((a,b)=>a.p-b.p);
+      await DB.save(APP.db);
+      render();
+      return;
+    }
+
+    if(act==="pickAdminClass"){
+      APP.state.adminClassPick = b.value;
+      render();
       return;
     }
 
@@ -1746,74 +1869,57 @@ document.addEventListener("click", async (e)=>{
       return;
     }
 
-    if(act==="saveCell"){
-      const classId=b.getAttribute("data-class");
-      const weekday=Number(b.getAttribute("data-weekday"));
-      const period=Number(b.getAttribute("data-period"));
-      const subjectId=$("#cm_sub").value;
-      const teacherId=$("#cm_teacher").value;
-      const roomId=$("#cm_room").value;
-
-      const conf = checkConflicts(weekday, period, teacherId, roomId, classId);
-      if(conf.teacherConf.length || conf.roomConf.length){
-        let msg="Konflikt:\n";
-        if(conf.teacherConf.length) msg += `- Profesor već ima čas: ${conf.teacherConf.map(x=>className(x.clsId)).join(", ")}\n`;
-        if(conf.roomConf.length) msg += `- Učionica je zauzeta: ${conf.roomConf.map(x=>className(x.clsId)).join(", ")}\n`;
-        msg += "Sačuvati ipak?";
-        if(!confirm(msg)) return;
-      }
-
-      await RT.set(`/schedule/${classId}/${weekday}/${period}`, {subjectId, teacherId, roomId});
-      $("#cellModal").classList.remove("open");
-      return;
-    }
-
-    if(act==="delCell"){
-      const classId=b.getAttribute("data-class");
-      const weekday=Number(b.getAttribute("data-weekday"));
-      const period=Number(b.getAttribute("data-period"));
-      await RT.remove(`/schedule/${classId}/${weekday}/${period}`);
-      $("#cellModal").classList.remove("open");
-      return;
-    }
-
-    if(act==="editProfile"){
-      const uid = b.getAttribute("data-uid");
-      const p = Store.profiles?.[uid];
-      if(!p) return;
-      const nm = prompt("Novo ime:", p.fullName||"") ?? null;
-      if(nm===null) return;
-      await RT.update(`/profiles/${uid}`, {fullName: nm.trim()});
-      return;
-    }
-
-    if(act==="resetDemo"){
-      if(!confirm("Reset demo? Briše settings/classes/subjects/rooms/schedule/substitutions/attendance/absences/homework/grades/reminders/invites/classStudents. Profiles ostaju.")) return;
-      const upd = {
-        "/settings": null,
-        "/classes": null,
-        "/subjects": null,
-        "/rooms": null,
-        "/schedule": null,
-        "/substitutions": null,
-        "/attendance": null,
-        "/absences": null,
-        "/homework": null,
-        "/homeworkByDue": null,
-        "/grades": null,
-        "/reminders": null,
-        "/invites": null,
-        "/classStudents": null
-      };
-      await RT.ref("/").update(upd);
-      await ensureSeedIfMissing();
+    if(act==="addSem"){
+      const id=($("#sem_id")?.value||"").trim();
+      const name=($("#sem_name")?.value||"").trim();
+      const start=$("#sem_start")?.value;
+      const end=$("#sem_end")?.value;
+      if(!id||!name||!start||!end) return alert("Popuni sva polja.");
+      if(end<start) return alert("Kraj mora biti poslije starta.");
+      APP.db.settings.semesters ||= [];
+      if(APP.db.settings.semesters.some(s=>s.id===id)) return alert("ID već postoji.");
+      APP.db.settings.semesters.push({id,name,start,end});
+      await DB.save(APP.db);
       render();
+      return;
+    }
+    if(act==="delSem"){
+      const id=b.getAttribute("data-id");
+      if(!confirm("Obrisati semestar?")) return;
+      APP.db.settings.semesters = (APP.db.settings.semesters||[]).filter(s=>s.id!==id);
+      await DB.save(APP.db);
+      render();
+      return;
+    }
+
+    if(act==="exportDB"){
+      const text = JSON.stringify(APP.db, null, 2);
+      const a=document.createElement("a");
+      a.href=URL.createObjectURL(new Blob([text],{type:"application/json"}));
+      a.download="schoolDB.json";
+      a.click();
+      URL.revokeObjectURL(a.href);
+      return;
+    }
+    if(act==="importDB"){
+      const f=$("#importFile")?.files?.[0];
+      if(!f) return alert("Izaberi JSON.");
+      const txt=await f.text();
+      try{
+        const newDB=JSON.parse(txt);
+        APP.db=newDB;
+        await DB.save(APP.db);
+        alert("Import OK.");
+        render();
+      }catch{
+        alert("Neispravan JSON.");
+      }
       return;
     }
   }
 
-  // teacher actions
-  if(role()==="teacher"){
+  /* ===== TEACHER ===== */
+  if(me.role==="teacher"){
     if(act==="openLesson"){
       await openLessonModal({
         date: b.getAttribute("data-date"),
@@ -1830,121 +1936,155 @@ document.addEventListener("click", async (e)=>{
       const classId=b.getAttribute("data-class");
       const subjectId=b.getAttribute("data-sub");
 
-      const updates = {};
+      APP.db.attendance ||= {};
+      APP.db.attendance[date] ||= {};
+      APP.db.attendance[date][lk] ||= {};
+
+      APP.db.absences ||= {};
+      APP.db.absences[classId] ||= {};
+      APP.db.absences[classId][date] ||= {};
+
+      // save attendance + absences
       for(const sel of $$("select[data-att-status]")){
         const sid = sel.getAttribute("data-att-status");
         const status = sel.value;
         const note = $(`input[data-att-note="${sid}"]`)?.value || "";
 
-        updates[`/attendance/${date}/${lk}/${sid}`] = {status, note, teacherId:Store.authUser.uid, markedAt:U.nowISO()};
+        APP.db.attendance[date][lk][sid] = {status,note,teacherId:me.id,markedAt:U.nowISO()};
 
+        APP.db.absences[classId][date][sid] ||= {};
         if(status==="absent"){
-          updates[`/absences/${classId}/${date}/${sid}/${lk}`] = {
-            studentId:sid, teacherId:Store.authUser.uid, subjectId,
-            justified:false, reason:"", decidedBy:"", decidedAt:""
+          APP.db.absences[classId][date][sid][lk] = {
+            studentId:sid,
+            teacherId:me.id,
+            subjectId,
+            justified:false,
+            reason:"",
+            decidedBy:"",
+            decidedAt:""
           };
         }else{
-          updates[`/absences/${classId}/${date}/${sid}/${lk}`] = null;
+          delete APP.db.absences[classId][date][sid][lk];
         }
       }
 
-      await firebase.database().ref("/").update(updates);
+      await DB.save(APP.db);
       alert("Sačuvano.");
       $("#lessonModal").classList.remove("open");
+      render();
       return;
     }
 
     if(act==="addLessonHW"){
       const classId=b.getAttribute("data-class");
       const subjectId=b.getAttribute("data-sub");
-      const due=$("#lhw_due").value;
-      const text=($("#lhw_text").value||"").trim();
+      const due=$("#lhw_due")?.value;
+      const text=($("#lhw_text")?.value||"").trim();
       if(!due||!text) return alert("Unesi rok i tekst.");
 
       const id=U.uid("hw");
-      const rec={classId, subjectId, teacherId:Store.authUser.uid, dueDate: due, text, createdAt: U.nowISO()};
-      const upd={};
-      upd[`/homework/${classId}/${due}/${id}`]=rec;
-      upd[`/homeworkByDue/${due}/${id}`]=rec;
+      const rec={classId,subjectId,teacherId:me.id,dueDate:due,text,createdAt:U.nowISO()};
 
-      await firebase.database().ref("/").update(upd);
+      APP.db.homework ||= {};
+      APP.db.homework[classId] ||= {};
+      APP.db.homework[classId][due] ||= {};
+      APP.db.homework[classId][due][id]=rec;
+
+      APP.db.homeworkByDue ||= {};
+      APP.db.homeworkByDue[due] ||= {};
+      APP.db.homeworkByDue[due][id]=rec;
+
+      await DB.save(APP.db);
       alert("Zadaća dodana.");
+      render();
       return;
     }
 
     if(act==="addGrade"){
-      const studentId=$("#gr_st").value;
-      const date=$("#gr_date").value;
-      const value=Number($("#gr_val").value);
-      const type=$("#gr_type").value;
-      const note=$("#gr_note").value||"";
+      const studentId=$("#gr_st")?.value;
+      const date=$("#gr_date")?.value;
+      const value=Number($("#gr_val")?.value);
+      const type=$("#gr_type")?.value;
+      const note=$("#gr_note")?.value || "";
       const classId=b.getAttribute("data-class");
       const subjectId=b.getAttribute("data-sub");
-      const semId = semesterForDate(date);
+      const semId = Domain.semesterForDate(APP.db, date);
+
       const gid=U.uid("g");
-      await RT.set(`/grades/${studentId}/${subjectId}/${gid}`, {
-        value, date, type, note,
-        teacherId:Store.authUser.uid,
-        classId,
-        semesterId: semId
-      });
+      APP.db.grades ||= {};
+      APP.db.grades[studentId] ||= {};
+      APP.db.grades[studentId][subjectId] ||= {};
+      APP.db.grades[studentId][subjectId][gid] = {value,date,type,note,teacherId:me.id,classId,semesterId:semId};
+
+      await DB.save(APP.db);
       alert("Ocjena dodana.");
       $("#gr_note").value="";
+      render();
       return;
     }
 
     if(act==="requestSub"){
       const date=b.getAttribute("data-date");
       const lk=b.getAttribute("data-lk");
-      const toTeacherId=$("#sub_toTeacher").value;
-      const note=($("#sub_note").value||"").trim();
+      const toTeacherId=$("#sub_toTeacher")?.value;
+      const note=($("#sub_note")?.value||"").trim();
 
-      const cur = await RT.get(`/substitutions/${date}/${lk}`);
+      APP.db.substitutions ||= {};
+      APP.db.substitutions[date] ||= {};
+      const cur = APP.db.substitutions[date][lk];
       if(cur && cur.status!=="declined") return alert("Već postoji zamjena/zahtjev.");
 
-      await RT.set(`/substitutions/${date}/${lk}`, {
-        fromTeacherId: Store.authUser.uid,
+      APP.db.substitutions[date][lk] = {
+        fromTeacherId: me.id,
         toTeacherId,
-        status:"pending",
+        status: "pending",
         note,
         createdAt: U.nowISO(),
         decidedAt: ""
-      });
+      };
+
+      await DB.save(APP.db);
       alert("Zahtjev poslan.");
+      render();
       return;
     }
 
     if(act==="subAccept" || act==="subDecline"){
       const date=b.getAttribute("data-date");
       const lk=b.getAttribute("data-lk");
-      const s = await RT.get(`/substitutions/${date}/${lk}`);
+      const s = APP.db.substitutions?.[date]?.[lk];
       if(!s) return;
-      if(s.toTeacherId!==Store.authUser.uid) return alert("Nemate pravo.");
+      if(s.toTeacherId!==me.id) return alert("Nemate pravo.");
       if(s.status!=="pending") return alert("Već obrađeno.");
 
-      await RT.update(`/substitutions/${date}/${lk}`, {
-        status: act==="subAccept" ? "accepted" : "declined",
-        decidedAt: U.nowISO()
-      });
+      s.status = act==="subAccept" ? "accepted" : "declined";
+      s.decidedAt = U.nowISO();
+
+      await DB.save(APP.db);
       render();
       return;
     }
 
     if(act==="addHW"){
-      const classId=$("#hw_class").value;
-      const subjectId=$("#hw_sub").value;
-      const due=$("#hw_due").value;
-      const text=($("#hw_text").value||"").trim();
+      const classId=$("#hw_class")?.value;
+      const subjectId=$("#hw_sub")?.value;
+      const due=$("#hw_due")?.value;
+      const text=($("#hw_text")?.value||"").trim();
       if(!classId||!subjectId||!due||!text) return alert("Popuni sva polja.");
 
       const id=U.uid("hw");
-      const rec={classId, subjectId, teacherId:Store.authUser.uid, dueDate: due, text, createdAt: U.nowISO()};
-      const upd={};
-      upd[`/homework/${classId}/${due}/${id}`]=rec;
-      upd[`/homeworkByDue/${due}/${id}`]=rec;
+      const rec={classId,subjectId,teacherId:me.id,dueDate:due,text,createdAt:U.nowISO()};
 
-      await firebase.database().ref("/").update(upd);
-      $("#hw_text").value="";
+      APP.db.homework ||= {};
+      APP.db.homework[classId] ||= {};
+      APP.db.homework[classId][due] ||= {};
+      APP.db.homework[classId][due][id]=rec;
+
+      APP.db.homeworkByDue ||= {};
+      APP.db.homeworkByDue[due] ||= {};
+      APP.db.homeworkByDue[due][id]=rec;
+
+      await DB.save(APP.db);
       render();
       return;
     }
@@ -1952,9 +2092,12 @@ document.addEventListener("click", async (e)=>{
     if(act==="delHW"){
       const due=b.getAttribute("data-due");
       const id=b.getAttribute("data-id");
-      const rec = await RT.get(`/homeworkByDue/${due}/${id}`);
-      if(rec?.classId) await RT.remove(`/homework/${rec.classId}/${due}/${id}`);
-      await RT.remove(`/homeworkByDue/${due}/${id}`);
+      const rec = APP.db.homeworkByDue?.[due]?.[id];
+      if(rec?.classId){
+        delete APP.db.homework?.[rec.classId]?.[due]?.[id];
+      }
+      delete APP.db.homeworkByDue?.[due]?.[id];
+      await DB.save(APP.db);
       render();
       return;
     }
@@ -1966,51 +2109,56 @@ document.addEventListener("click", async (e)=>{
       const lk=b.getAttribute("data-lk");
       const just=b.getAttribute("data-just")==="1";
 
+      const rec = APP.db.absences?.[classId]?.[date]?.[sid]?.[lk];
+      if(!rec) return;
+
       if(!just){
-        const reason = prompt("Razlog pravdanja:", "") ?? null;
+        const reason = prompt("Razlog pravdanja:", rec.reason||"");
         if(reason===null) return;
-        await RT.update(`/absences/${classId}/${date}/${sid}/${lk}`, {
-          justified:true, reason,
-          decidedBy: Store.authUser.uid,
-          decidedAt: U.nowISO()
-        });
+        rec.justified=true;
+        rec.reason=reason;
+        rec.decidedBy=me.id;
+        rec.decidedAt=U.nowISO();
       }else{
         if(!confirm("Označiti kao nepravdan?")) return;
-        await RT.update(`/absences/${classId}/${date}/${sid}/${lk}`, {
-          justified:false, reason:"",
-          decidedBy: Store.authUser.uid,
-          decidedAt: U.nowISO()
-        });
+        rec.justified=false;
+        rec.reason="";
+        rec.decidedBy=me.id;
+        rec.decidedAt=U.nowISO();
       }
+
+      await DB.save(APP.db);
       render();
       return;
     }
   }
 
-  // reminders (teacher/student)
+  /* ===== REMINDERS (teacher/student) ===== */
   if(act==="addRem"){
-    const uid=Store.authUser.uid;
-    const date=$("#rem_date").value;
-    const text=($("#rem_text").value||"").trim();
+    const date=$("#rem_date")?.value;
+    const text=($("#rem_text")?.value||"").trim();
     if(!date||!text) return alert("Unesi datum i tekst.");
     const id=U.uid("rem");
-    await RT.set(`/reminders/${uid}/${id}`, {date,text,done:false,createdAt:U.nowISO()});
-    $("#rem_text").value="";
+    APP.db.reminders ||= {};
+    APP.db.reminders[me.id] ||= {};
+    APP.db.reminders[me.id][id] = {date,text,done:false,createdAt:U.nowISO()};
+    await DB.save(APP.db);
     render();
     return;
   }
   if(act==="toggleRem"){
-    const uid=Store.authUser.uid;
     const id=b.getAttribute("data-id");
-    const r=await RT.get(`/reminders/${uid}/${id}`);
+    const r=APP.db.reminders?.[me.id]?.[id];
     if(!r) return;
-    await RT.update(`/reminders/${uid}/${id}`, {done: !r.done});
+    r.done = !r.done;
+    await DB.save(APP.db);
     render();
     return;
   }
   if(act==="delRem"){
-    const uid=Store.authUser.uid;
-    await RT.remove(`/reminders/${uid}/${b.getAttribute("data-id")}`);
+    const id=b.getAttribute("data-id");
+    delete APP.db.reminders?.[me.id]?.[id];
+    await DB.save(APP.db);
     render();
     return;
   }
@@ -2019,56 +2167,43 @@ document.addEventListener("click", async (e)=>{
 document.addEventListener("change", (e)=>{
   const el=e.target;
   if(el.matches('input[data-act="pickDate"]')){
-    Store.date = el.value;
-    bindWeekSubs();
+    APP.state.date = el.value;
     render();
   }
   if(el.matches('select[data-act="pickAdminClass"]')){
-    Store.adminClassPick = el.value;
+    APP.state.adminClassPick = el.value;
     render();
   }
 });
 
-// backdrop close modals
+// backdrop close
 ["helpModal","cellModal","lessonModal"].forEach(id=>{
   $("#"+id).addEventListener("click",(e)=>{ if(e.target.id===id) $("#"+id).classList.remove("open"); });
 });
 
-/* ---------------- Firebase connection/auth ---------------- */
+/* ---------------- Startup ---------------- */
 firebase.database().ref(".info/connected").on("value",(snap)=>{
-  setConn(snap.val() ? "RTDB: connected" : "RTDB: offline");
+  $("#connPill").textContent = snap.val() ? "RTDB: connected" : "RTDB: offline";
 });
 
-firebase.auth().onAuthStateChanged(async (user)=>{
-  Store.authUser = user || null;
-  Store.profile = null;
-
-  if(!user){
-    Store.view="login";
-    render();
-    return;
+(async function start(){
+  // load db or seed
+  let db = await DB.load();
+  if(!db){
+    db = seedDB();
+    await DB.save(db);
   }
-
-  bindCore();
-  bindWeekSubs();
-
-  // load my profile once
-  Store.profile = await RT.get(`/profiles/${user.uid}`);
-
-  // default view
-  if(Store.profile){
-    Store.view = Store.profile.role==="admin" ? "admin-dashboard" : Store.profile.role==="teacher" ? "t-week" : "s-week";
-  }else{
-    Store.view = "activate";
-  }
-
+  APP.db = db;
   render();
-});
 
-/* initial */
-setTheme(Store.theme);
-Store.view="loading";
-render();
+  // realtime sync
+  DB.subscribe((val)=>{
+    if(val){
+      APP.db = val;
+      render();
+    }
+  });
+})();
 </script>
 </body>
 </html>
