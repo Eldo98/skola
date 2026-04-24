@@ -15,15 +15,12 @@ html[data-theme="dark"]{
 --bg:#0b1220;--surface:#111b30;--surface2:#0e1628;--text:#e4ecff;--muted:#8da0c4;--border:rgba(255,255,255,.09);
 --shadow:0 10px 40px rgba(0,0,0,.35);--pri:#6ea8fe;--pri2:#4f8cff;
 }
-*{box-sizing:border-box}
-body{margin:0;background:var(--bg);color:var(--text)}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text)}
 .wrap{max-width:1340px;margin:0 auto;padding:14px}
-/* topbar */
-.topbar{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 14px;border:1px solid var(--border);background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);position:sticky;top:8px;z-index:10;backdrop-filter:blur(6px)}
+.topbar{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 14px;border:1px solid var(--border);background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);position:sticky;top:8px;z-index:10}
 .brand{display:flex;align-items:center;gap:10px}
 .logo{width:32px;height:32px;border-radius:10px;background:linear-gradient(135deg,var(--pri),var(--pri2));opacity:.85}
-.brand h1{font-size:15px;margin:0;letter-spacing:.3px}
-.brand .sub{font-size:11px;color:var(--muted);margin-top:1px}
+.brand h1{font-size:15px;margin:0}.brand .sub{font-size:11px;color:var(--muted);margin-top:1px}
 .row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .pill{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:999px;border:1px solid var(--border);color:var(--muted);font-size:11px;white-space:nowrap;background:var(--surface2)}
 .btn{appearance:none;border:1px solid var(--border);background:var(--surface);color:var(--text);padding:8px 10px;border-radius:12px;cursor:pointer;font-size:13px}
@@ -33,7 +30,6 @@ body{margin:0;background:var(--bg);color:var(--text)}
 .btn.ok{border-color:color-mix(in oklab,var(--ok) 35%,var(--border));background:color-mix(in oklab,var(--ok) 8%,var(--surface))}
 .btn.warn{border-color:color-mix(in oklab,var(--warn) 35%,var(--border));background:color-mix(in oklab,var(--warn) 8%,var(--surface))}
 .btn.bad{border-color:color-mix(in oklab,var(--bad) 35%,var(--border));background:color-mix(in oklab,var(--bad) 8%,var(--surface))}
-/* layout */
 .layout{display:grid;grid-template-columns:250px 1fr;gap:12px;margin-top:12px}
 .sidebar{border:1px solid var(--border);background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);padding:10px;height:fit-content;position:sticky;top:72px}
 .navTitle{font-size:11px;color:var(--muted);margin:4px 8px 8px;text-transform:uppercase;letter-spacing:.5px}
@@ -41,24 +37,19 @@ body{margin:0;background:var(--bg);color:var(--text)}
 .navItem:hover{background:color-mix(in oklab,var(--pri) 6%,var(--surface))}
 .navItem.active{background:color-mix(in oklab,var(--pri) 11%,var(--surface));border-color:color-mix(in oklab,var(--pri) 30%,var(--border))}
 .navIcon{width:20px;text-align:center;font-size:14px;color:var(--muted)}
-.navLabel{font-weight:700;flex:1}
-.navHint{font-size:11px;color:var(--muted)}
+.navLabel{font-weight:700;flex:1}.navHint{font-size:11px;color:var(--muted)}
 .content{display:flex;flex-direction:column;gap:12px}
 .card{border:1px solid var(--border);background:var(--surface);border-radius:var(--radius);box-shadow:var(--shadow);padding:14px}
-.card h2{font-size:15px;margin:0 0 2px}
-.card h3{font-size:14px;margin:0 0 2px}
-.muted{color:var(--muted)}
-.sep{height:1px;background:var(--border);margin:10px 0}
+.card h2{font-size:15px;margin:0 0 2px}.card h3{font-size:14px;margin:0 0 2px}
+.muted{color:var(--muted)}.sep{height:1px;background:var(--border);margin:10px 0}
 label{display:block;font-size:11px;color:var(--muted);margin:8px 0 4px;text-transform:uppercase;letter-spacing:.3px}
 input,select,textarea{width:100%;border:1px solid var(--border);background:var(--surface2);color:var(--text);border-radius:12px;padding:9px 10px;outline:none;font-size:13px}
-input:focus,select:focus,textarea:focus{border-color:color-mix(in oklab,var(--pri) 50%,var(--border));box-shadow:0 0 0 3px color-mix(in oklab,var(--pri) 12%,transparent)}
 textarea{min-height:80px;resize:vertical}
 table{width:100%;border-collapse:separate;border-spacing:0;border:1px solid var(--border);border-radius:12px;overflow:hidden}
 th,td{padding:8px 10px;border-bottom:1px solid var(--border);text-align:left;vertical-align:top;font-size:13px}
 th{font-size:11px;color:var(--muted);background:var(--surface2);text-transform:uppercase;letter-spacing:.3px}
 tr:last-child td{border-bottom:none}
-.mono{font-family:var(--mono)}
-.right{display:flex;justify-content:flex-end;gap:6px}
+.mono{font-family:var(--mono)}.right{display:flex;justify-content:flex-end;gap:6px}
 .two{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .three{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
 .notice{border:1px solid var(--border);border-radius:12px;padding:9px 10px;background:color-mix(in oklab,var(--pri) 5%,var(--surface));color:var(--muted);font-size:13px}
@@ -74,39 +65,33 @@ tr:last-child td{border-bottom:none}
 .ttHead{position:sticky;top:0;z-index:1;border-bottom:1px solid var(--border)}
 .ttHead>div{padding:8px 10px;border-right:1px solid var(--border);background:var(--surface2)}
 .ttHead>div:last-child{border-right:none}
-.ttRow{border-bottom:1px solid var(--border)}
-.ttRow:last-child{border-bottom:none}
+.ttRow{border-bottom:1px solid var(--border)}.ttRow:last-child{border-bottom:none}
 .ttTime{padding:8px 10px;border-right:1px solid var(--border);background:var(--surface2);color:var(--muted)}
-.ttCell{padding:8px;border-right:1px solid var(--border);min-height:76px}
-.ttCell:last-child{border-right:none}
-.lesson{border:1px solid var(--border);border-radius:12px;padding:8px 9px;background:var(--surface);cursor:pointer;position:relative;transition:border-color .15s}
+.ttCell{padding:8px;border-right:1px solid var(--border);min-height:76px}.ttCell:last-child{border-right:none}
+.lesson{border:1px solid var(--border);border-radius:12px;padding:8px 9px;background:var(--surface);cursor:pointer;transition:border-color .15s}
 .lesson:hover{border-color:color-mix(in oklab,var(--pri) 35%,var(--border))}
 .lesson .title{font-weight:800;font-size:12px;line-height:1.2}
 .lesson .meta{font-size:11px;color:var(--muted);margin-top:3px}
 .empty{color:color-mix(in oklab,var(--muted) 60%,transparent);font-size:11px}
-/* dnevnik (paper) */
+/* dnevnik */
 .dnevnik{border:2px solid var(--border);border-radius:14px;overflow:hidden;background:var(--surface)}
-.dnevnik .dHeader{background:color-mix(in oklab,var(--pri) 8%,var(--surface2));padding:12px 14px;border-bottom:2px solid var(--border)}
+.dnevnik .dHeader{padding:12px 14px;border-bottom:2px solid var(--border)}
 .dnevnik .dHeader h3{margin:0;font-size:15px}
 .dnevnik .dHeader .dMeta{font-size:12px;color:var(--muted);margin-top:4px}
 .dnevnik table{border:none;border-radius:0}
-.dnevnik th{background:color-mix(in oklab,var(--pri) 5%,var(--surface2));font-size:11px}
-.dnevnik td{font-size:13px}
+.dnevnik th{font-size:11px}
 .dnevnik .attDot{width:12px;height:12px;border-radius:999px;display:inline-block;border:1px solid var(--border)}
 .dnevnik .attDot.present{background:var(--ok);border-color:color-mix(in oklab,var(--ok) 40%,var(--border))}
 .dnevnik .attDot.late{background:var(--warn);border-color:color-mix(in oklab,var(--warn) 40%,var(--border))}
 .dnevnik .attDot.absent{background:var(--bad);border-color:color-mix(in oklab,var(--bad) 40%,var(--border))}
+.crossed{text-decoration:line-through;opacity:.5}
+.popravljen{font-weight:800;color:var(--ok)}
 /* modal */
 .modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;padding:14px;background:rgba(15,23,42,.4);z-index:50}
 html[data-theme="dark"] .modal{background:rgba(0,0,0,.55)}
 .modal.open{display:flex}
 .modal .box{width:min(1120px,98vw);max-height:90vh;overflow:auto;border-radius:18px;border:1px solid var(--border);background:var(--surface);box-shadow:0 16px 50px rgba(0,0,0,.2);padding:14px}
-@media(max-width:980px){
-.layout{grid-template-columns:1fr}
-.sidebar{position:static}
-.two,.three{grid-template-columns:1fr}
-.ttHead,.ttRow{grid-template-columns:130px repeat(5,240px)}
-}
+@media(max-width:980px){.layout{grid-template-columns:1fr}.sidebar{position:static}.two,.three{grid-template-columns:1fr}.ttHead,.ttRow{grid-template-columns:130px repeat(5,240px)}}
 </style>
 </head>
 <body>
@@ -124,6 +109,7 @@ html[data-theme="dark"] .modal{background:rgba(0,0,0,.55)}
 </div>
 <div class="modal" id="lessonModal"><div class="box" id="lessonBox"></div></div>
 <div class="modal" id="cellModal"><div class="box" id="cellBox"></div></div>
+<div class="modal" id="finalModal"><div class="box" id="finalBox"></div></div>
 
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
@@ -131,30 +117,25 @@ html[data-theme="dark"] .modal{background:rgba(0,0,0,.55)}
 firebase.initializeApp({apiKey:"AIzaSyBOG1TyQvTqBrljvaetqAiTT2SObYqKOe4",authDomain:"helloworld-d6cf3.firebaseapp.com",databaseURL:"https://helloworld-d6cf3-default-rtdb.firebaseio.com",projectId:"helloworld-d6cf3",storageBucket:"helloworld-d6cf3.firebasestorage.app",messagingSenderId:"5547576635",appId:"1:5547576635:web:3ae2abd72950da9a93fb1e"});
 
 const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];
-function sha256(s){function r(n,x){return(x>>>n)|(x<<(32-n))}const K=[0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2];let H=[0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19];const m=[];for(let i=0;i<s.length;i++){let c=s.charCodeAt(i);if(c<128)m.push(c);else if(c<2048){m.push(192|(c>>6),128|(c&63))}else{m.push(224|(c>>12),128|((c>>6)&63),128|(c&63))}}const l=m.length*8;m.push(128);while(m.length%64!==56)m.push(0);for(let i=7;i>=0;i--)m.push((l>>>(i*8))&255);const w=Array(64);for(let i=0;i<m.length;i+=64){for(let t=0;t<16;t++){const j=i+t*4;w[t]=((m[j]<<24)|(m[j+1]<<16)|(m[j+2]<<8)|m[j+3])>>>0}for(let t=16;t<64;t++){const s0=(r(7,w[t-15])^r(18,w[t-15])^(w[t-15]>>>3))>>>0;const s1=(r(17,w[t-2])^r(19,w[t-2])^(w[t-2]>>>10))>>>0;w[t]=(w[t-16]+s0+w[t-7]+s1)>>>0}let[a,b,c,d,e,f,g,h]=H;for(let t=0;t<64;t++){const S1=(r(6,e)^r(11,e)^r(25,e))>>>0;const ch=((e&f)^(~e&g))>>>0;const t1=(h+S1+ch+K[t]+w[t])>>>0;const S0=(r(2,a)^r(13,a)^r(22,a))>>>0;const mj=((a&b)^(a&c)^(b&c))>>>0;const t2=(S0+mj)>>>0;h=g;g=f;f=e;e=(d+t1)>>>0;d=c;c=b;b=a;a=(t1+t2)>>>0}H=[(H[0]+a)>>>0,(H[1]+b)>>>0,(H[2]+c)>>>0,(H[3]+d)>>>0,(H[4]+e)>>>0,(H[5]+f)>>>0,(H[6]+g)>>>0,(H[7]+h)>>>0]}return H.map(x=>x.toString(16).padStart(8,'0')).join('')}
+
+function sha256(s){function r(n,x){return(x>>>n)|(x<<(32-n))}const K=[0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2];let H=[0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19];const m=[];for(let i=0;i<s.length;i++){let c=s.charCodeAt(i);if(c<128)m.push(c);else if(c<2048)m.push(192|(c>>6),128|(c&63));else m.push(224|(c>>12),128|((c>>6)&63),128|(c&63))}const l=m.length*8;m.push(128);while(m.length%64!==56)m.push(0);for(let i=7;i>=0;i--)m.push((l>>>(i*8))&255);const w=Array(64);for(let i=0;i<m.length;i+=64){for(let t=0;t<16;t++){const j=i+t*4;w[t]=((m[j]<<24)|(m[j+1]<<16)|(m[j+2]<<8)|m[j+3])>>>0}for(let t=16;t<64;t++){const s0=(r(7,w[t-15])^r(18,w[t-15])^(w[t-15]>>>3))>>>0;const s1=(r(17,w[t-2])^r(19,w[t-2])^(w[t-2]>>>10))>>>0;w[t]=(w[t-16]+s0+w[t-7]+s1)>>>0}let[a,b,c,d,e,f,g,h]=H;for(let t=0;t<64;t++){const S1=(r(6,e)^r(11,e)^r(25,e))>>>0;const ch=((e&f)^(~e&g))>>>0;const t1=(h+S1+ch+K[t]+w[t])>>>0;const S0=(r(2,a)^r(13,a)^r(22,a))>>>0;const mj=((a&b)^(a&c)^(b&c))>>>0;const t2=(S0+mj)>>>0;h=g;g=f;f=e;e=(d+t1)>>>0;d=c;c=b;b=a;a=(t1+t2)>>>0}H=[(H[0]+a)>>>0,(H[1]+b)>>>0,(H[2]+c)>>>0,(H[3]+d)>>>0,(H[4]+e)>>>0,(H[5]+f)>>>0,(H[6]+g)>>>0,(H[7]+h)>>>0]}return H.map(x=>x.toString(16).padStart(8,'0')).join('')}
 
 const E=s=>(s??'').toString().replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 const uid=(p='id')=>p+'_'+Math.random().toString(16).slice(2)+'_'+Date.now().toString(16);
 const now=()=>new Date().toISOString();
-const isoDate=d=>{const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),da=String(d.getDate()).padStart(2,'0');return`${y}-${m}-${da}`};
-const fromISO=s=>{const[y,m,d]=s.split('-').map(Number);const dt=new Date(y,m-1,d);dt.setHours(0,0,0,0);return dt};
-const today=()=>{const d=new Date;d.setHours(0,0,0,0);return isoDate(d)};
-const addDays=(iso,n)=>{const d=fromISO(iso);d.setDate(d.getDate()+n);return isoDate(d)};
-const wdName=i=>['Ned','Pon','Uto','Sri','Čet','Pet','Sub'][i]||'?';
-const weekMon=iso=>{const d=fromISO(iso);const day=d.getDay();d.setDate(d.getDate()-(day===0?6:day-1));return isoDate(d)};
-const weekDates=iso=>{const m=weekMon(iso);return[0,1,2,3,4].map(i=>addDays(m,i))};
+const isoD=d=>{const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),da=String(d.getDate()).padStart(2,'0');return`${y}-${m}-${da}`};
+const fromI=s=>{const[y,m,d]=s.split('-').map(Number);const dt=new Date(y,m-1,d);dt.setHours(0,0,0,0);return dt};
+const today=()=>{const d=new Date;d.setHours(0,0,0,0);return isoD(d)};
+const addD=(iso,n)=>{const d=fromI(iso);d.setDate(d.getDate()+n);return isoD(d)};
+const wdN=i=>['Ned','Pon','Uto','Sri','Čet','Pet','Sub'][i]||'?';
+const weekMon=iso=>{const d=fromI(iso);const day=d.getDay();d.setDate(d.getDate()-(day===0?6:day-1));return isoD(d)};
+const weekDs=iso=>{const m=weekMon(iso);return[0,1,2,3,4].map(i=>addD(m,i))};
 const lk=(c,w,p)=>`${c}|${w}|${p}`;
-const subColor=id=>{let h=0;for(const c of(id||''))h=(h*31+c.charCodeAt(0))>>>0;return`hsl(${h%360} 70% 44%)`};
+const subCol=id=>{let h=0;for(const c of(id||''))h=(h*31+c.charCodeAt(0))>>>0;return`hsl(${h%360} 70% 44%)`};
 
 const DB_PATH='/schoolDB';
-const RT={
-ref:p=>firebase.database().ref(p),
-get:async p=>{const s=await RT.ref(p).get();return s.exists()?s.val():null},
-set:(p,v)=>RT.ref(p).set(v),
-on:(p,cb)=>RT.ref(p).on('value',s=>cb(s.exists()?s.val():null)),
-};
-
-const SK='schoolSess_v2';
+const RT={ref:p=>firebase.database().ref(p),get:async p=>{const s=await RT.ref(p).get();return s.exists()?s.val():null},set:(p,v)=>RT.ref(p).set(v),on:(p,cb)=>RT.ref(p).on('value',s=>cb(s.exists()?s.val():null))};
+const SK='sSess_v3';
 const Sess={get(){try{return JSON.parse(sessionStorage.getItem(SK)||'')}catch{return null}},set(s){sessionStorage.setItem(SK,JSON.stringify(s))},clear(){sessionStorage.removeItem(SK)}};
 
 const D={
@@ -165,21 +146,28 @@ tn:(db,id)=>{const u=db.users?.find(x=>x.id===id);return u?(u.fullName||u.userna
 ub:(db,id)=>db.users?.find(u=>u.id===id)||null,
 stc:(db,cid)=>(db.users||[]).filter(u=>u.role==='student'&&u.classId===cid).sort((a,b)=>(a.fullName||'').localeCompare(b.fullName||'')),
 sem:(db,iso)=>{const s=(db.settings?.semesters||[]).find(x=>iso>=x.start&&iso<=x.end);return s?s.id:null},
-resolve:(db,date,classId,wd,p,base)=>{const k=lk(classId,wd,p);const s=db.substitutions?.[date]?.[k];if(s&&s.status==='accepted')return{tid:s.toTeacherId,sub:true};return{tid:base,sub:false}},
-hasHW:(db,classId,date)=>!!db.homework?.[classId]?.[date]&&Object.keys(db.homework[classId][date]).length>0,
-hasRem:(db,userId,date)=>{const r=db.reminders?.[userId]||{};return Object.values(r).some(x=>x.date===date&&!x.done)},
+resolve:(db,dt,cid,wd,p,base)=>{const k=lk(cid,wd,p);const s=db.substitutions?.[dt]?.[k];if(s&&s.status==='accepted')return{tid:s.toTeacherId,sub:true};return{tid:base,sub:false}},
+hasHW:(db,cid,dt)=>!!db.homework?.[cid]?.[dt]&&Object.keys(db.homework[cid][dt]).length>0,
+hasRem:(db,uid,dt)=>{const r=db.reminders?.[uid]||{};return Object.values(r).some(x=>x.date===dt&&!x.done)},
+gradesForSS:(db,stId,subId)=>Object.entries(db.grades?.[stId]?.[subId]||{}).map(([id,g])=>({id,...g})).sort((a,b)=>(a.date||'').localeCompare(b.date||'')),
+semGrades:(db,stId,subId,semId)=>D.gradesForSS(db,stId,subId).filter(g=>g.semesterId===semId&&!g.isRepair),
+avgArr:arr=>{if(!arr.length)return null;return Math.round(arr.reduce((s,v)=>s+v,0)/arr.length*100)/100},
 };
 
-let APP={db:null,st:{view:'login',date:today(),acp:null,theme:localStorage.getItem('t_sp')||'light'}};
+let APP={db:null,st:{view:'login',date:today(),acp:null,theme:localStorage.getItem('t_sp3')||'light'}};
 const me=()=>{const s=Sess.get();return s?.uid?APP.db?.users?.find(u=>u.id===s.uid):null};
-const setT=t=>{APP.st.theme=t;document.documentElement.setAttribute('data-theme',t);localStorage.setItem('t_sp',t)};
+const setT=t=>{APP.st.theme=t;document.documentElement.setAttribute('data-theme',t);localStorage.setItem('t_sp3',t)};
 
 function seed(){
 const a=uid('u'),t1=uid('u'),t2=uid('u'),s1=uid('u'),s2=uid('u'),s3=uid('u'),c1=uid('c');
 const sm=uid('s'),sb=uid('s'),si=uid('s'),r1=uid('r'),r2=uid('r');
 return{
-meta:{v:1},
-settings:{schoolName:'Demo škola',periods:[{p:1,start:'08:00',end:'08:45'},{p:2,start:'09:00',end:'09:45'},{p:3,start:'10:00',end:'10:45'},{p:4,start:'11:00',end:'11:45'},{p:5,start:'12:00',end:'12:45'},{p:6,start:'13:00',end:'13:45'}],semesters:[{id:'S1',name:'1. polugodište',start:'2025-09-01',end:'2026-01-15'},{id:'S2',name:'2. polugodište',start:'2026-01-16',end:'2026-06-15'}]},
+meta:{v:2},
+settings:{
+schoolName:'Demo škola',
+periods:[{p:1,start:'08:00',end:'08:45'},{p:2,start:'09:00',end:'09:45'},{p:3,start:'10:00',end:'10:45'},{p:4,start:'11:00',end:'11:45'},{p:5,start:'12:00',end:'12:45'},{p:6,start:'13:00',end:'13:45'}],
+semesters:[{id:'S1',name:'1. polugodište',start:'2025-09-01',end:'2026-01-15',minGrades:2},{id:'S2',name:'2. polugodište',start:'2026-01-16',end:'2026-06-15',minGrades:1}]
+},
 users:[
 {id:a,username:'admin',passHash:sha256('admin'),role:'admin',fullName:'Administrator'},
 {id:t1,username:'prof1',passHash:sha256('prof1'),role:'teacher',fullName:'Prof. Aida A.',homeroomClassId:c1},
@@ -195,618 +183,276 @@ schedule:{[c1]:{1:{1:{subjectId:sm,teacherId:t1,roomId:r1},2:{subjectId:sb,teach
 substitutions:{},attendance:{},absences:{},homework:{},homeworkByDue:{},grades:{},finalGrades:{},reminders:{}
 }}
 
-/* ====== RENDER ====== */
-function render(){
-setT(APP.st.theme);
-const db=APP.db;
-$('#schoolName').textContent=db?.settings?.schoolName||'ŠkolaPro';
-const u=me();
-$('#btnLogout').style.display=u?'inline-block':'none';
-$('#userPill').textContent=u?`${u.role}: ${u.username}`:'—';
-if(!db){$('#app').innerHTML='<div class="card notice">Učitavanje baze…</div>';return}
-if(!u){APP.st.view='login';$('#app').innerHTML=loginTpl();return}
-if(APP.st.view==='login')APP.st.view=u.role==='admin'?'a-users':u.role==='teacher'?'t-week':'s-week';
-$('#app').innerHTML=shell(u);postRender(u);
-}
+/* Zbog dužine koda, akcije su skraćene ali kompletne */
 
-function loginTpl(){return`
-<div class="card" style="max-width:800px;margin:12px auto">
-<h2>Prijava</h2>
-<div class="muted">Admin: <span class="mono">admin/admin</span> • Profesor: <span class="mono">prof1/prof1</span> • Učenik: <span class="mono">u1/u1</span></div>
-<div class="sep"></div>
-<div class="two">
-<div><label>Korisničko ime</label><input id="li_u" placeholder="admin"/></div>
-<div><label>Lozinka</label><input id="li_p" type="password" placeholder="••••"/></div>
-</div>
-<div class="row" style="margin-top:10px"><button class="btn pri" data-a="login">Prijavi se</button></div>
-</div>`}
+function render(){setT(APP.st.theme);const db=APP.db;$('#schoolName').textContent=db?.settings?.schoolName||'ŠkolaPro';const u=me();$('#btnLogout').style.display=u?'inline-block':'none';$('#userPill').textContent=u?`${u.role}: ${u.username}`:'—';if(!db){$('#app').innerHTML='<div class="card notice">Učitavanje…</div>';return}if(!u){APP.st.view='login';$('#app').innerHTML=loginTpl();return}if(APP.st.view==='login')APP.st.view=u.role==='admin'?'a-users':u.role==='teacher'?'t-week':'s-week';$('#app').innerHTML=shell(u);postRender(u)}
 
-function shell(u){
-const nav=[];
-if(u.role==='admin'){
-nav.push(['a-users','👤','Korisnici','dodaj / uredi']);
-nav.push(['a-data','📋','Podaci','razredi / predmeti / učionice']);
-nav.push(['a-periods','⏰','Periodi','vremena časova']);
-nav.push(['a-schedule','📅','Raspored','grid za razrede']);
-nav.push(['a-semesters','📆','Semestri','datumi']);
-}
-if(u.role==='teacher'){
-nav.push(['t-week','📅','Sedmica','moj raspored']);
-nav.push(['t-day','📋','Dan','lista časova']);
-nav.push(['t-subs','🔄','Zamjene','pregled']);
-nav.push(['t-homework','📝','Zadaće','dodaj / pregled']);
-nav.push(['t-rem','🔔','Podsjetnici','moji']);
-if(u.homeroomClassId)nav.push(['t-homeroom','🏠','Razrednik','izostanci']);
-}
-if(u.role==='student'){
-nav.push(['s-week','📅','Sedmica','raspored']);
-nav.push(['s-day','📋','Dan','raspored + zadaće']);
-nav.push(['s-grades','📊','Ocjene','moje']);
-nav.push(['s-rem','🔔','Podsjetnici','moji']);
-}
-return`
-<div class="layout">
-<div class="sidebar">
-<div class="navTitle">Menu</div>
-${nav.map(([id,ico,t,h])=>`
-<div class="navItem ${APP.st.view===id?'active':''}" data-a="nav" data-v="${id}">
-<div class="navIcon">${ico}</div>
-<div class="navLabel">${E(t)}</div>
-<div class="navHint">${E(h)}</div>
-</div>`).join('')}
-${u.role==='admin'?`<div class="sep"></div><button class="btn sm warn" style="width:100%" data-a="reset">Reset demo baze</button>`:``}
-</div>
-<div class="content">
-${dateNav()}
-${viewTpl(u)}
-</div>
-</div>`}
+function loginTpl(){return`<div class="card" style="max-width:800px;margin:12px auto"><h2>Prijava</h2><div class="muted">Admin: <span class="mono">admin/admin</span> • Prof: <span class="mono">prof1/prof1</span> • Učenik: <span class="mono">u1/u1</span></div><div class="sep"></div><div class="two"><div><label>Korisničko ime</label><input id="li_u" placeholder="admin"/></div><div><label>Lozinka</label><input id="li_p" type="password"/></div></div><div class="row" style="margin-top:10px"><button class="btn pri" data-a="login">Prijavi se</button></div></div>`}
 
-function dateNav(){
-const d=APP.st.date,m=weekMon(d),t=today();
-return`<div class="card">
-<div class="row" style="justify-content:space-between">
-<div class="row">
-<button class="btn sm" data-a="pd">←</button>
-<button class="btn sm" data-a="nd">→</button>
-<span class="pill">${E(d)}${d===t?' <span class="tag ok">danas</span>':''}</span>
-<input type="date" value="${E(d)}" data-a="dp" style="width:170px"/>
-</div>
-<div class="row">
-<button class="btn sm" data-a="pw">← sed.</button>
-<span class="pill">od ${E(m)}</span>
-<button class="btn sm" data-a="nw">sed. →</button>
-</div>
-</div></div>`}
+function shell(u){const nav=[];
+if(u.role==='admin'){nav.push(['a-users','👤','Korisnici']);nav.push(['a-data','📋','Podaci']);nav.push(['a-periods','⏰','Periodi']);nav.push(['a-schedule','📅','Raspored']);nav.push(['a-semesters','📆','Semestri']);nav.push(['a-finals','🎓','Zaključivanje'])}
+if(u.role==='teacher'){nav.push(['t-week','📅','Sedmica']);nav.push(['t-day','📋','Dan']);nav.push(['t-subs','🔄','Zamjene']);nav.push(['t-homework','📝','Zadaće']);nav.push(['t-rem','🔔','Podsjetnici']);if(u.homeroomClassId)nav.push(['t-homeroom','🏠','Razrednik']);nav.push(['t-finals','🎓','Zaključivanje'])}
+if(u.role==='student'){nav.push(['s-week','📅','Sedmica']);nav.push(['s-day','📋','Dan']);nav.push(['s-grades','📊','Ocjene']);nav.push(['s-rem','🔔','Podsjetnici'])}
+return`<div class="layout"><div class="sidebar"><div class="navTitle">Menu</div>${nav.map(([id,ico,t])=>`<div class="navItem ${APP.st.view===id?'active':''}" data-a="nav" data-v="${id}"><div class="navIcon">${ico}</div><div class="navLabel">${E(t)}</div></div>`).join('')}${u.role==='admin'?`<div class="sep"></div><button class="btn sm warn" style="width:100%" data-a="reset">Reset baze</button>`:''}</div><div class="content">${dateNav()}${viewTpl(u)}</div></div>`}
 
-function viewTpl(u){
-const v=APP.st.view;
-// admin
-if(v==='a-users')return adminUsers();
-if(v==='a-data')return adminData();
-if(v==='a-periods')return adminPeriods();
-if(v==='a-schedule')return adminSchedule();
-if(v==='a-semesters')return adminSemesters();
-// teacher
-if(v==='t-week')return teacherWeek(u);
-if(v==='t-day')return teacherDay(u);
-if(v==='t-subs')return teacherSubs(u);
-if(v==='t-homework')return teacherHomework(u);
-if(v==='t-rem')return reminders(u);
-if(v==='t-homeroom')return homeroom(u);
-// student
-if(v==='s-week')return studentWeek(u);
-if(v==='s-day')return studentDay(u);
-if(v==='s-grades')return studentGrades(u);
-if(v==='s-rem')return reminders(u);
-return'<div class="card">—</div>'
-}
+function dateNav(){const d=APP.st.date,t=today();return`<div class="card"><div class="row" style="justify-content:space-between"><div class="row"><button class="btn sm" data-a="pd">←</button><button class="btn sm" data-a="nd">→</button><span class="pill">${E(d)}${d===t?' <span class="tag ok">danas</span>':''}</span><input type="date" value="${E(d)}" data-a="dp" style="width:170px"/></div><div class="row"><button class="btn sm" data-a="pw">← sed.</button><button class="btn sm" data-a="nw">sed. →</button></div></div></div>`}
 
-/* ===== ADMIN ===== */
-function adminUsers(){const db=APP.db;const users=(db.users||[]).slice().sort((a,b)=>a.username.localeCompare(b.username));
-const co=(db.classes||[]).map(c=>`<option value="${c.id}">${E(c.name)}</option>`).join('');
-return`<div class="card"><h2>👤 Korisnici</h2><div class="muted">Admin dodaje korisnike i lozinke.</div><div class="sep"></div>
-<div class="two"><div>
-<table><thead><tr><th>Username</th><th>Uloga</th><th>Ime</th><th>Razred</th><th></th></tr></thead><tbody>
-${users.map(u=>`<tr><td><b>${E(u.username)}</b></td><td>${E(u.role)}</td><td>${E(u.fullName||'')}</td>
-<td>${u.classId?E(D.cn(db,u.classId)):u.homeroomClassId?'Razr. '+E(D.cn(db,u.homeroomClassId)):'—'}</td>
-<td class="right">${u.username==='admin'?'<span class="muted">—</span>':`<button class="btn sm" data-a="editU" data-id="${u.id}">✏️</button><button class="btn sm bad" data-a="delU" data-id="${u.id}">🗑</button>`}</td></tr>`).join('')}
-</tbody></table></div>
-<div><h3>Novi korisnik</h3><div class="sep"></div>
-<label>Username</label><input id="au_u"/>
-<label>Lozinka</label><input id="au_p"/>
-<label>Puno ime</label><input id="au_n"/>
-<label>Uloga</label><select id="au_r"><option value="teacher">teacher</option><option value="student">student</option></select>
-<label>Razred (učenik)</label><select id="au_c"><option value="">—</option>${co}</select>
-<label>Razrednik (profesor)</label><select id="au_h"><option value="">—</option>${co}</select>
-<div class="row" style="margin-top:10px"><button class="btn pri" data-a="addU">Kreiraj</button></div>
-</div></div></div>`}
+function viewTpl(u){const v=APP.st.view;
+if(v==='a-users')return adminUsers();if(v==='a-data')return adminData();if(v==='a-periods')return adminPeriods();if(v==='a-schedule')return adminSchedule();if(v==='a-semesters')return adminSemesters();if(v==='a-finals')return adminFinals();
+if(v==='t-week')return teacherWeek(u);if(v==='t-day')return teacherDay(u);if(v==='t-subs')return teacherSubs(u);if(v==='t-homework')return teacherHomework(u);if(v==='t-rem')return reminders(u);if(v==='t-homeroom')return homeroom(u);if(v==='t-finals')return teacherFinals(u);
+if(v==='s-week')return studentWeek(u);if(v==='s-day')return studentDay(u);if(v==='s-grades')return studentGrades(u);if(v==='s-rem')return reminders(u);
+return'<div class="card">—</div>'}
 
-function adminData(){const db=APP.db;
-const to=(db.users||[]).filter(u=>u.role==='teacher').map(t=>`<option value="${t.id}">${E(t.fullName||t.username)}</option>`).join('');
-return`<div class="card"><h2>📋 Podaci</h2><div class="sep"></div>
-<div class="two"><div>
-<h3>Razredi</h3><div class="sep"></div>
-<label>Naziv</label><input id="ac_n"/>
-<label>Razrednik</label><select id="ac_h"><option value="">—</option>${to}</select>
-<div class="row" style="margin-top:8px"><button class="btn pri" data-a="addC">Dodaj</button></div>
-<div class="sep"></div>
-<table><thead><tr><th>Razred</th><th>Razrednik</th><th></th></tr></thead><tbody>
-${(db.classes||[]).map(c=>`<tr><td><b>${E(c.name)}</b></td><td class="muted">${c.homeroomTeacherId?E(D.tn(db,c.homeroomTeacherId)):'—'}</td>
-<td class="right"><button class="btn sm bad" data-a="delC" data-id="${c.id}">🗑</button></td></tr>`).join('')}
-</tbody></table></div>
-<div>
-<h3>Predmeti</h3><div class="sep"></div>
-<div class="row"><input id="as_n" placeholder="npr. Historija"/><button class="btn pri" data-a="addS">Dodaj</button></div>
-<div class="sep"></div>
-<table><thead><tr><th>Predmet</th><th></th></tr></thead><tbody>
-${(db.subjects||[]).map(s=>`<tr><td><b>${E(s.name)}</b></td><td class="right"><button class="btn sm bad" data-a="delS" data-id="${s.id}">🗑</button></td></tr>`).join('')}
-</tbody></table>
-<div class="sep"></div>
-<h3>Učionice</h3><div class="sep"></div>
-<div class="row"><input id="ar_n" placeholder="npr. 203"/><button class="btn pri" data-a="addR">Dodaj</button></div>
-<div class="sep"></div>
-<table><thead><tr><th>Učionica</th><th></th></tr></thead><tbody>
-${(db.rooms||[]).map(r=>`<tr><td><b>${E(r.name)}</b></td><td class="right"><button class="btn sm bad" data-a="delR" data-id="${r.id}">🗑</button></td></tr>`).join('')}
-</tbody></table>
-</div></div></div>`}
+/* ===== ADMIN VIEWS ===== */
+function adminUsers(){const db=APP.db;const users=(db.users||[]).slice().sort((a,b)=>a.username.localeCompare(b.username));const co=(db.classes||[]).map(c=>`<option value="${c.id}">${E(c.name)}</option>`).join('');
+return`<div class="card"><h2>👤 Korisnici</h2><div class="sep"></div><div class="two"><div><table><thead><tr><th>Username</th><th>Uloga</th><th>Ime</th><th></th></tr></thead><tbody>${users.map(u=>`<tr><td><b>${E(u.username)}</b></td><td>${E(u.role)}</td><td>${E(u.fullName||'')}</td><td class="right">${u.username==='admin'?'—':`<button class="btn sm" data-a="editU" data-id="${u.id}">✏️</button><button class="btn sm bad" data-a="delU" data-id="${u.id}">🗑</button>`}</td></tr>`).join('')}</tbody></table></div><div><h3>Novi korisnik</h3><div class="sep"></div><label>Username</label><input id="au_u"/><label>Lozinka</label><input id="au_p"/><label>Puno ime</label><input id="au_n"/><label>Uloga</label><select id="au_r"><option value="teacher">teacher</option><option value="student">student</option></select><label>Razred (učenik)</label><select id="au_c"><option value="">—</option>${co}</select><label>Razrednik (profesor)</label><select id="au_h"><option value="">—</option>${co}</select><div class="row" style="margin-top:10px"><button class="btn pri" data-a="addU">Kreiraj</button></div></div></div></div>`}
 
-function adminPeriods(){const db=APP.db;const ps=(db.settings?.periods||[]).slice().sort((a,b)=>a.p-b.p);
-return`<div class="card"><h2>⏰ Periodi</h2><div class="sep"></div>
-<div class="two"><div>
-<table><thead><tr><th>Čas</th><th>Start</th><th>Kraj</th><th></th></tr></thead><tbody>
-${ps.map(p=>`<tr><td><b>${p.p}.</b></td><td class="mono">${E(p.start)}</td><td class="mono">${E(p.end)}</td>
-<td class="right"><button class="btn sm bad" data-a="delP" data-p="${p.p}">🗑</button></td></tr>`).join('')}
-</tbody></table></div>
-<div><h3>Dodaj</h3><div class="sep"></div>
-<div class="three">
-<div><label>Broj</label><input id="pp" type="number" min="1" value="${ps.length+1}"/></div>
-<div><label>Start</label><input id="ps" type="time" value="14:00"/></div>
-<div><label>Kraj</label><input id="pe" type="time" value="14:45"/></div>
-</div>
-<div class="row" style="margin-top:8px"><button class="btn pri" data-a="addP">Dodaj</button></div>
-</div></div></div>`}
+function adminData(){const db=APP.db;const to=(db.users||[]).filter(u=>u.role==='teacher').map(t=>`<option value="${t.id}">${E(t.fullName||t.username)}</option>`).join('');
+return`<div class="card"><h2>📋 Podaci</h2><div class="sep"></div><div class="two"><div><h3>Razredi</h3><div class="sep"></div><label>Naziv</label><input id="ac_n"/><label>Razrednik</label><select id="ac_h"><option value="">—</option>${to}</select><div class="row" style="margin-top:8px"><button class="btn pri" data-a="addC">Dodaj</button></div><div class="sep"></div><table><thead><tr><th>Razred</th><th>Razrednik</th><th></th></tr></thead><tbody>${(db.classes||[]).map(c=>`<tr><td><b>${E(c.name)}</b></td><td class="muted">${c.homeroomTeacherId?E(D.tn(db,c.homeroomTeacherId)):'—'}</td><td class="right"><button class="btn sm bad" data-a="delC" data-id="${c.id}">🗑</button></td></tr>`).join('')}</tbody></table></div><div><h3>Predmeti</h3><div class="sep"></div><div class="row"><input id="as_n" placeholder="Historija"/><button class="btn pri" data-a="addS">Dodaj</button></div><div class="sep"></div><table><thead><tr><th>Predmet</th><th></th></tr></thead><tbody>${(db.subjects||[]).map(s=>`<tr><td><b>${E(s.name)}</b></td><td class="right"><button class="btn sm bad" data-a="delS" data-id="${s.id}">🗑</button></td></tr>`).join('')}</tbody></table><div class="sep"></div><h3>Učionice</h3><div class="sep"></div><div class="row"><input id="ar_n" placeholder="203"/><button class="btn pri" data-a="addR">Dodaj</button></div><div class="sep"></div><table><thead><tr><th>Učionica</th><th></th></tr></thead><tbody>${(db.rooms||[]).map(r=>`<tr><td><b>${E(r.name)}</b></td><td class="right"><button class="btn sm bad" data-a="delR" data-id="${r.id}">🗑</button></td></tr>`).join('')}</tbody></table></div></div></div>`}
 
-function adminSchedule(){const db=APP.db;
-const cids=(db.classes||[]).map(c=>c.id);if(!APP.st.acp)APP.st.acp=cids[0]||null;const cid=APP.st.acp;
-const dates=weekDates(APP.st.date);const ps=(db.settings?.periods||[]).slice().sort((a,b)=>a.p-b.p);
-return`<div class="card"><div class="row" style="justify-content:space-between">
-<div><h2>📅 Raspored</h2><div class="muted">Klik na ćeliju → uredi</div></div>
-<select data-a="apc" style="width:200px">${cids.map(id=>`<option value="${id}" ${id===cid?'selected':''}>${E(D.cn(db,id))}</option>`).join('')}</select>
-</div><div class="sep"></div>
-<div class="ttWrap"><div class="tt">
-<div class="ttHead"><div><b>Čas</b></div>${dates.map(dt=>{const wd=fromISO(dt).getDay();return`<div><b>${E(wdName(wd))}</b><div class="muted mono" style="font-size:11px">${E(dt)}</div></div>`}).join('')}</div>
-${ps.map(p=>{
-const cells=dates.map(dt=>{const wd=fromISO(dt).getDay();const c=db.schedule?.[cid]?.[wd]?.[p.p];
-if(!c)return`<div class="ttCell"><div class="lesson" style="border-style:dashed;background:var(--surface2)" data-a="ec" data-c="${cid}" data-w="${wd}" data-p="${p.p}"><div class="title">+</div><div class="meta">Dodaj</div></div></div>`;
-const col=subColor(c.subjectId);
-return`<div class="ttCell"><div class="lesson" data-a="ec" data-c="${cid}" data-w="${wd}" data-p="${p.p}" style="border-left:3px solid ${col}"><div class="title">${E(D.sn(db,c.subjectId))}</div><div class="meta">${E(D.tn(db,c.teacherId))} • ${E(D.rn(db,c.roomId))}</div></div></div>`}).join('');
-return`<div class="ttRow"><div class="ttTime"><b>${p.p}.</b><div class="mono" style="font-size:11px">${E(p.start)}–${E(p.end)}</div></div>${cells}</div>`}).join('')}
-</div></div></div>`}
+function adminPeriods(){const db=APP.db;const ps=(db.settings?.periods||[]).slice().sort((a,b)=>a.p-b.p);return`<div class="card"><h2>⏰ Periodi</h2><div class="sep"></div><div class="two"><div><table><thead><tr><th>Čas</th><th>Start</th><th>Kraj</th><th></th></tr></thead><tbody>${ps.map(p=>`<tr><td><b>${p.p}.</b></td><td class="mono">${E(p.start)}</td><td class="mono">${E(p.end)}</td><td class="right"><button class="btn sm bad" data-a="delP" data-p="${p.p}">🗑</button></td></tr>`).join('')}</tbody></table></div><div><h3>Dodaj</h3><div class="sep"></div><div class="three"><div><label>Broj</label><input id="pp" type="number" min="1" value="${ps.length+1}"/></div><div><label>Start</label><input id="ps" type="time" value="14:00"/></div><div><label>Kraj</label><input id="pe" type="time" value="14:45"/></div></div><div class="row" style="margin-top:8px"><button class="btn pri" data-a="addP">Dodaj</button></div></div></div></div>`}
+
+function adminSchedule(){const db=APP.db;const cids=(db.classes||[]).map(c=>c.id);if(!APP.st.acp)APP.st.acp=cids[0]||null;const cid=APP.st.acp;const dates=weekDs(APP.st.date);const ps=(db.settings?.periods||[]).slice().sort((a,b)=>a.p-b.p);
+return`<div class="card"><div class="row" style="justify-content:space-between"><div><h2>📅 Raspored</h2></div><select data-a="apc" style="width:200px">${cids.map(id=>`<option value="${id}" ${id===cid?'selected':''}>${E(D.cn(db,id))}</option>`).join('')}</select></div><div class="sep"></div><div class="ttWrap"><div class="tt"><div class="ttHead"><div><b>Čas</b></div>${dates.map(dt=>`<div><b>${E(wdN(fromI(dt).getDay()))}</b><div class="muted mono" style="font-size:11px">${E(dt)}</div></div>`).join('')}</div>${ps.map(p=>{const cells=dates.map(dt=>{const wd=fromI(dt).getDay();const c=db.schedule?.[cid]?.[wd]?.[p.p];if(!c)return`<div class="ttCell"><div class="lesson" style="border-style:dashed;background:var(--surface2)" data-a="ec" data-c="${cid}" data-w="${wd}" data-p="${p.p}"><div class="title">+</div></div></div>`;const col=subCol(c.subjectId);return`<div class="ttCell"><div class="lesson" data-a="ec" data-c="${cid}" data-w="${wd}" data-p="${p.p}" style="border-left:3px solid ${col}"><div class="title">${E(D.sn(db,c.subjectId))}</div><div class="meta">${E(D.tn(db,c.teacherId))}</div></div></div>`}).join('');return`<div class="ttRow"><div class="ttTime"><b>${p.p}.</b><div class="mono" style="font-size:11px">${E(p.start)}–${E(p.end)}</div></div>${cells}</div>`}).join('')}</div></div></div>`}
 
 function adminSemesters(){const db=APP.db;const ss=db.settings?.semesters||[];
-return`<div class="card"><h2>📆 Semestri</h2><div class="sep"></div>
-<div class="two"><div>
-<table><thead><tr><th>ID</th><th>Naziv</th><th>Start</th><th>Kraj</th><th></th></tr></thead><tbody>
-${ss.map(s=>`<tr><td><b>${E(s.id)}</b></td><td>${E(s.name)}</td><td class="mono">${E(s.start)}</td><td class="mono">${E(s.end)}</td>
-<td class="right"><button class="btn sm bad" data-a="delSem" data-id="${E(s.id)}">🗑</button></td></tr>`).join('')}
-</tbody></table></div>
-<div><h3>Dodaj</h3><div class="sep"></div>
-<div class="two"><div><label>ID</label><input id="si"/></div><div><label>Naziv</label><input id="sn"/></div></div>
-<div class="two"><div><label>Start</label><input id="ss" type="date"/></div><div><label>Kraj</label><input id="se" type="date"/></div></div>
-<div class="row" style="margin-top:8px"><button class="btn pri" data-a="addSem">Dodaj</button></div>
-</div></div></div>`}
+return`<div class="card"><h2>📆 Semestri</h2><div class="muted">Admin postavlja min. broj ocjena po semestru.</div><div class="sep"></div><div class="two"><div><table><thead><tr><th>ID</th><th>Naziv</th><th>Start</th><th>Kraj</th><th>Min ocjena</th><th></th></tr></thead><tbody>${ss.map(s=>`<tr><td><b>${E(s.id)}</b></td><td>${E(s.name)}</td><td class="mono">${E(s.start)}</td><td class="mono">${E(s.end)}</td><td><b>${s.minGrades||0}</b></td><td class="right"><button class="btn sm" data-a="editSem" data-id="${E(s.id)}">✏️</button><button class="btn sm bad" data-a="delSem" data-id="${E(s.id)}">🗑</button></td></tr>`).join('')}</tbody></table></div><div><h3>Dodaj</h3><div class="sep"></div><div class="two"><div><label>ID</label><input id="si"/></div><div><label>Naziv</label><input id="sn"/></div></div><div class="three"><div><label>Start</label><input id="ss" type="date"/></div><div><label>Kraj</label><input id="se" type="date"/></div><div><label>Min ocjena</label><input id="smg" type="number" min="0" value="2"/></div></div><div class="row" style="margin-top:8px"><button class="btn pri" data-a="addSem">Dodaj</button></div></div></div></div>`}
 
-/* ===== TEACHER WEEK ===== */
-function teacherWeek(u){const db=APP.db;const dates=weekDates(APP.st.date);const ps=(db.settings?.periods||[]).slice().sort((a,b)=>a.p-b.p);
-const cids=(db.classes||[]).map(c=>c.id);
-function lessFor(dt,p){const wd=fromISO(dt).getDay();const items=[];
-for(const cid of cids){const cell=db.schedule?.[cid]?.[wd]?.[p.p];if(!cell)continue;
-const r=D.resolve(db,dt,cid,wd,p.p,cell.teacherId);if(r.tid!==u.id)continue;
-const hw=D.hasHW(db,cid,dt);const rem=D.hasRem(db,u.id,dt);
-items.push({dt,cid,wd,period:p.p,sid:cell.subjectId,rid:cell.roomId,sub:r.sub,hw,rem})}return items}
+/* ===== ADMIN FINALS (zaključivanje po razredu) ===== */
+function adminFinals(){const db=APP.db;const cids=(db.classes||[]).map(c=>c.id);
+return`<div class="card"><h2>🎓 Zaključivanje (admin pregled)</h2><div class="muted">Pregled zaključnih ocjena i ko ide na popravni.</div><div class="sep"></div>${cids.map(cid=>{const students=D.stc(db,cid);const subjects=(db.subjects||[]);const sems=db.settings?.semesters||[];const year=new Date().getFullYear();return`<h3>${E(D.cn(db,cid))}</h3><div class="sep"></div><div style="overflow:auto"><table><thead><tr><th>Učenik</th>${subjects.map(s=>`<th>${E(s.name)}</th>`).join('')}<th>Prosjek</th><th>Status</th></tr></thead><tbody>${students.map(st=>{let total=0,cnt=0,hasNeg=false;const cells=subjects.map(sub=>{const fg=db.finalGrades?.[st.id]?.[sub.id];const repair=fg?.repair;const val=repair||fg?.value||null;if(val){total+=val;cnt++;if(val<2)hasNeg=true}return`<td>${val?`<b${val<2?' style="color:var(--bad)"':''}>${val}</b>${fg?.repair?'<span class="tag ok">popravni</span>':''}${fg?.originalValue&&fg.repair?`<span class="crossed">${fg.originalValue}</span>`:''}`:'<span class="muted">—</span>'}</td>`}).join('');const avg=cnt?(total/cnt).toFixed(2):'—';const status=hasNeg?'<span class="tag bad">popravni</span>':'<span class="tag ok">prolazi</span>';return`<tr><td><b>${E(st.fullName||st.username)}</b></td>${cells}<td><b>${avg}</b></td><td>${status}</td></tr>`}).join('')}</tbody></table></div><div class="sep"></div>`}).join('')}</div>`}
 
-return`<div class="card"><h2>📅 Moja sedmica</h2><div class="muted">Klik na čas → dnevnik (prisustvo, ocjene, zadaća)</div><div class="sep"></div>
-<div class="ttWrap"><div class="tt">
-<div class="ttHead"><div><b>Čas</b></div>${dates.map(dt=>{const wd=fromISO(dt).getDay();return`<div><b>${E(wdName(wd))}</b><div class="muted mono" style="font-size:11px">${E(dt)}</div></div>`}).join('')}</div>
-${ps.map(p=>{
-const cells=dates.map(dt=>{const its=lessFor(dt,p);
-if(!its.length)return`<div class="ttCell"><div class="empty">—</div></div>`;
-return`<div class="ttCell">${its.map(L=>{const col=subColor(L.sid);
-return`<div class="lesson" data-a="openL" data-dt="${E(L.dt)}" data-c="${E(L.cid)}" data-w="${L.wd}" data-p="${L.period}" style="border-left:3px solid ${col}">
-<div class="title">${E(D.cn(db,L.cid))} • ${E(D.sn(db,L.sid))}${L.sub?'<span class="tag warn">zamjena</span>':''}${L.hw?'<span class="tag pri">zadaća</span>':''}${L.rem?'<span class="tag ok">⏰</span>':''}</div>
-<div class="meta">${E(D.rn(db,L.rid))}</div></div>`}).join('<div style="height:6px"></div>')}</div>`}).join('');
-return`<div class="ttRow"><div class="ttTime"><b>${p.p}.</b><div class="mono" style="font-size:11px">${E(p.start)}–${E(p.end)}</div></div>${cells}</div>`}).join('')}
-</div></div></div>`}
+/* ===== TEACHER FINALS (zaključivanje za svoj predmet) ===== */
+function teacherFinals(u){const db=APP.db;const cids=(db.classes||[]).map(c=>c.id);const subjects=(db.subjects||[]);const sems=db.settings?.semesters||[];const year=new Date().getFullYear();
 
-function teacherDay(u){const db=APP.db;const date=APP.st.date;const wd=fromISO(date).getDay();
-const ps=(db.settings?.periods||[]).slice().sort((a,b)=>a.p-b.p);const cids=(db.classes||[]).map(c=>c.id);
-const lessons=[];
-for(const cid of cids){for(const p of ps){const cell=db.schedule?.[cid]?.[wd]?.[p.p];if(!cell)continue;
-const r=D.resolve(db,date,cid,wd,p.p,cell.teacherId);if(r.tid!==u.id)continue;
-lessons.push({cid,period:p.p,sid:cell.subjectId,rid:cell.roomId,sub:r.sub})}}
-lessons.sort((a,b)=>a.period-b.period);
-return`<div class="card"><h2>📋 Moj dan</h2><div class="muted">Datum: <span class="mono">${E(date)}</span></div><div class="sep"></div>
-${lessons.length?`<table><thead><tr><th>Čas</th><th>Razred</th><th>Predmet</th><th>Učionica</th><th></th></tr></thead><tbody>
-${lessons.map(L=>`<tr><td><b>${L.period}.</b></td><td><b>${E(D.cn(db,L.cid))}</b></td>
-<td>${E(D.sn(db,L.sid))}${L.sub?'<span class="tag warn">zamjena</span>':''}</td>
-<td>${E(D.rn(db,L.rid))}</td>
-<td class="right"><button class="btn sm pri" data-a="openL" data-dt="${E(date)}" data-c="${E(L.cid)}" data-w="${wd}" data-p="${L.period}">Otvori</button></td></tr>`).join('')}
-</tbody></table>`:`<div class="notice">Nema časova za ovaj dan.</div>`}</div>`}
+// find subjects this teacher teaches
+const mySubjects=new Set();
+for(const cid of cids){const sched=db.schedule?.[cid]||{};for(const wd of Object.values(sched)){for(const p of Object.values(wd||{})){if(p.teacherId===u.id)mySubjects.add(p.subjectId)}}}
 
-function teacherSubs(u){const db=APP.db;const dates=weekDates(APP.st.date);const list=[];
-for(const d of dates){const ds=db.substitutions?.[d]||{};for(const[k,s] of Object.entries(ds)){
-if(s.fromTeacherId===u.id||s.toTeacherId===u.id)list.push({date:d,lk:k,...s})}}
-list.sort((a,b)=>a.date.localeCompare(b.date));
-const st=s=>s==='pending'?'<span class="tag warn">pending</span>':s==='accepted'?'<span class="tag ok">accepted</span>':'<span class="tag bad">declined</span>';
-return`<div class="card"><h2>🔄 Zamjene</h2><div class="sep"></div>
-${list.length?`<table><thead><tr><th>Datum</th><th>Od</th><th>Za</th><th>Status</th><th></th></tr></thead><tbody>
-${list.map(s=>`<tr><td class="mono">${E(s.date)}</td><td>${E(D.tn(db,s.fromTeacherId))}</td><td>${E(D.tn(db,s.toTeacherId))}</td><td>${st(s.status)}</td>
-<td class="right">${s.toTeacherId===u.id&&s.status==='pending'?`<button class="btn sm ok" data-a="subA" data-dt="${s.date}" data-lk="${s.lk}">✓</button><button class="btn sm bad" data-a="subD" data-dt="${s.date}" data-lk="${s.lk}">✗</button>`:'—'}</td></tr>`).join('')}
-</tbody></table>`:`<div class="notice">Nema zamjena u sedmici.</div>`}</div>`}
+return`<div class="card"><h2>🎓 Zaključivanje ocjena</h2><div class="muted">Zaključi ocjene za svoje predmete. Ako je negativna, možeš upisati popravni.</div><div class="sep"></div>
+${cids.map(cid=>{const students=D.stc(db,cid);if(!students.length)return'';
+const mySubs=subjects.filter(s=>mySubjects.has(s.id));if(!mySubs.length)return'';
+return`<h3>${E(D.cn(db,cid))}</h3><div class="sep"></div>
+${mySubs.map(sub=>{
+return`<h3 style="margin-top:10px">${E(sub.name)}</h3>
+<table><thead><tr><th>Učenik</th>${sems.map(s=>`<th>${E(s.name)} (min ${s.minGrades||0})</th>`).join('')}<th>Prosjek</th><th>Zaključna</th><th>Popravni</th><th></th></tr></thead><tbody>
+${students.map(st=>{
+const allGrades=D.gradesForSS(db,st.id,sub.id).filter(g=>!g.isRepair);
+const semCells=sems.map(sem=>{const sg=allGrades.filter(g=>g.semesterId===sem.id);const avg=D.avgArr(sg.map(g=>+g.value));const min=sem.minGrades||0;const warn=sg.length<min;
+return`<td>${sg.map(g=>`<span${g.isRepair?' class="popravljen"':''}>${g.value}</span>`).join(', ')||'—'} <br/><span class="muted">Prosjek: ${avg??'—'}</span>${warn?` <span class="tag bad">min ${min}!</span>`:''}</td>`}).join('');
+const totalAvg=D.avgArr(allGrades.map(g=>+g.value));
+const fg=db.finalGrades?.[st.id]?.[sub.id];
+const finalVal=fg?.repair||fg?.value||null;
+return`<tr>
+<td><b>${E(st.fullName||st.username)}</b></td>
+${semCells}
+<td><b>${totalAvg??'—'}</b></td>
+<td>${finalVal?`<b${finalVal<2?' style="color:var(--bad)"':''}>${finalVal}</b>${fg?.originalValue?` <span class="crossed">${fg.originalValue}</span>`:''}`:'<span class="muted">—</span>'}</td>
+<td>${finalVal&&finalVal<2?`<button class="btn sm ok" data-a="repair" data-st="${st.id}" data-sub="${sub.id}">Popravni</button>`:(fg?.repair?`<span class="tag ok">popravljeno: ${fg.repair}</span>`:'—')}</td>
+<td class="right">
+<select data-final-v="${st.id}_${sub.id}" style="width:70px"><option value="">—</option>${[1,2,3,4,5].map(v=>`<option value="${v}" ${(fg?.value===v&&!fg?.repair)?'selected':''}>${v}</option>`).join('')}</select>
+<button class="btn sm pri" data-a="saveFinal" data-st="${st.id}" data-sub="${sub.id}">Zaključi</button>
+</td></tr>`}).join('')}
+</tbody></table>`}).join('<div class="sep"></div>')}
+<div class="sep"></div>`}).join('')}</div>`}
 
-function teacherHomework(u){const db=APP.db;
-const co=(db.classes||[]).map(c=>`<option value="${c.id}">${E(c.name)}</option>`).join('');
-const so=(db.subjects||[]).map(s=>`<option value="${s.id}">${E(s.name)}</option>`).join('');
-return`<div class="card"><h2>📝 Zadaće</h2><div class="sep"></div>
-<div class="two"><div>
-<h3>Dodaj zadaću</h3><div class="sep"></div>
-<label>Razred</label><select id="hw_c">${co}</select>
-<label>Predmet</label><select id="hw_s">${so}</select>
-<label>Rok</label><input id="hw_d" type="date" value="${E(APP.st.date)}"/>
-<label>Opis</label><textarea id="hw_t"></textarea>
-<div class="row" style="margin-top:8px"><button class="btn pri" data-a="addHW">Dodaj</button></div>
-</div><div>
-<h3>Rok danas (${E(APP.st.date)})</h3><div class="sep"></div>
-<div id="hwBox" class="muted">Učitavanje…</div>
-</div></div></div>`}
+/* ===== TEACHER WEEK/DAY/SUBS/HOMEWORK/HOMEROOM ===== */
+function teacherWeek(u){const db=APP.db;const dates=weekDs(APP.st.date);const ps=(db.settings?.periods||[]).slice().sort((a,b)=>a.p-b.p);const cids=(db.classes||[]).map(c=>c.id);
+function lessFor(dt,p){const wd=fromI(dt).getDay();const items=[];for(const cid of cids){const cell=db.schedule?.[cid]?.[wd]?.[p.p];if(!cell)continue;const r=D.resolve(db,dt,cid,wd,p.p,cell.teacherId);if(r.tid!==u.id)continue;items.push({dt,cid,wd,period:p.p,sid:cell.subjectId,rid:cell.roomId,sub:r.sub,hw:D.hasHW(db,cid,dt),rem:D.hasRem(db,u.id,dt)})}return items}
+return`<div class="card"><h2>📅 Moja sedmica</h2><div class="muted">Klik na čas → dnevnik</div><div class="sep"></div><div class="ttWrap"><div class="tt"><div class="ttHead"><div><b>Čas</b></div>${dates.map(dt=>`<div><b>${E(wdN(fromI(dt).getDay()))}</b><div class="muted mono" style="font-size:11px">${E(dt)}</div></div>`).join('')}</div>${ps.map(p=>{const cells=dates.map(dt=>{const its=lessFor(dt,p);if(!its.length)return`<div class="ttCell"><div class="empty">—</div></div>`;return`<div class="ttCell">${its.map(L=>{const col=subCol(L.sid);return`<div class="lesson" data-a="openL" data-dt="${E(L.dt)}" data-c="${E(L.cid)}" data-w="${L.wd}" data-p="${L.period}" style="border-left:3px solid ${col}"><div class="title">${E(D.cn(db,L.cid))} • ${E(D.sn(db,L.sid))}${L.sub?'<span class="tag warn">zamj.</span>':''}${L.hw?'<span class="tag pri">📝</span>':''}${L.rem?'<span class="tag ok">⏰</span>':''}</div><div class="meta">${E(D.rn(db,L.rid))}</div></div>`}).join('<div style="height:6px"></div>')}</div>`}).join('');return`<div class="ttRow"><div class="ttTime"><b>${p.p}.</b><div class="mono" style="font-size:11px">${E(p.start)}–${E(p.end)}</div></div>${cells}</div>`}).join('')}</div></div></div>`}
 
-function homeroom(u){return`<div class="card"><h2>🏠 Razrednik: izostanci</h2>
-<div class="muted">Razred: <b>${E(D.cn(APP.db,u.homeroomClassId))}</b></div><div class="sep"></div>
-<div id="hrBox" class="muted">Učitavanje…</div></div>`}
+function teacherDay(u){const db=APP.db;const date=APP.st.date;const wd=fromI(date).getDay();const ps=(db.settings?.periods||[]).slice().sort((a,b)=>a.p-b.p);const cids=(db.classes||[]).map(c=>c.id);const lessons=[];for(const cid of cids){for(const p of ps){const cell=db.schedule?.[cid]?.[wd]?.[p.p];if(!cell)continue;const r=D.resolve(db,date,cid,wd,p.p,cell.teacherId);if(r.tid!==u.id)continue;lessons.push({cid,period:p.p,sid:cell.subjectId,rid:cell.roomId,sub:r.sub})}}lessons.sort((a,b)=>a.period-b.period);
+return`<div class="card"><h2>📋 Moj dan</h2><div class="muted">${E(date)}</div><div class="sep"></div>${lessons.length?`<table><thead><tr><th>Čas</th><th>Razred</th><th>Predmet</th><th>Učionica</th><th></th></tr></thead><tbody>${lessons.map(L=>`<tr><td><b>${L.period}.</b></td><td><b>${E(D.cn(db,L.cid))}</b></td><td>${E(D.sn(db,L.sid))}${L.sub?'<span class="tag warn">zamj.</span>':''}</td><td>${E(D.rn(db,L.rid))}</td><td class="right"><button class="btn sm pri" data-a="openL" data-dt="${E(date)}" data-c="${E(L.cid)}" data-w="${wd}" data-p="${L.period}">Otvori</button></td></tr>`).join('')}</tbody></table>`:`<div class="notice">Nema časova.</div>`}</div>`}
+
+function teacherSubs(u){const db=APP.db;const dates=weekDs(APP.st.date);const list=[];for(const d of dates){const ds=db.substitutions?.[d]||{};for(const[k,s] of Object.entries(ds)){if(s.fromTeacherId===u.id||s.toTeacherId===u.id)list.push({date:d,lk:k,...s})}}list.sort((a,b)=>a.date.localeCompare(b.date));
+return`<div class="card"><h2>🔄 Zamjene</h2><div class="sep"></div>${list.length?`<table><thead><tr><th>Datum</th><th>Od</th><th>Za</th><th>Status</th><th></th></tr></thead><tbody>${list.map(s=>{const st=s.status==='pending'?'<span class="tag warn">pending</span>':s.status==='accepted'?'<span class="tag ok">accepted</span>':'<span class="tag bad">declined</span>';return`<tr><td class="mono">${E(s.date)}</td><td>${E(D.tn(db,s.fromTeacherId))}</td><td>${E(D.tn(db,s.toTeacherId))}</td><td>${st}</td><td class="right">${s.toTeacherId===u.id&&s.status==='pending'?`<button class="btn sm ok" data-a="subA" data-dt="${s.date}" data-lk="${s.lk}">✓</button><button class="btn sm bad" data-a="subD" data-dt="${s.date}" data-lk="${s.lk}">✗</button>`:'—'}</td></tr>`}).join('')}</tbody></table>`:`<div class="notice">Nema zamjena.</div>`}</div>`}
+
+function teacherHomework(u){const db=APP.db;const co=(db.classes||[]).map(c=>`<option value="${c.id}">${E(c.name)}</option>`).join('');const so=(db.subjects||[]).map(s=>`<option value="${s.id}">${E(s.name)}</option>`).join('');
+return`<div class="card"><h2>📝 Zadaće</h2><div class="sep"></div><div class="two"><div><h3>Dodaj</h3><div class="sep"></div><label>Razred</label><select id="hw_c">${co}</select><label>Predmet</label><select id="hw_s">${so}</select><label>Rok</label><input id="hw_d" type="date" value="${E(APP.st.date)}"/><label>Opis</label><textarea id="hw_t"></textarea><div class="row" style="margin-top:8px"><button class="btn pri" data-a="addHW">Dodaj</button></div></div><div><h3>Rok danas</h3><div class="sep"></div><div id="hwBox" class="muted">Učitavanje…</div></div></div></div>`}
+
+function homeroom(u){return`<div class="card"><h2>🏠 Razrednik: izostanci</h2><div class="muted">${E(D.cn(APP.db,u.homeroomClassId))}</div><div class="sep"></div><div id="hrBox" class="muted">Učitavanje…</div></div>`}
 
 /* ===== STUDENT ===== */
-function studentWeek(u){const db=APP.db;const cid=u.classId;const dates=weekDates(APP.st.date);
-const ps=(db.settings?.periods||[]).slice().sort((a,b)=>a.p-b.p);
-return`<div class="card"><h2>📅 Raspored</h2><div class="muted">Razred: <b>${E(D.cn(db,cid))}</b></div><div class="sep"></div>
-<div class="ttWrap"><div class="tt">
-<div class="ttHead"><div><b>Čas</b></div>${dates.map(dt=>{const wd=fromISO(dt).getDay();return`<div><b>${E(wdName(wd))}</b><div class="muted mono" style="font-size:11px">${E(dt)}</div></div>`}).join('')}</div>
-${ps.map(p=>{
-const cells=dates.map(dt=>{const wd=fromISO(dt).getDay();const cell=db.schedule?.[cid]?.[wd]?.[p.p];
-if(!cell)return`<div class="ttCell"><div class="empty">—</div></div>`;
-const r=D.resolve(db,dt,cid,wd,p.p,cell.teacherId);const col=subColor(cell.subjectId);
-const hw=D.hasHW(db,cid,dt);const rem=D.hasRem(db,u.id,dt);
-return`<div class="ttCell"><div class="lesson" style="border-left:3px solid ${col}">
-<div class="title">${E(D.sn(db,cell.subjectId))}${r.sub?'<span class="tag warn">zamjena</span>':''}${hw?'<span class="tag pri">zadaća</span>':''}${rem?'<span class="tag ok">⏰</span>':''}</div>
-<div class="meta">${E(D.tn(db,r.tid))} • ${E(D.rn(db,cell.roomId))}</div></div></div>`}).join('');
-return`<div class="ttRow"><div class="ttTime"><b>${p.p}.</b><div class="mono" style="font-size:11px">${E(p.start)}–${E(p.end)}</div></div>${cells}</div>`}).join('')}
-</div></div></div>`}
+function studentWeek(u){const db=APP.db;const cid=u.classId;const dates=weekDs(APP.st.date);const ps=(db.settings?.periods||[]).slice().sort((a,b)=>a.p-b.p);
+return`<div class="card"><h2>📅 Raspored</h2><div class="muted">${E(D.cn(db,cid))}</div><div class="sep"></div><div class="ttWrap"><div class="tt"><div class="ttHead"><div><b>Čas</b></div>${dates.map(dt=>`<div><b>${E(wdN(fromI(dt).getDay()))}</b><div class="muted mono" style="font-size:11px">${E(dt)}</div></div>`).join('')}</div>${ps.map(p=>{const cells=dates.map(dt=>{const wd=fromI(dt).getDay();const cell=db.schedule?.[cid]?.[wd]?.[p.p];if(!cell)return`<div class="ttCell"><div class="empty">—</div></div>`;const r=D.resolve(db,dt,cid,wd,p.p,cell.teacherId);const col=subCol(cell.subjectId);const hw=D.hasHW(db,cid,dt);const rem=D.hasRem(db,u.id,dt);return`<div class="ttCell"><div class="lesson" style="border-left:3px solid ${col}"><div class="title">${E(D.sn(db,cell.subjectId))}${r.sub?'<span class="tag warn">zamj.</span>':''}${hw?'<span class="tag pri">📝</span>':''}${rem?'<span class="tag ok">⏰</span>':''}</div><div class="meta">${E(D.tn(db,r.tid))}</div></div></div>`}).join('');return`<div class="ttRow"><div class="ttTime"><b>${p.p}.</b><div class="mono" style="font-size:11px">${E(p.start)}–${E(p.end)}</div></div>${cells}</div>`}).join('')}</div></div></div>`}
 
-function studentDay(u){const db=APP.db;const cid=u.classId;const date=APP.st.date;const wd=fromISO(date).getDay();
-const ps=(db.settings?.periods||[]).slice().sort((a,b)=>a.p-b.p);
-const lessons=[];for(const p of ps){const cell=db.schedule?.[cid]?.[wd]?.[p.p];if(!cell)continue;
-const r=D.resolve(db,date,cid,wd,p.p,cell.teacherId);
-lessons.push({period:p.p,sid:cell.subjectId,rid:cell.roomId,tid:r.tid,sub:r.sub})}
-lessons.sort((a,b)=>a.period-b.period);
-
+function studentDay(u){const db=APP.db;const cid=u.classId;const date=APP.st.date;const wd=fromI(date).getDay();const ps=(db.settings?.periods||[]).slice().sort((a,b)=>a.p-b.p);const lessons=[];for(const p of ps){const cell=db.schedule?.[cid]?.[wd]?.[p.p];if(!cell)continue;const r=D.resolve(db,date,cid,wd,p.p,cell.teacherId);lessons.push({period:p.p,sid:cell.subjectId,rid:cell.roomId,tid:r.tid,sub:r.sub})}lessons.sort((a,b)=>a.period-b.period);
 const hw=db.homework?.[cid]?.[date]||{};const hwa=Object.entries(hw).map(([id,v])=>({id,...v}));
-return`<div class="card"><h2>📋 Moj dan</h2><div class="muted">${E(D.cn(db,cid))} • <span class="mono">${E(date)}</span></div><div class="sep"></div>
-<div class="two"><div>
-${lessons.length?`<table><thead><tr><th>Čas</th><th>Predmet</th><th>Profesor</th><th>Učionica</th></tr></thead><tbody>
-${lessons.map(L=>`<tr><td><b>${L.period}.</b></td><td><b>${E(D.sn(db,L.sid))}</b>${L.sub?'<span class="tag warn">zamjena</span>':''}</td>
-<td>${E(D.tn(db,L.tid))}</td><td>${E(D.rn(db,L.rid))}</td></tr>`).join('')}
-</tbody></table>`:`<div class="notice">Nema časova.</div>`}
-</div><div>
-<h3>Zadaće za danas</h3><div class="sep"></div>
-${hwa.length?hwa.map(h=>`<div class="notice" style="margin-bottom:8px"><b>${E(D.sn(db,h.subjectId))}</b>: ${E(h.text)}<div class="muted" style="margin-top:4px">Prof: ${E(D.tn(db,h.teacherId))}</div></div>`).join(''):`<div class="notice">Nema zadaća.</div>`}
-</div></div></div>`}
+return`<div class="card"><h2>📋 Moj dan</h2><div class="muted">${E(D.cn(db,cid))} • ${E(date)}</div><div class="sep"></div><div class="two"><div>${lessons.length?`<table><thead><tr><th>Čas</th><th>Predmet</th><th>Profesor</th><th>Učionica</th></tr></thead><tbody>${lessons.map(L=>`<tr><td><b>${L.period}.</b></td><td><b>${E(D.sn(db,L.sid))}</b>${L.sub?'<span class="tag warn">zamj.</span>':''}</td><td>${E(D.tn(db,L.tid))}</td><td>${E(D.rn(db,L.rid))}</td></tr>`).join('')}</tbody></table>`:`<div class="notice">Nema časova.</div>`}</div><div><h3>Zadaće</h3><div class="sep"></div>${hwa.length?hwa.map(h=>`<div class="notice" style="margin-bottom:8px"><b>${E(D.sn(db,h.subjectId))}</b>: ${E(h.text)}</div>`).join(''):`<div class="notice">Nema.</div>`}</div></div></div>`}
 
-function studentGrades(u){const db=APP.db;const g=db.grades?.[u.id]||{};
-const subjects=(db.subjects||[]).slice().sort((a,b)=>a.name.localeCompare(b.name));
-const sems=db.settings?.semesters||[];
-return`<div class="card"><h2>📊 Ocjene</h2><div class="sep"></div>
-<table><thead><tr><th>Predmet</th><th>Ocjene</th><th>S1</th><th>S2</th><th>Prosjek</th></tr></thead><tbody>
-${subjects.map(sub=>{const arr=Object.values(g?.[sub.id]||{}).sort((a,b)=>(a.date||'').localeCompare(b.date||''));
-const s1=sems[0]?.id,s2=sems[1]?.id;
-const a1=arr.filter(x=>x.semesterId===s1).map(x=>+x.value);
-const a2=arr.filter(x=>x.semesterId===s2).map(x=>+x.value);
-const all=arr.map(x=>+x.value);
-const avg=all.length?(all.reduce((s,v)=>s+v,0)/all.length).toFixed(2):'—';
-const avg1=a1.length?(a1.reduce((s,v)=>s+v,0)/a1.length).toFixed(2):'—';
-const avg2=a2.length?(a2.reduce((s,v)=>s+v,0)/a2.length).toFixed(2):'—';
-return`<tr><td><b>${E(sub.name)}</b></td><td class="muted">${arr.map(x=>`${x.value} (${x.date})`).join(', ')||'—'}</td>
-<td>${avg1}</td><td>${avg2}</td><td><b>${avg}</b></td></tr>`}).join('')}
+function studentGrades(u){const db=APP.db;const g=db.grades?.[u.id]||{};const fg=db.finalGrades?.[u.id]||{};
+const subjects=(db.subjects||[]).slice().sort((a,b)=>a.name.localeCompare(b.name));const sems=db.settings?.semesters||[];
+return`<div class="card"><h2>📊 Ocjene</h2><div class="sep"></div><table><thead><tr><th>Predmet</th>${sems.map(s=>`<th>${E(s.name)}</th>`).join('')}<th>Prosjek</th><th>Zaključna</th></tr></thead><tbody>
+${subjects.map(sub=>{const arr=Object.values(g?.[sub.id]||{}).filter(x=>!x.isRepair).sort((a,b)=>(a.date||'').localeCompare(b.date||''));
+const semCells=sems.map(sem=>{const sg=arr.filter(x=>x.semesterId===sem.id);const avg=D.avgArr(sg.map(x=>+x.value));const min=sem.minGrades||0;const warn=sg.length<min;
+return`<td>${sg.map(x=>`${x.value}`).join(', ')||'—'} <span class="muted">(${avg??'—'})</span>${warn?` <span class="tag bad">min ${min}!</span>`:''}</td>`}).join('');
+const totalAvg=D.avgArr(arr.map(x=>+x.value));
+const f=fg?.[sub.id];const finalVal=f?.repair||f?.value||null;
+return`<tr><td><b>${E(sub.name)}</b></td>${semCells}<td><b>${totalAvg??'—'}</b></td><td>${finalVal?`<b${finalVal<2?' style="color:var(--bad)"':''}>${finalVal}</b>${f?.originalValue?` <span class="crossed">${f.originalValue}</span>`:''}`:'<span class="muted">—</span>'}</td></tr>`}).join('')}
 </tbody></table></div>`}
 
-/* ===== REMINDERS ===== */
-function reminders(u){return`<div class="card"><h2>🔔 Podsjetnici</h2><div class="sep"></div>
-<div class="two"><div>
-<label>Datum</label><input id="rem_d" type="date" value="${E(APP.st.date)}"/>
-<label>Tekst</label><input id="rem_t" placeholder="npr. kontrolni u petak"/>
-<div class="row" style="margin-top:8px"><button class="btn pri" data-a="addRem">Dodaj</button></div>
-</div><div>
-<h3>Moji podsjetnici</h3><div class="sep"></div>
-<div id="remBox" class="muted">Učitavanje…</div>
-</div></div></div>`}
-
-/* ===== POST RENDER ===== */
-function postRender(u){const db=APP.db;
-if(APP.st.view==='t-homework'){const due=APP.st.date;const hw=db.homeworkByDue?.[due]||{};
-const arr=Object.entries(hw).map(([id,v])=>({id,...v})).filter(x=>x.teacherId===u.id);
-$('#hwBox').innerHTML=arr.length?arr.map(h=>`<div class="notice" style="margin-bottom:8px">
-<b>${E(D.cn(db,h.classId))}</b> • ${E(D.sn(db,h.subjectId))}<br/><span class="muted">${E(h.text)}</span>
-<div class="row" style="margin-top:6px"><button class="btn sm bad" data-a="delHW" data-due="${E(due)}" data-id="${E(h.id)}">🗑</button></div></div>`).join(''):`<div class="notice">Nema zadaća sa rokom danas.</div>`}
-
-if(APP.st.view==='t-rem'||APP.st.view==='s-rem'){const rem=db.reminders?.[u.id]||{};
-const arr=Object.entries(rem).map(([id,v])=>({id,...v})).sort((a,b)=>(a.date||'').localeCompare(b.date||''));
-$('#remBox').innerHTML=arr.length?arr.map(r=>`<div class="notice" style="margin-bottom:8px">
-<div class="row" style="justify-content:space-between">
-<div><span class="mono">${E(r.date||'')}</span> • ${E(r.text||'')} ${r.done?'<span class="tag ok">✓</span>':''}</div>
-<div class="row"><button class="btn sm ${r.done?'warn':'ok'}" data-a="togRem" data-id="${E(r.id)}">${r.done?'↩':'✓'}</button>
-<button class="btn sm bad" data-a="delRem" data-id="${E(r.id)}">🗑</button></div></div></div>`).join(''):`<div class="notice">Nema podsjetnika.</div>`}
-
-if(APP.st.view==='t-homeroom'){const cid=u.homeroomClassId;const abs=db.absences?.[cid]||{};const rows=[];
-for(const[date,ps] of Object.entries(abs)){for(const[sid,pl] of Object.entries(ps||{})){for(const[k,rec] of Object.entries(pl||{})){rows.push({date,sid,lk:k,...rec})}}}
-rows.sort((a,b)=>b.date.localeCompare(a.date));
-$('#hrBox').innerHTML=rows.length?`<table><thead><tr><th>Datum</th><th>Učenik</th><th>Predmet</th><th>Status</th><th>Razlog</th><th></th></tr></thead><tbody>
-${rows.slice(0,200).map(r=>{const st=r.justified?'<span class="tag ok">pravdan</span>':'<span class="tag bad">nepravdan</span>';
-const stud=D.ub(db,r.sid);
-return`<tr><td class="mono">${E(r.date)}</td><td><b>${E(stud?.fullName||stud?.username||r.sid)}</b></td>
-<td>${E(D.sn(db,r.subjectId))}</td><td>${st}</td><td class="muted">${E(r.reason||'')}</td>
-<td class="right"><button class="btn sm ${r.justified?'warn':'ok'}" data-a="togJ" data-c="${E(cid)}" data-dt="${E(r.date)}" data-sid="${E(r.sid)}" data-lk="${E(r.lk)}" data-j="${r.justified?1:0}">${r.justified?'↩':'✓'}</button></td></tr>`}).join('')}
-</tbody></table>`:`<div class="notice">Nema izostanaka.</div>`}
-}
+function reminders(u){return`<div class="card"><h2>🔔 Podsjetnici</h2><div class="sep"></div><div class="two"><div><label>Datum</label><input id="rem_d" type="date" value="${E(APP.st.date)}"/><label>Tekst</label><input id="rem_t"/><div class="row" style="margin-top:8px"><button class="btn pri" data-a="addRem">Dodaj</button></div></div><div><div id="remBox" class="muted">Učitavanje…</div></div></div></div>`}
 
 /* ===== LESSON MODAL (DNEVNIK) ===== */
-async function openLesson({date,classId,weekday,period}){
-const db=APP.db;const u=me();
-const cell=db.schedule?.[classId]?.[weekday]?.[period];
-if(!cell)return alert('Nema časa u rasporedu.');
-const k=lk(classId,weekday,period);
-const sub=db.substitutions?.[date]?.[k];
-const tid=(sub&&sub.status==='accepted')?sub.toTeacherId:cell.teacherId;
-if(u.role!=='teacher'||tid!==u.id)return alert('Nemate pravo na ovaj čas.');
-const students=D.stc(db,classId);
-const att=db.attendance?.[date]?.[k]||{};
-const pObj=(db.settings?.periods||[]).find(x=>x.p===+period)||{start:'??:??',end:'??:??'};
-const col=subColor(cell.subjectId);
+async function openLesson({date,classId,weekday,period}){const db=APP.db;const u=me();const cell=db.schedule?.[classId]?.[weekday]?.[period];if(!cell)return alert('Nema časa.');const k=lk(classId,weekday,period);const sub=db.substitutions?.[date]?.[k];const tid=(sub&&sub.status==='accepted')?sub.toTeacherId:cell.teacherId;if(u.role!=='teacher'||tid!==u.id)return alert('Nemate pravo.');const students=D.stc(db,classId);const att=db.attendance?.[date]?.[k]||{};const pObj=(db.settings?.periods||[]).find(x=>x.p===+period)||{start:'??:??',end:'??:??'};const col=subCol(cell.subjectId);const sems=db.settings?.semesters||[];
 
 $('#lessonBox').innerHTML=`
 <div class="dnevnik">
 <div class="dHeader" style="border-left:4px solid ${col}">
 <h3>${E(D.cn(db,classId))} — ${E(D.sn(db,cell.subjectId))}</h3>
-<div class="dMeta">
-<span class="mono">${E(date)}</span> • <b>${period}. čas</b> (${E(pObj.start)}–${E(pObj.end)}) • ${E(D.rn(db,cell.roomId))}
-${sub&&sub.status==='accepted'?` • <span class="tag warn">zamjena</span>`:''}
-• Profesor: <b>${E(D.tn(db,tid))}</b>
-</div>
+<div class="dMeta"><span class="mono">${E(date)}</span> • <b>${period}. čas</b> (${E(pObj.start)}–${E(pObj.end)}) • ${E(D.rn(db,cell.roomId))} • Prof: <b>${E(D.tn(db,tid))}</b></div>
 </div>
 
 <table>
-<thead><tr>
-<th style="width:40px">Rb.</th>
-<th>Učenik</th>
-<th style="width:140px">Prisutnost</th>
-<th style="width:100px">Ocjena</th>
-<th>Napomena</th>
-</tr></thead>
+<thead><tr><th style="width:35px">Rb.</th><th>Učenik</th><th style="width:140px">Prisutnost</th><th style="width:130px">Ocjene (${E(D.sn(db,cell.subjectId))})</th><th>Napomena</th></tr></thead>
 <tbody>
 ${students.map((st,i)=>{
-const a=att?.[st.id]||{};
-const status=a.status||'present';
-const note=a.note||'';
-// latest grade for this subject
-const gs=Object.values(db.grades?.[st.id]?.[cell.subjectId]||{}).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
-const lastGrade=gs[0];
+const a=att?.[st.id]||{};const status=a.status||'present';const note=a.note||'';
+const gs=D.gradesForSS(db,st.id,cell.subjectId).filter(g=>!g.isRepair);
+const semInfo=sems.map(sem=>{const sg=gs.filter(g=>g.semesterId===sem.id);const min=sem.minGrades||0;const warn=sg.length<min;return`<div class="muted" style="font-size:11px">${E(sem.id)}: ${sg.map(g=>`<b>${g.value}</b>`).join(', ')||'—'}${warn?` <span class="tag bad">${min}!</span>`:''}</div>`}).join('');
 return`<tr>
 <td class="muted">${i+1}.</td>
 <td><b>${E(st.fullName||st.username)}</b></td>
-<td>
-<div class="row">
-<span class="attDot ${status}"></span>
-<select data-att="${st.id}" style="flex:1">
-<option value="present" ${status==='present'?'selected':''}>Prisutan</option>
-<option value="late" ${status==='late'?'selected':''}>Kasni</option>
-<option value="absent" ${status==='absent'?'selected':''}>Odsutan</option>
-</select>
-</div>
-</td>
-<td>${lastGrade?`<b>${lastGrade.value}</b> <span class="muted">(${lastGrade.date})</span>`:'<span class="muted">—</span>'}</td>
-<td><input data-note="${st.id}" value="${E(note)}" placeholder="napomena" style="padding:6px 8px"/></td>
+<td><div class="row"><span class="attDot ${status}"></span><select data-att="${st.id}" style="flex:1"><option value="present" ${status==='present'?'selected':''}>Prisutan</option><option value="late" ${status==='late'?'selected':''}>Kasni</option><option value="absent" ${status==='absent'?'selected':''}>Odsutan</option></select></div></td>
+<td>${semInfo}</td>
+<td><input data-note="${st.id}" value="${E(note)}" style="padding:5px 8px"/></td>
 </tr>`}).join('')}
-</tbody>
-</table>
-</div>
+</tbody></table></div>
 
 <div class="sep"></div>
-
 <div class="row" style="justify-content:space-between">
 <button class="btn ok" data-a="saveAtt" data-dt="${E(date)}" data-lk="${E(k)}" data-c="${E(classId)}" data-sub="${E(cell.subjectId)}">💾 Sačuvaj prisustvo</button>
 <button class="btn sm" data-a="closeM" data-id="lessonModal">Zatvori</button>
 </div>
 
 <div class="sep"></div>
-
 <div class="two">
 <div class="card" style="box-shadow:none">
 <h3>📝 Ocjena</h3><div class="sep"></div>
-<label>Učenik</label>
-<select id="gr_st">${students.map(st=>`<option value="${st.id}">${E(st.fullName||st.username)}</option>`).join('')}</select>
-<div class="row"><div style="flex:1"><label>Datum</label><input id="gr_dt" type="date" value="${E(date)}"/></div>
-<div style="width:100px"><label>Ocjena</label><select id="gr_v"><option>1</option><option>2</option><option>3</option><option selected>4</option><option>5</option></select></div></div>
+<label>Učenik</label><select id="gr_st">${students.map(st=>`<option value="${st.id}">${E(st.fullName||st.username)}</option>`).join('')}</select>
+<div class="row"><div style="flex:1"><label>Datum</label><input id="gr_dt" type="date" value="${E(date)}"/></div><div style="width:80px"><label>Ocjena</label><select id="gr_v"><option>1</option><option>2</option><option>3</option><option selected>4</option><option>5</option></select></div></div>
 <label>Tip</label><select id="gr_tp"><option>Usmeno</option><option>Pismeno</option><option>Aktivnost</option><option>Zadaća</option><option>Kontrolni</option></select>
 <label>Napomena</label><input id="gr_n"/>
-<div class="row" style="margin-top:8px"><button class="btn pri" data-a="addGr" data-c="${E(classId)}" data-sub="${E(cell.subjectId)}">Dodaj ocjenu</button></div>
+<div class="row" style="margin-top:8px"><button class="btn pri" data-a="addGr" data-c="${E(classId)}" data-sub="${E(cell.subjectId)}">Dodaj</button></div>
 </div>
 
 <div class="card" style="box-shadow:none">
-<h3>📋 Zadaća / Zamjena</h3><div class="sep"></div>
-<label>Rok zadaće</label><input id="lhw_d" type="date" value="${E(date)}"/>
+<h3>📋 Zadaća</h3><div class="sep"></div>
+<label>Rok</label><input id="lhw_d" type="date" value="${E(date)}"/>
 <label>Opis</label><textarea id="lhw_t"></textarea>
-<div class="row" style="margin-top:8px"><button class="btn pri" data-a="addLHW" data-c="${E(classId)}" data-sub="${E(cell.subjectId)}">Dodaj zadaću</button></div>
+<div class="row" style="margin-top:8px"><button class="btn pri" data-a="addLHW" data-c="${E(classId)}" data-sub="${E(cell.subjectId)}">Dodaj</button></div>
 <div class="sep"></div>
 <h3>🔄 Zamjena</h3>
-<label>Ko mijenja</label>
-<select id="sub_to">${(db.users||[]).filter(x=>x.role==='teacher'&&x.id!==u.id).map(t=>`<option value="${t.id}">${E(t.fullName||t.username)}</option>`).join('')}</select>
-<label>Napomena</label><input id="sub_n" placeholder="npr. bolest"/>
-<div class="row" style="margin-top:8px"><button class="btn warn" data-a="reqSub" data-dt="${E(date)}" data-lk="${E(k)}">Pošalji zahtjev</button></div>
-</div>
-</div>
-`;
-$('#lessonModal').classList.add('open');
-}
+<label>Ko mijenja</label><select id="sub_to">${(db.users||[]).filter(x=>x.role==='teacher'&&x.id!==u.id).map(t=>`<option value="${t.id}">${E(t.fullName||t.username)}</option>`).join('')}</select>
+<label>Napomena</label><input id="sub_n"/>
+<div class="row" style="margin-top:8px"><button class="btn warn" data-a="reqSub" data-dt="${E(date)}" data-lk="${E(k)}">Pošalji</button></div>
+</div></div>`;
+$('#lessonModal').classList.add('open')}
 
 /* ===== ADMIN CELL MODAL ===== */
-function openCell({classId,weekday,period}){const db=APP.db;
-const ex=db.schedule?.[classId]?.[weekday]?.[period]||null;
-const so=(db.subjects||[]).map(s=>`<option value="${s.id}">${E(s.name)}</option>`).join('');
-const to=(db.users||[]).filter(u=>u.role==='teacher').map(t=>`<option value="${t.id}">${E(t.fullName||t.username)}</option>`).join('');
-const ro=(db.rooms||[]).map(r=>`<option value="${r.id}">${E(r.name)}</option>`).join('');
-$('#cellBox').innerHTML=`
-<div class="row" style="justify-content:space-between">
-<div><h3 style="margin:0">Uredi ćeliju</h3><div class="muted">${E(D.cn(db,classId))} • ${E(wdName(weekday))} • Čas ${period}.</div></div>
-<button class="btn sm" data-a="closeM" data-id="cellModal">Zatvori</button>
-</div><div class="sep"></div>
-<label>Predmet</label><select id="cm_s">${so}</select>
-<label>Profesor</label><select id="cm_t">${to}</select>
-<label>Učionica</label><select id="cm_r">${ro}</select>
-<div class="sep"></div>
-<div class="row" style="justify-content:space-between">
-<div>${ex?'<span class="tag ok">postojeći</span>':'<span class="tag">novi</span>'}</div>
-<div class="row">
-${ex?`<button class="btn bad" data-a="delCell" data-c="${classId}" data-w="${weekday}" data-p="${period}">Obriši</button>`:''}
-<button class="btn pri" data-a="saveCell" data-c="${classId}" data-w="${weekday}" data-p="${period}">Sačuvaj</button>
-</div></div>`;
+function openCell({classId,weekday,period}){const db=APP.db;const ex=db.schedule?.[classId]?.[weekday]?.[period]||null;const so=(db.subjects||[]).map(s=>`<option value="${s.id}">${E(s.name)}</option>`).join('');const to=(db.users||[]).filter(u=>u.role==='teacher').map(t=>`<option value="${t.id}">${E(t.fullName||t.username)}</option>`).join('');const ro=(db.rooms||[]).map(r=>`<option value="${r.id}">${E(r.name)}</option>`).join('');
+$('#cellBox').innerHTML=`<div class="row" style="justify-content:space-between"><div><h3 style="margin:0">Uredi ćeliju</h3><div class="muted">${E(D.cn(db,classId))} • ${E(wdN(weekday))} • Čas ${period}.</div></div><button class="btn sm" data-a="closeM" data-id="cellModal">Zatvori</button></div><div class="sep"></div><label>Predmet</label><select id="cm_s">${so}</select><label>Profesor</label><select id="cm_t">${to}</select><label>Učionica</label><select id="cm_r">${ro}</select><div class="sep"></div><div class="row" style="justify-content:space-between"><div>${ex?'<span class="tag ok">postojeći</span>':'<span class="tag">novi</span>'}</div><div class="row">${ex?`<button class="btn bad" data-a="delCell" data-c="${classId}" data-w="${weekday}" data-p="${period}">Obriši</button>`:''}<button class="btn pri" data-a="saveCell" data-c="${classId}" data-w="${weekday}" data-p="${period}">Sačuvaj</button></div></div>`;
 if(ex){$('#cm_s').value=ex.subjectId;$('#cm_t').value=ex.teacherId;$('#cm_r').value=ex.roomId}
-$('#cellModal').classList.add('open');
+$('#cellModal').classList.add('open')}
+
+/* ===== POST RENDER ===== */
+function postRender(u){const db=APP.db;
+if(APP.st.view==='t-homework'){const due=APP.st.date;const hw=db.homeworkByDue?.[due]||{};const arr=Object.entries(hw).map(([id,v])=>({id,...v})).filter(x=>x.teacherId===u.id);$('#hwBox').innerHTML=arr.length?arr.map(h=>`<div class="notice" style="margin-bottom:8px"><b>${E(D.cn(db,h.classId))}</b> • ${E(D.sn(db,h.subjectId))}<br/><span class="muted">${E(h.text)}</span><div class="row" style="margin-top:6px"><button class="btn sm bad" data-a="delHW" data-due="${E(due)}" data-id="${E(h.id)}">🗑</button></div></div>`).join(''):`<div class="notice">Nema.</div>`}
+
+if(APP.st.view==='t-rem'||APP.st.view==='s-rem'){const rem=db.reminders?.[u.id]||{};const arr=Object.entries(rem).map(([id,v])=>({id,...v})).sort((a,b)=>(a.date||'').localeCompare(b.date||''));$('#remBox').innerHTML=arr.length?arr.map(r=>`<div class="notice" style="margin-bottom:8px"><div class="row" style="justify-content:space-between"><div><span class="mono">${E(r.date||'')}</span> • ${E(r.text||'')}${r.done?' <span class="tag ok">✓</span>':''}</div><div class="row"><button class="btn sm ${r.done?'warn':'ok'}" data-a="togRem" data-id="${E(r.id)}">${r.done?'↩':'✓'}</button><button class="btn sm bad" data-a="delRem" data-id="${E(r.id)}">🗑</button></div></div></div>`).join(''):`<div class="notice">Nema.</div>`}
+
+if(APP.st.view==='t-homeroom'){const cid=u.homeroomClassId;const abs=db.absences?.[cid]||{};const rows=[];for(const[date,ps] of Object.entries(abs))for(const[sid,pl] of Object.entries(ps||{}))for(const[k,rec] of Object.entries(pl||{}))rows.push({date,sid,lk:k,...rec});rows.sort((a,b)=>b.date.localeCompare(a.date));$('#hrBox').innerHTML=rows.length?`<table><thead><tr><th>Datum</th><th>Učenik</th><th>Predmet</th><th>Status</th><th></th></tr></thead><tbody>${rows.slice(0,200).map(r=>{const st=r.justified?'<span class="tag ok">pravdan</span>':'<span class="tag bad">nepravdan</span>';const stud=D.ub(db,r.sid);return`<tr><td class="mono">${E(r.date)}</td><td><b>${E(stud?.fullName||stud?.username||r.sid)}</b></td><td>${E(D.sn(db,r.subjectId))}</td><td>${st}</td><td class="right"><button class="btn sm ${r.justified?'warn':'ok'}" data-a="togJ" data-c="${E(cid)}" data-dt="${E(r.date)}" data-sid="${E(r.sid)}" data-lk="${E(r.lk)}" data-j="${r.justified?1:0}">${r.justified?'↩':'✓'}</button></td></tr>`}).join('')}</tbody></table>`:`<div class="notice">Nema.</div>`}
 }
 
-/* ===== ACTIONS ===== */
+/* ===== ALL ACTIONS ===== */
 document.addEventListener('click',async e=>{
 const b=e.target.closest('[data-a]');if(!b)return;const a=b.getAttribute('data-a');const db=APP.db;const u=me();
 if(a==='theme'){setT(APP.st.theme==='light'?'dark':'light');render();return}
 if(a==='closeM'){$('#'+b.getAttribute('data-id')).classList.remove('open');return}
 if(a==='logout'){Sess.clear();APP.st.view='login';render();return}
-if(a==='pd'){APP.st.date=addDays(APP.st.date,-1);render();return}
-if(a==='nd'){APP.st.date=addDays(APP.st.date,1);render();return}
-if(a==='pw'){APP.st.date=addDays(APP.st.date,-7);render();return}
-if(a==='nw'){APP.st.date=addDays(APP.st.date,7);render();return}
+if(a==='pd'){APP.st.date=addD(APP.st.date,-1);render();return}
+if(a==='nd'){APP.st.date=addD(APP.st.date,1);render();return}
+if(a==='pw'){APP.st.date=addD(APP.st.date,-7);render();return}
+if(a==='nw'){APP.st.date=addD(APP.st.date,7);render();return}
 if(a==='nav'){APP.st.view=b.getAttribute('data-v');render();return}
-if(a==='login'){
-const user=($('#li_u')?.value||'').trim();const pass=$('#li_p')?.value||'';
-const found=(db.users||[]).find(x=>x.username.toLowerCase()===user.toLowerCase());
-if(!found||found.passHash!==sha256(pass))return alert('Pogrešan korisnik ili lozinka.');
-Sess.set({uid:found.id,at:now()});APP.st.view='login';render();return}
+if(a==='login'){const user=($('#li_u')?.value||'').trim(),pass=$('#li_p')?.value||'';const found=(db.users||[]).find(x=>x.username.toLowerCase()===user.toLowerCase());if(!found||found.passHash!==sha256(pass))return alert('Pogrešno.');Sess.set({uid:found.id,at:now()});APP.st.view='login';render();return}
 if(!u)return;
-// admin
+
+// admin actions
 if(u.role==='admin'){
 if(a==='reset'){if(!confirm('Reset?'))return;await RT.ref(DB_PATH).remove();APP.db=seed();await RT.set(DB_PATH,APP.db);Sess.clear();APP.st.view='login';render();return}
-if(a==='addU'){const un=($('#au_u')?.value||'').trim(),pw=$('#au_p')?.value||'',fn=($('#au_n')?.value||'').trim(),rl=$('#au_r')?.value,ci=$('#au_c')?.value||null,hr=$('#au_h')?.value||null;
-if(!un||!pw)return alert('Username i lozinka su obavezni.');if(db.users.some(x=>x.username.toLowerCase()===un.toLowerCase()))return alert('Username postoji.');
-if(rl==='student'&&!ci)return alert('Učenik mora imati razred.');
-const id=uid('u');db.users.push({id,username:un,passHash:sha256(pw),role:rl,fullName:fn,classId:rl==='student'?ci:null,homeroomClassId:rl==='teacher'?hr:null});
-if(rl==='teacher'&&hr){const c=db.classes.find(x=>x.id===hr);if(c)c.homeroomTeacherId=id}
-await RT.set(DB_PATH,db);render();return}
+if(a==='addU'){const un=($('#au_u')?.value||'').trim(),pw=$('#au_p')?.value||'',fn=($('#au_n')?.value||'').trim(),rl=$('#au_r')?.value,ci=$('#au_c')?.value||null,hr=$('#au_h')?.value||null;if(!un||!pw)return alert('Username i lozinka.');if(db.users.some(x=>x.username.toLowerCase()===un.toLowerCase()))return alert('Postoji.');if(rl==='student'&&!ci)return alert('Razred.');const id=uid('u');db.users.push({id,username:un,passHash:sha256(pw),role:rl,fullName:fn,classId:rl==='student'?ci:null,homeroomClassId:rl==='teacher'?hr:null});if(rl==='teacher'&&hr){const c=db.classes.find(x=>x.id===hr);if(c)c.homeroomTeacherId=id}await RT.set(DB_PATH,db);render();return}
 if(a==='delU'){const id=b.getAttribute('data-id');if(!confirm('Obrisati?'))return;db.users=db.users.filter(x=>x.id!==id);await RT.set(DB_PATH,db);render();return}
-if(a==='editU'){const id=b.getAttribute('data-id');const usr=db.users.find(x=>x.id===id);if(!usr)return;
-const nm=prompt('Novo ime:',usr.fullName||'');if(nm===null)return;usr.fullName=nm.trim();
-const np=prompt('Nova lozinka (prazno=bez promjene):','');if(np)usr.passHash=sha256(np);
-await RT.set(DB_PATH,db);render();return}
-if(a==='addC'){const n=($('#ac_n')?.value||'').trim(),hr=$('#ac_h')?.value||null;if(!n)return alert('Naziv je obavezan.');
-const id=uid('c');db.classes.push({id,name:n,homeroomTeacherId:hr});if(hr){const t=db.users.find(x=>x.id===hr);if(t)t.homeroomClassId=id}
-await RT.set(DB_PATH,db);render();return}
+if(a==='editU'){const id=b.getAttribute('data-id');const usr=db.users.find(x=>x.id===id);if(!usr)return;const nm=prompt('Ime:',usr.fullName||'');if(nm===null)return;usr.fullName=nm.trim();const np=prompt('Lozinka (prazno=bez):','');if(np)usr.passHash=sha256(np);await RT.set(DB_PATH,db);render();return}
+if(a==='addC'){const n=($('#ac_n')?.value||'').trim(),hr=$('#ac_h')?.value||null;if(!n)return alert('Naziv.');const id=uid('c');db.classes.push({id,name:n,homeroomTeacherId:hr});if(hr){const t=db.users.find(x=>x.id===hr);if(t)t.homeroomClassId=id}await RT.set(DB_PATH,db);render();return}
 if(a==='delC'){const id=b.getAttribute('data-id');if(!confirm('Obrisati?'))return;db.classes=db.classes.filter(c=>c.id!==id);db.users.forEach(u=>{if(u.classId===id)u.classId=null;if(u.homeroomClassId===id)u.homeroomClassId=null});delete(db.schedule||{})[id];await RT.set(DB_PATH,db);render();return}
-if(a==='addS'){const n=($('#as_n')?.value||'').trim();if(!n)return alert('Naziv.');db.subjects.push({id:uid('s'),name:n});await RT.set(DB_PATH,db);render();return}
-if(a==='delS'){const id=b.getAttribute('data-id');if(!confirm('Obrisati?'))return;db.subjects=db.subjects.filter(s=>s.id!==id);await RT.set(DB_PATH,db);render();return}
-if(a==='addR'){const n=($('#ar_n')?.value||'').trim();if(!n)return alert('Naziv.');db.rooms.push({id:uid('r'),name:n});await RT.set(DB_PATH,db);render();return}
-if(a==='delR'){const id=b.getAttribute('data-id');if(!confirm('Obrisati?'))return;db.rooms=db.rooms.filter(r=>r.id!==id);await RT.set(DB_PATH,db);render();return}
-if(a==='addP'){const p=+$('#pp')?.value,s=$('#ps')?.value,e=$('#pe')?.value;if(!p||!s||!e)return alert('Popuni.');
-db.settings.periods=(db.settings.periods||[]).filter(x=>x.p!==p).concat([{p,start:s,end:e}]).sort((a,b)=>a.p-b.p);await RT.set(DB_PATH,db);render();return}
-if(a==='delP'){const p=+b.getAttribute('data-p');db.settings.periods=(db.settings.periods||[]).filter(x=>x.p!==p);await RT.set(DB_PATH,db);render();return}
+if(a==='addS'){const n=($('#as_n')?.value||'').trim();if(!n)return;db.subjects.push({id:uid('s'),name:n});await RT.set(DB_PATH,db);render();return}
+if(a==='delS'){db.subjects=db.subjects.filter(s=>s.id!==b.getAttribute('data-id'));await RT.set(DB_PATH,db);render();return}
+if(a==='addR'){const n=($('#ar_n')?.value||'').trim();if(!n)return;db.rooms.push({id:uid('r'),name:n});await RT.set(DB_PATH,db);render();return}
+if(a==='delR'){db.rooms=db.rooms.filter(r=>r.id!==b.getAttribute('data-id'));await RT.set(DB_PATH,db);render();return}
+if(a==='addP'){const p=+$('#pp')?.value,s=$('#ps')?.value,e=$('#pe')?.value;if(!p||!s||!e)return;db.settings.periods=(db.settings.periods||[]).filter(x=>x.p!==p).concat([{p,start:s,end:e}]).sort((a,b)=>a.p-b.p);await RT.set(DB_PATH,db);render();return}
+if(a==='delP'){db.settings.periods=(db.settings.periods||[]).filter(x=>x.p!==+b.getAttribute('data-p'));await RT.set(DB_PATH,db);render();return}
 if(a==='apc'){APP.st.acp=b.value;render();return}
 if(a==='ec'){openCell({classId:b.getAttribute('data-c'),weekday:+b.getAttribute('data-w'),period:+b.getAttribute('data-p')});return}
-if(a==='saveCell'){const c=b.getAttribute('data-c'),w=+b.getAttribute('data-w'),p=+b.getAttribute('data-p');
-db.schedule||={};db.schedule[c]||={};db.schedule[c][w]||={};
-db.schedule[c][w][p]={subjectId:$('#cm_s').value,teacherId:$('#cm_t').value,roomId:$('#cm_r').value};
-await RT.set(DB_PATH,db);$('#cellModal').classList.remove('open');render();return}
-if(a==='delCell'){const c=b.getAttribute('data-c'),w=+b.getAttribute('data-w'),p=+b.getAttribute('data-p');
-delete db.schedule?.[c]?.[w]?.[p];await RT.set(DB_PATH,db);$('#cellModal').classList.remove('open');render();return}
-if(a==='addSem'){const id=($('#si')?.value||'').trim(),n=($('#sn')?.value||'').trim(),s=$('#ss')?.value,e=$('#se')?.value;
-if(!id||!n||!s||!e)return alert('Popuni.');db.settings.semesters||=[];db.settings.semesters.push({id,name:n,start:s,end:e});await RT.set(DB_PATH,db);render();return}
-if(a==='delSem'){const id=b.getAttribute('data-id');db.settings.semesters=(db.settings.semesters||[]).filter(s=>s.id!==id);await RT.set(DB_PATH,db);render();return}
+if(a==='saveCell'){const c=b.getAttribute('data-c'),w=+b.getAttribute('data-w'),p=+b.getAttribute('data-p');db.schedule||={};db.schedule[c]||={};db.schedule[c][w]||={};db.schedule[c][w][p]={subjectId:$('#cm_s').value,teacherId:$('#cm_t').value,roomId:$('#cm_r').value};await RT.set(DB_PATH,db);$('#cellModal').classList.remove('open');render();return}
+if(a==='delCell'){delete db.schedule?.[b.getAttribute('data-c')]?.[+b.getAttribute('data-w')]?.[+b.getAttribute('data-p')];await RT.set(DB_PATH,db);$('#cellModal').classList.remove('open');render();return}
+if(a==='addSem'){const id=($('#si')?.value||'').trim(),n=($('#sn')?.value||'').trim(),s=$('#ss')?.value,e=$('#se')?.value,mg=+($('#smg')?.value||0);if(!id||!n||!s||!e)return alert('Popuni.');db.settings.semesters||=[];db.settings.semesters.push({id,name:n,start:s,end:e,minGrades:mg});await RT.set(DB_PATH,db);render();return}
+if(a==='editSem'){const id=b.getAttribute('data-id');const sem=(db.settings.semesters||[]).find(s=>s.id===id);if(!sem)return;const mg=prompt('Min ocjena po semestru:',sem.minGrades||0);if(mg===null)return;sem.minGrades=+mg;await RT.set(DB_PATH,db);render();return}
+if(a==='delSem'){db.settings.semesters=(db.settings.semesters||[]).filter(s=>s.id!==b.getAttribute('data-id'));await RT.set(DB_PATH,db);render();return}
 }
-// teacher
+
+// teacher actions
 if(u.role==='teacher'){
 if(a==='openL'){await openLesson({date:b.getAttribute('data-dt'),classId:b.getAttribute('data-c'),weekday:+b.getAttribute('data-w'),period:+b.getAttribute('data-p')});return}
-if(a==='saveAtt'){const date=b.getAttribute('data-dt'),k=b.getAttribute('data-lk'),cid=b.getAttribute('data-c'),sid=b.getAttribute('data-sub');
-db.attendance||={};db.attendance[date]||={};db.attendance[date][k]||={};
-db.absences||={};db.absences[cid]||={};db.absences[cid][date]||={};
-for(const sel of $$('select[data-att]')){const stId=sel.getAttribute('data-att');const status=sel.value;const note=$(`input[data-note="${stId}"]`)?.value||'';
-db.attendance[date][k][stId]={status,note,teacherId:u.id,markedAt:now()};
-db.absences[cid][date][stId]||={};
-if(status==='absent'){db.absences[cid][date][stId][k]={studentId:stId,teacherId:u.id,subjectId:sid,justified:false,reason:'',decidedBy:'',decidedAt:''}}
-else{delete db.absences[cid][date][stId][k]}}
-await RT.set(DB_PATH,db);alert('Sačuvano.');$('#lessonModal').classList.remove('open');render();return}
-if(a==='addGr'){const stId=$('#gr_st').value,dt=$('#gr_dt').value,v=+$('#gr_v').value,tp=$('#gr_tp').value,n=$('#gr_n').value||'';
-const cid=b.getAttribute('data-c'),sid=b.getAttribute('data-sub');const sem=D.sem(db,dt);const gid=uid('g');
-db.grades||={};db.grades[stId]||={};db.grades[stId][sid]||={};
-db.grades[stId][sid][gid]={value:v,date:dt,type:tp,note:n,teacherId:u.id,classId:cid,semesterId:sem};
-await RT.set(DB_PATH,db);alert('Ocjena dodana.');$('#gr_n').value='';return}
-if(a==='addLHW'){const cid=b.getAttribute('data-c'),sid=b.getAttribute('data-sub');
-const due=$('#lhw_d').value,txt=($('#lhw_t').value||'').trim();if(!due||!txt)return alert('Rok i opis.');
-const id=uid('hw');const rec={classId:cid,subjectId:sid,teacherId:u.id,dueDate:due,text:txt,createdAt:now()};
-db.homework||={};db.homework[cid]||={};db.homework[cid][due]||={};db.homework[cid][due][id]=rec;
-db.homeworkByDue||={};db.homeworkByDue[due]||={};db.homeworkByDue[due][id]=rec;
-await RT.set(DB_PATH,db);alert('Zadaća dodana.');return}
-if(a==='reqSub'){const date=b.getAttribute('data-dt'),k=b.getAttribute('data-lk');const toId=$('#sub_to').value;const note=($('#sub_n').value||'').trim();
-db.substitutions||={};db.substitutions[date]||={};const cur=db.substitutions[date][k];
-if(cur&&cur.status!=='declined')return alert('Već postoji zahtjev.');
-db.substitutions[date][k]={fromTeacherId:u.id,toTeacherId:toId,status:'pending',note,createdAt:now(),decidedAt:''};
-await RT.set(DB_PATH,db);alert('Zahtjev poslan.');return}
-if(a==='subA'||a==='subD'){const date=b.getAttribute('data-dt'),k=b.getAttribute('data-lk');
-const s=db.substitutions?.[date]?.[k];if(!s)return;if(s.toTeacherId!==u.id)return alert('Nemate pravo.');if(s.status!=='pending')return alert('Obrađeno.');
-s.status=a==='subA'?'accepted':'declined';s.decidedAt=now();await RT.set(DB_PATH,db);render();return}
-if(a==='addHW'){const cid=$('#hw_c').value,sid=$('#hw_s').value,due=$('#hw_d').value,txt=($('#hw_t').value||'').trim();
-if(!cid||!sid||!due||!txt)return alert('Popuni.');
-const id=uid('hw');const rec={classId:cid,subjectId:sid,teacherId:u.id,dueDate:due,text:txt,createdAt:now()};
-db.homework||={};db.homework[cid]||={};db.homework[cid][due]||={};db.homework[cid][due][id]=rec;
-db.homeworkByDue||={};db.homeworkByDue[due]||={};db.homeworkByDue[due][id]=rec;
-await RT.set(DB_PATH,db);$('#hw_t').value='';render();return}
-if(a==='delHW'){const due=b.getAttribute('data-due'),id=b.getAttribute('data-id');
-const rec=db.homeworkByDue?.[due]?.[id];if(rec?.classId)delete db.homework?.[rec.classId]?.[due]?.[id];
-delete db.homeworkByDue?.[due]?.[id];await RT.set(DB_PATH,db);render();return}
-if(a==='togJ'){const cid=b.getAttribute('data-c'),dt=b.getAttribute('data-dt'),sid=b.getAttribute('data-sid'),k=b.getAttribute('data-lk'),j=b.getAttribute('data-j')==='1';
-const rec=db.absences?.[cid]?.[dt]?.[sid]?.[k];if(!rec)return;
-if(!j){const reason=prompt('Razlog:',rec.reason||'');if(reason===null)return;rec.justified=true;rec.reason=reason;rec.decidedBy=u.id;rec.decidedAt=now()}
-else{if(!confirm('Nepravdati?'))return;rec.justified=false;rec.reason='';rec.decidedBy=u.id;rec.decidedAt=now()}
-await RT.set(DB_PATH,db);render();return}
+if(a==='saveAtt'){const date=b.getAttribute('data-dt'),k=b.getAttribute('data-lk'),cid=b.getAttribute('data-c'),sid=b.getAttribute('data-sub');db.attendance||={};db.attendance[date]||={};db.attendance[date][k]||={};db.absences||={};db.absences[cid]||={};db.absences[cid][date]||={};for(const sel of $$('select[data-att]')){const stId=sel.getAttribute('data-att'),status=sel.value,note=$(`input[data-note="${stId}"]`)?.value||'';db.attendance[date][k][stId]={status,note,teacherId:u.id,markedAt:now()};db.absences[cid][date][stId]||={};if(status==='absent')db.absences[cid][date][stId][k]={studentId:stId,teacherId:u.id,subjectId:sid,justified:false,reason:'',decidedBy:'',decidedAt:''};else delete db.absences[cid][date][stId][k]}await RT.set(DB_PATH,db);alert('Sačuvano.');$('#lessonModal').classList.remove('open');render();return}
+if(a==='addGr'){const stId=$('#gr_st').value,dt=$('#gr_dt').value,v=+$('#gr_v').value,tp=$('#gr_tp').value,n=$('#gr_n').value||'',cid=b.getAttribute('data-c'),sid=b.getAttribute('data-sub'),sem=D.sem(db,dt),gid=uid('g');db.grades||={};db.grades[stId]||={};db.grades[stId][sid]||={};db.grades[stId][sid][gid]={value:v,date:dt,type:tp,note:n,teacherId:u.id,classId:cid,semesterId:sem};await RT.set(DB_PATH,db);alert('Dodano.');$('#gr_n').value='';render();return}
+if(a==='addLHW'){const cid=b.getAttribute('data-c'),sid=b.getAttribute('data-sub'),due=$('#lhw_d').value,txt=($('#lhw_t').value||'').trim();if(!due||!txt)return alert('Rok i opis.');const id=uid('hw');const rec={classId:cid,subjectId:sid,teacherId:u.id,dueDate:due,text:txt,createdAt:now()};db.homework||={};db.homework[cid]||={};db.homework[cid][due]||={};db.homework[cid][due][id]=rec;db.homeworkByDue||={};db.homeworkByDue[due]||={};db.homeworkByDue[due][id]=rec;await RT.set(DB_PATH,db);alert('Dodano.');return}
+if(a==='reqSub'){const date=b.getAttribute('data-dt'),k=b.getAttribute('data-lk'),toId=$('#sub_to').value,note=($('#sub_n').value||'').trim();db.substitutions||={};db.substitutions[date]||={};const cur=db.substitutions[date][k];if(cur&&cur.status!=='declined')return alert('Već postoji.');db.substitutions[date][k]={fromTeacherId:u.id,toTeacherId:toId,status:'pending',note,createdAt:now(),decidedAt:''};await RT.set(DB_PATH,db);alert('Poslano.');return}
+if(a==='subA'||a==='subD'){const date=b.getAttribute('data-dt'),k=b.getAttribute('data-lk'),s=db.substitutions?.[date]?.[k];if(!s||s.toTeacherId!==u.id||s.status!=='pending')return;s.status=a==='subA'?'accepted':'declined';s.decidedAt=now();await RT.set(DB_PATH,db);render();return}
+if(a==='addHW'){const cid=$('#hw_c').value,sid=$('#hw_s').value,due=$('#hw_d').value,txt=($('#hw_t').value||'').trim();if(!cid||!sid||!due||!txt)return alert('Popuni.');const id=uid('hw');const rec={classId:cid,subjectId:sid,teacherId:u.id,dueDate:due,text:txt,createdAt:now()};db.homework||={};db.homework[cid]||={};db.homework[cid][due]||={};db.homework[cid][due][id]=rec;db.homeworkByDue||={};db.homeworkByDue[due]||={};db.homeworkByDue[due][id]=rec;await RT.set(DB_PATH,db);$('#hw_t').value='';render();return}
+if(a==='delHW'){const due=b.getAttribute('data-due'),id=b.getAttribute('data-id');const rec=db.homeworkByDue?.[due]?.[id];if(rec?.classId)delete db.homework?.[rec.classId]?.[due]?.[id];delete db.homeworkByDue?.[due]?.[id];await RT.set(DB_PATH,db);render();return}
+if(a==='togJ'){const cid=b.getAttribute('data-c'),dt=b.getAttribute('data-dt'),sid=b.getAttribute('data-sid'),k=b.getAttribute('data-lk'),j=b.getAttribute('data-j')==='1';const rec=db.absences?.[cid]?.[dt]?.[sid]?.[k];if(!rec)return;if(!j){const reason=prompt('Razlog:',rec.reason||'');if(reason===null)return;rec.justified=true;rec.reason=reason;rec.decidedBy=u.id;rec.decidedAt=now()}else{rec.justified=false;rec.reason='';rec.decidedBy=u.id;rec.decidedAt=now()}await RT.set(DB_PATH,db);render();return}
+
+// SAVE FINAL GRADE
+if(a==='saveFinal'){
+const stId=b.getAttribute('data-st'),subId=b.getAttribute('data-sub');
+const val=+$(`select[data-final-v="${stId}_${subId}"]`).value;
+if(!val)return alert('Izaberi ocjenu.');
+db.finalGrades||={};db.finalGrades[stId]||={};
+db.finalGrades[stId][subId]={value:val,decidedBy:u.id,decidedAt:now()};
+await RT.set(DB_PATH,db);alert(`Zaključna za ${E(D.tn(db,stId)||stId)}: ${val}`);render();return}
+
+// REPAIR (popravni)
+if(a==='repair'){
+const stId=b.getAttribute('data-st'),subId=b.getAttribute('data-sub');
+const fg=db.finalGrades?.[stId]?.[subId];
+if(!fg||fg.value>=2)return alert('Nema negativne zaključne.');
+const newVal=+prompt('Ocjena na popravnom ispitu (1-5):','2');
+if(!newVal||newVal<1||newVal>5)return alert('Nevažeća ocjena.');
+fg.originalValue=fg.value; // stara (precrtana)
+fg.repair=newVal;           // nova (istaknuta)
+fg.repairBy=u.id;
+fg.repairAt=now();
+await RT.set(DB_PATH,db);alert('Popravni upisan.');render();return}
 }
+
 // reminders
-if(a==='addRem'){const dt=$('#rem_d').value,txt=($('#rem_t').value||'').trim();if(!dt||!txt)return alert('Datum i tekst.');
-const id=uid('rem');db.reminders||={};db.reminders[u.id]||={};
-db.reminders[u.id][id]={date:dt,text:txt,done:false,createdAt:now()};
-await RT.set(DB_PATH,db);$('#rem_t').value='';render();return}
+if(a==='addRem'){const dt=$('#rem_d').value,txt=($('#rem_t').value||'').trim();if(!dt||!txt)return;const id=uid('rem');db.reminders||={};db.reminders[u.id]||={};db.reminders[u.id][id]={date:dt,text:txt,done:false,createdAt:now()};await RT.set(DB_PATH,db);$('#rem_t').value='';render();return}
 if(a==='togRem'){const id=b.getAttribute('data-id');const r=db.reminders?.[u.id]?.[id];if(!r)return;r.done=!r.done;await RT.set(DB_PATH,db);render();return}
-if(a==='delRem'){const id=b.getAttribute('data-id');delete db.reminders?.[u.id]?.[id];await RT.set(DB_PATH,db);render();return}
+if(a==='delRem'){delete db.reminders?.[u.id]?.[b.getAttribute('data-id')];await RT.set(DB_PATH,db);render();return}
 });
 
 document.addEventListener('change',e=>{
 if(e.target.matches('input[data-a="dp"]')){APP.st.date=e.target.value;render()}
 if(e.target.matches('select[data-a="apc"]')){APP.st.acp=e.target.value;render()}
-// live update attDot on select change
-if(e.target.matches('select[data-att]')){const dot=e.target.parentElement.querySelector('.attDot');if(dot){dot.className='attDot '+e.target.value}}
+if(e.target.matches('select[data-att]')){const dot=e.target.parentElement.querySelector('.attDot');if(dot)dot.className='attDot '+e.target.value}
 });
 
-['lessonModal','cellModal'].forEach(id=>{$('#'+id).addEventListener('click',e=>{if(e.target.id===id)$('#'+id).classList.remove('open')})});
+['lessonModal','cellModal','finalModal'].forEach(id=>{$('#'+id).addEventListener('click',e=>{if(e.target.id===id)$('#'+id).classList.remove('open')})});
 
 firebase.database().ref('.info/connected').on('value',s=>{$('#connPill').textContent=s.val()?'🟢 connected':'🔴 offline'});
 
-(async()=>{
-let db=await RT.get(DB_PATH);
-if(!db){db=seed();await RT.set(DB_PATH,db)}
-APP.db=db;render();
-RT.on(DB_PATH,val=>{if(val){APP.db=val;render()}});
-})();
+(async()=>{let db=await RT.get(DB_PATH);if(!db){db=seed();await RT.set(DB_PATH,db)}APP.db=db;render();RT.on(DB_PATH,val=>{if(val){APP.db=val;render()}})})();
 </script>
 </body>
 </html>
