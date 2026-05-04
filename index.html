@@ -122,6 +122,16 @@ const GRADE_TYPES = [
 ];
 
 const FIREBASE_CONFIG_KEY = 'eskola_firebase_config_v1';
+const DEFAULT_FIREBASE_CONFIG = {
+  apiKey: "AIzaSyBOG1TyQvTqBrljvaetqAiTT2SObYqKOe4",
+  authDomain: "helloworld-d6cf3.firebaseapp.com",
+  databaseURL: "https://helloworld-d6cf3-default-rtdb.firebaseio.com",
+  projectId: "helloworld-d6cf3",
+  storageBucket: "helloworld-d6cf3.firebasestorage.app",
+  messagingSenderId: "5547576635",
+  appId: "1:5547576635:web:3ae2abd72950da9a93fb1e",
+  measurementId: "G-641E84M8B6"
+};
 let firebaseRef = null;
 let firebaseStatus = 'local';
 let firebaseError = '';
@@ -241,7 +251,7 @@ function effectiveTeacherFor(scheduleId, date){
 function gradeClass(v){ return 'grade-'+Math.max(1,Math.min(5, Math.round(v))); }
 
 function getFirebaseConfig(){
-  try { return JSON.parse(localStorage.getItem(FIREBASE_CONFIG_KEY)||'null'); } catch(e){ return null; }
+  try { return JSON.parse(localStorage.getItem(FIREBASE_CONFIG_KEY)||'null') || DEFAULT_FIREBASE_CONFIG; } catch(e){ return DEFAULT_FIREBASE_CONFIG; }
 }
 function firebaseLabel(){
   if(firebaseStatus==='connected') return 'Firebase RTDB connected';
@@ -2504,6 +2514,7 @@ function openModal(title, bodyHTML, onSave){
 (function init(){
   try { const s=JSON.parse(localStorage.getItem('eskola_session')); if(s) session=s; } catch(e){}
   if(session){ const u=getUser(session.userId); if(u) view=defaultViewFor(u); else session=null; }
+  initFirebaseSync();
   render();
 })();
 </script>
