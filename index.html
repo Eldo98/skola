@@ -28,6 +28,7 @@
   .form-input { width:100%; margin-top:0.25rem; padding:0.58rem 0.85rem; border:1px solid var(--border); border-radius:0.85rem; outline:none; font-size:14px; background:white; transition:all .15s; }
   .form-input:focus { box-shadow: 0 0 0 3px rgba(37,99,235,.15); border-color:#93b7f5; }
   .badge { display:inline-flex; align-items:center; gap:4px; padding:4px 10px; border-radius:9999px; font-size:12px; font-weight:500; white-space:nowrap; border:1px solid rgba(148,163,184,.25);}
+  input.hw_mark:checked + .badge { outline:2px solid #2563eb; outline-offset:2px; }
   .tab-btn { padding: 10px 16px; font-weight: 600; color: #64748b; border-bottom: 2px solid transparent; cursor: pointer; font-size:14px; }
   .tab-btn.active { color: var(--primary); border-color: var(--primary); }
   .tab-btn:hover:not(.active) { color:#334155; }
@@ -105,8 +106,8 @@ const DEFAULT_DB = {
   substitutions: [],
   finalGrades: [], // { id,studentId,subjectId,semesterId,teacherId,value,previousValue,improved,popravniValue,popravniDate,note,status,ts }
   classNotes: [],
-  homework: [],    // { id,classId,subjectId,teacherId,title,description,assignedDate,dueDate }
-  assessments: [], // { id,classId,subjectId,teacherId,type,title,description,date,createdBy }
+  homework: [],    // { id,classId,subjectId,teacherId,scheduleId,title,description,assignedDate,dueDate,doneBy,marks:{studentId:'+'|'-'|'o'} }
+  assessments: [], // { id,classId,subjectId,teacherId,scheduleId,type,title,description,date,createdBy }
   messages: []     // { id,fromId,toId,subject,body,ts,readAt }
 };
 
@@ -176,8 +177,14 @@ function normalizeDB(data){
   });
   d.semesters.forEach(s=>{ if(typeof s.requiredGrades!=='number') s.requiredGrades=4; if(typeof s.closed!=='boolean') s.closed=false; });
   d.schedule.forEach(s=>{ if(typeof s.room==='undefined') s.room=''; });
+  d.homework.forEach(h=>{
+    if(!Array.isArray(h.doneBy)) h.doneBy=[];
+    if(typeof h.scheduleId==='undefined') h.scheduleId='';
+    if(!h.marks || typeof h.marks!=='object' || Array.isArray(h.marks)) h.marks={};
+    h.doneBy.forEach(id=>{ if(!h.marks[id]) h.marks[id]='+'; });
+  });
+  d.assessments.forEach(a=>{ if(typeof a.scheduleId==='undefined') a.scheduleId=''; });
   d.classSessions.forEach(cs=>{ if(!cs.privateNotes) cs.privateNotes={}; if(!Array.isArray(cs.grades)) cs.grades=[]; if(!Array.isArray(cs.attendance)) cs.attendance=[]; });
-  d.homework.forEach(h=>{ if(!h.reviews || Array.isArray(h.reviews)) h.reviews={}; });
   return d;
 }
 
@@ -240,7 +247,7 @@ function seedDB(){
     {id:'l5',subjectId:'s4',teacherId:'u8',title:'Drugi svjetski rat',content:'Uzroci, tok i posljedice.',createdAt:Date.now()}
   ];
   d.homework = [
-    { id:'h1', classId:'c1', subjectId:'s1', teacherId:'u2', title:'Riješiti zadatke 1-10', description:'Iz udžbenika strana 45.', assignedDate:'2025-09-15', dueDate:'2025-09-20', reviews:{} }
+    { id:'h1', classId:'c1', subjectId:'s1', teacherId:'u2', title:'Riješiti zadatke 1-10', description:'Iz udžbenika strana 45.', assignedDate:'2025-09-15', dueDate:'2025-09-20' }
   ];
   d.assessments = [
     { id:'a1', classId:'c1', subjectId:'s1', teacherId:'u2', type:'test', title:'Test iz linearnih jednačina', description:'Zadaci iz oblasti linearnih jednačina.', date:'2025-09-22', createdBy:'u2' }
@@ -263,6 +270,7 @@ function isHomeroom(userId){ return db.classes.some(c=>c.homeroomTeacherId===use
 function homeroomClassOf(userId){ return db.classes.find(c=>c.homeroomTeacherId===userId); }
 function pendingSubsForMe(userId){ return db.substitutions.filter(s=>s.originalTeacherId===userId && s.status==='pending').length; }
 function unreadMessagesFor(userId){ return db.messages.filter(m=>m.toId===userId && !m.readAt).length; }
+function teacherClassIds(userId){ return [...new Set(db.schedule.filter(s=>s.teacherId===userId).map(s=>s.classId))]; }
 function effectiveTeacherFor(scheduleId, date){
   const sub = db.substitutions.find(s=>s.scheduleId===scheduleId && s.date===date && s.status==='accepted');
   const sc = db.schedule.find(s=>s.id===scheduleId);
@@ -270,21 +278,67 @@ function effectiveTeacherFor(scheduleId, date){
   return sub ? sub.substituteTeacherId : sc.teacherId;
 }
 function gradeClass(v){ return 'grade-'+Math.max(1,Math.min(5, Math.round(v))); }
+function parseLocalDate(dateStr){
+  const [y,m,d]=(dateStr||todayStr()).split('-').map(Number);
+  return new Date(y, (m||1)-1, d||1);
+}
+function toDateStr(d){
+  const y=d.getFullYear();
+  const m=String(d.getMonth()+1).padStart(2,'0');
+  const day=String(d.getDate()).padStart(2,'0');
+  return `${y}-${m}-${day}`;
+}
 function startOfWeek(dateStr){
-  const d=new Date(dateStr||todayStr());
+  const d=parseLocalDate(dateStr||todayStr());
   const day=(d.getDay()+6)%7;
   d.setDate(d.getDate()-day);
-  return d.toISOString().slice(0,10);
+  return toDateStr(d);
 }
 function addDays(dateStr, days){
-  const d=new Date(dateStr||todayStr());
+  const d=parseLocalDate(dateStr||todayStr());
   d.setDate(d.getDate()+days);
-  return d.toISOString().slice(0,10);
+  return toDateStr(d);
 }
 function shortDate(dateStr){
   if(!dateStr) return '';
-  const d=new Date(dateStr);
+  const d=parseLocalDate(dateStr);
   return d.toLocaleDateString('bs-BA',{day:'2-digit',month:'2-digit'});
+}
+function isSameDate(a,b){ return (a||'') === (b||''); }
+function firstMatchingSlotId(item, date){
+  const day=(parseLocalDate(date).getDay()+6)%7;
+  const slots=db.schedule
+    .filter(s=>s.classId===item.classId && s.subjectId===item.subjectId && s.day===day)
+    .sort((a,b)=>a.period-b.period);
+  return slots[0]?.id || '';
+}
+function shouldShowHomeworkOnSlot(h, slot, date){
+  if(!isSameDate(h.dueDate, date)) return false;
+  return h.scheduleId ? h.scheduleId===slot.id : firstMatchingSlotId(h, date)===slot.id;
+}
+function shouldShowAssessmentOnSlot(a, slot, date){
+  if(!isSameDate(a.date, date)) return false;
+  return a.scheduleId ? a.scheduleId===slot.id : firstMatchingSlotId(a, date)===slot.id;
+}
+function homeworkMark(h, studentId){
+  if(!h.marks || typeof h.marks!=='object') h.marks={};
+  if(h.marks[studentId]) return h.marks[studentId];
+  return Array.isArray(h.doneBy) && h.doneBy.includes(studentId) ? '+' : 'o';
+}
+function setHomeworkMark(h, studentId, mark){
+  if(!h.marks || typeof h.marks!=='object') h.marks={};
+  h.marks[studentId]=mark;
+  h.doneBy=Object.entries(h.marks).filter(([_,v])=>v==='+').map(([id])=>id);
+}
+function homeworkDone(h, studentId){ return homeworkMark(h, studentId)==='+'; }
+function homeworkCounts(h){
+  const students=studentsOfClass(h.classId);
+  return students.reduce((acc,s)=>{ acc[homeworkMark(h,s.id)]++; return acc; }, {'+':0,'-':0,o:0,total:students.length});
+}
+function homeworkMarkBadge(mark){
+  const cls=mark==='+'?'bg-emerald-50 text-emerald-700':mark==='-'?'bg-red-50 text-red-700':'bg-slate-50 text-slate-600';
+  const label=mark==='+'?'+ urađeno':mark==='-'?'- nije':'○ čeka';
+  return `<span class="badge ${cls}">${label}</span>`;
 }
 function isTypingNow(){
   const a=document.activeElement;
@@ -476,6 +530,7 @@ function menuFor(user){
     { view:'admin-subjects', icon:'book-open', label:'Predmeti' },
     { view:'admin-semesters', icon:'calendar-range', label:'Semestri' },
     { view:'admin-schedule', icon:'calendar-days', label:'Raspored' },
+    { view:'admin-homework', icon:'clipboard-pen-line', label:'Pregled zadaća' },
     { view:'admin-assessments', icon:'file-check-2', label:'Ispitivanja' },
     { view:'admin-lessons', icon:'library', label:'Lekcije' },
     { view:'admin-substitutions', icon:'replace', label:'Zamjene' },
@@ -493,6 +548,7 @@ function menuFor(user){
       { view:'teacher-homework', icon:'clipboard-pen-line', label:'Zadaće' },
       { view:'teacher-sessions', icon:'clipboard-list',label:'Moji časovi' },
       { view:'teacher-grades',   icon:'star',          label:'Ocjene' },
+      { view:'teacher-conduct',  icon:'megaphone',     label:'Pohvale/Opomene' },
       { view:'teacher-finalize', icon:'check-circle-2',label:'Zaključivanje' },
       { view:'teacher-substitutions', icon:'replace', label:'Zamjene', badge: pendingSubsForMe(user.id)||null }
     ];
@@ -521,6 +577,7 @@ function renderView(){
     case 'admin-subjects': return renderAdminSubjects();
     case 'admin-semesters': return renderAdminSemesters();
     case 'admin-schedule': return renderAdminSchedule();
+    case 'admin-homework': return renderHomeworkOverview('admin');
     case 'admin-assessments': return renderAssessments('admin');
     case 'admin-lessons': return renderLessonsLibrary(true);
     case 'admin-substitutions': return renderAdminSubstitutions();
@@ -535,6 +592,7 @@ function renderView(){
     case 'teacher-homework': return renderTeacherHomework();
     case 'teacher-sessions': return renderTeacherSessions();
     case 'teacher-grades':   return renderTeacherGrades();
+    case 'teacher-conduct':  return renderTeacherConduct();
     case 'teacher-finalize': return renderTeacherFinalize();
     case 'teacher-substitutions': return renderTeacherSubstitutions();
     case 'teacher-homeroom': return renderTeacherHomeroom();
@@ -713,6 +771,50 @@ function renderFirebaseSettings(){
   return wrap;
 }
 
+/* ====== HOMEWORK OVERVIEW ====== */
+function homeworkScope(mode){
+  const me=getUser(session.userId);
+  if(mode==='admin') return db.homework.slice();
+  if(mode==='teacher') return db.homework.filter(h=>h.teacherId===me.id);
+  return db.homework.filter(h=>h.classId===me.classId);
+}
+function renderHomeworkOverview(mode='admin'){
+  const list=homeworkScope(mode).sort((a,b)=>(a.dueDate||a.assignedDate||'').localeCompare(b.dueDate||b.assignedDate||''));
+  const groups={};
+  list.forEach(h=>{
+    const key=h.dueDate || h.assignedDate || 'bez-datuma';
+    if(!groups[key]) groups[key]=[];
+    groups[key].push(h);
+  });
+  const dates=Object.keys(groups).sort();
+  return el(`<div>
+    ${pageHeader('Pregled zadaća','Zadaće su grupisane po tačnom datumu roka, ne po svim danima','clipboard-pen-line')}
+    <div class="p-8 space-y-4">
+      ${dates.length?dates.map(date=>`<div class="card overflow-hidden">
+        <div class="p-4 bg-slate-50 border-b border-slate-100 flex items-center justify-between flex-wrap gap-2">
+          <div class="font-bold flex items-center gap-2"><i data-lucide="calendar-days"></i> ${date==='bez-datuma'?'Bez datuma':date}</div>
+          <span class="badge bg-amber-50 text-amber-700">${groups[date].length} zadaća</span>
+        </div>
+        <table class="w-full text-sm">
+          <thead class="bg-white text-xs uppercase text-slate-500 text-left"><tr><th class="px-4 py-3">Razred</th><th class="px-4 py-3">Predmet</th><th class="px-4 py-3">Profesor</th><th class="px-4 py-3">Naslov</th><th class="px-4 py-3">Zadana</th><th class="px-4 py-3">Rok</th><th class="px-4 py-3">Urađeno</th><th class="px-4 py-3">Opis</th></tr></thead>
+          <tbody>
+            ${groups[date].map(h=>{ const cls=getClass(h.classId), sub=getSubject(h.subjectId), tch=getUser(h.teacherId); return `<tr class="border-t border-slate-100 hover:bg-slate-50">
+              <td class="px-4 py-3 font-medium">${cls?.name||''}</td>
+              <td class="px-4 py-3"><span class="badge text-white" style="background:${sub?.color||'#64748b'}">${sub?.name||''}</span></td>
+              <td class="px-4 py-3 text-slate-600">${tch?.name||''}</td>
+              <td class="px-4 py-3 font-bold">${h.title}</td>
+              <td class="px-4 py-3 font-mono text-xs">${h.assignedDate||'-'}</td>
+              <td class="px-4 py-3 font-mono text-xs">${h.dueDate||'-'}</td>
+              <td class="px-4 py-3">${(()=>{ const c=homeworkCounts(h); return `<div class="flex gap-1 flex-wrap"><span class="badge bg-emerald-50 text-emerald-700">+ ${c['+']}</span><span class="badge bg-red-50 text-red-700">- ${c['-']}</span><span class="badge bg-slate-50 text-slate-600">○ ${c.o}</span></div>`; })()}</td>
+              <td class="px-4 py-3 text-slate-600 max-w-md"><div class="line-clamp-2">${h.description||''}</div></td>
+            </tr>`; }).join('')}
+          </tbody>
+        </table>
+      </div>`).join(''):`<div class="card p-10 text-center text-slate-500">Nema zadaća.</div>`}
+    </div>
+  </div>`);
+}
+
 /* ====== ASSESSMENTS ====== */
 function assessmentLabel(type){ return ASSESSMENT_TYPES.find(t=>t.v===type)?.label || type || 'Ispitivanje'; }
 function assessmentScope(mode){
@@ -765,7 +867,7 @@ function renderAssessments(mode){
 function openAssessmentModal(id, mode, preset={}){
   const me=getUser(session.userId);
   const isAdmin = mode==='admin' || me.role==='admin';
-  const a=id?db.assessments.find(x=>x.id===id):{ id:uid('assess'), classId:preset.classId||'', subjectId:preset.subjectId||'', teacherId:isAdmin?'':me.id, type:'test', title:'', description:'', date:preset.date||todayStr(), createdBy:me.id };
+  const a=id?db.assessments.find(x=>x.id===id):{ id:uid('assess'), classId:preset.classId||'', subjectId:preset.subjectId||'', teacherId:isAdmin?'':me.id, scheduleId:preset.scheduleId||'', type:'test', title:'', description:'', date:preset.date||todayStr(), createdBy:me.id };
   const teacherScheds=isAdmin?db.schedule:db.schedule.filter(s=>s.teacherId===me.id);
   const classIds=[...new Set(teacherScheds.map(s=>s.classId))];
   if(!a.classId && classIds[0]) a.classId=classIds[0];
@@ -780,12 +882,16 @@ function openAssessmentModal(id, mode, preset={}){
         <div><label class="text-sm font-medium">Tip</label><select id="f_type" class="form-input">${ASSESSMENT_TYPES.map(t=>`<option value="${t.v}" ${a.type===t.v?'selected':''}>${t.label}</option>`).join('')}</select></div>
       </div>
       ${isAdmin?`<div><label class="text-sm font-medium">Profesor</label><select id="f_teacher" class="form-input"></select></div>`:''}
+      <div><label class="text-sm font-medium">Prikaži u rasporedu na času</label><select id="f_slot" class="form-input"></select>
+        <div class="text-xs text-slate-500 mt-1">Ako ima više časova istog predmeta na isti datum, ispitivanje će biti označeno samo na odabranom času.</div>
+      </div>
       <div><label class="text-sm font-medium">Naziv</label><input id="f_title" class="form-input" value="${a.title||''}" placeholder="npr. Test iz razlomaka"></div>
       <div><label class="text-sm font-medium">Opis</label><textarea id="f_desc" rows="4" class="form-input" placeholder="Gradivo, napomena, način ispitivanja...">${a.description||''}</textarea></div>
     </div>`, ()=>{
     a.classId=m.querySelector('#f_class').value;
     a.subjectId=m.querySelector('#f_subject').value;
     a.teacherId=isAdmin?m.querySelector('#f_teacher').value:me.id;
+    a.scheduleId=m.querySelector('#f_slot').value;
     a.type=m.querySelector('#f_type').value;
     a.date=m.querySelector('#f_date').value;
     a.title=m.querySelector('#f_title').value.trim();
@@ -806,9 +912,18 @@ function openAssessmentModal(id, mode, preset={}){
       if(!teacherIds.includes(a.teacherId)) a.teacherId=teacherIds[0]||'';
       m.querySelector('#f_teacher').innerHTML=teacherIds.map(tid=>`<option value="${tid}" ${a.teacherId===tid?'selected':''}>${getUser(tid)?.name||''}</option>`).join('');
     }
+    syncAssessmentSlots();
+  }
+  function syncAssessmentSlots(){
+    const cid=m.querySelector('#f_class').value;
+    const sid=m.querySelector('#f_subject').value || a.subjectId;
+    const tid=isAdmin?(m.querySelector('#f_teacher')?.value||a.teacherId):me.id;
+    const slots=db.schedule.filter(s=>s.classId===cid && s.subjectId===sid && (!tid||s.teacherId===tid)).sort((a,b)=>a.day-b.day||a.period-b.period);
+    m.querySelector('#f_slot').innerHTML='<option value="">Prvi odgovarajući čas tog datuma</option>'+slots.map(s=>`<option value="${s.id}" ${a.scheduleId===s.id?'selected':''}>${DAYS_SHORT[s.day]} · ${s.period+1}. čas (${PERIODS[s.period].s}) ${s.room?'· '+s.room:''}</option>`).join('');
   }
   m.querySelector('#f_class').addEventListener('change', syncSubjectsAndTeachers);
   m.querySelector('#f_subject').addEventListener('change', syncSubjectsAndTeachers);
+  m.querySelector('#f_teacher')?.addEventListener('change', syncAssessmentSlots);
   syncSubjectsAndTeachers();
 }
 
@@ -1248,8 +1363,8 @@ function buildScheduleGrid(opts){
               ${slots.map(slot=>{
                 const sub=getSubject(slot.subjectId), tch=getUser(slot.teacherId), cls=getClass(slot.classId);
                 const subbed = dateForSubs && db.substitutions.find(s=>s.scheduleId===slot.id && s.date===cellDate && s.status==='accepted');
-                const hw = db.homework.filter(h=>h.classId===slot.classId && h.subjectId===slot.subjectId && h.dueDate===cellDate);
-                const ass = db.assessments.filter(a=>a.classId===slot.classId && a.subjectId===slot.subjectId && a.date===cellDate);
+                const hw = db.homework.filter(h=>shouldShowHomeworkOnSlot(h, slot, cellDate));
+                const ass = db.assessments.filter(a=>shouldShowAssessmentOnSlot(a, slot, cellDate));
                 return `<div class="schedule-cell lesson-event rounded-xl p-3 text-xs ${onSlotClick?'cursor-pointer':''} ${subbed?'subbed':''}" data-slot="${slot.id}" data-date="${cellDate}" style="--event-color:${sub?.color||'#64748b'}">
                   <div class="font-extrabold text-[15px] leading-tight">${sub?.name||'?'}</div>
                   <div class="muted text-xs mt-1 flex items-center gap-1">
@@ -1473,6 +1588,7 @@ function renderClassSession(scheduleId, date){
     <div class="px-8 pt-4 border-b border-slate-200 flex gap-2 flex-wrap" id="csTabs">
       <button data-tab="main" class="tab-btn active"><i data-lucide="book-open" class="icon-sm inline"></i> Lekcija i prisustvo</button>
       <button data-tab="homework" class="tab-btn"><i data-lucide="clipboard-pen-line" class="icon-sm inline"></i> Zadaće (${subjectHomework.length})</button>
+      <button data-tab="assessments" class="tab-btn"><i data-lucide="file-check-2" class="icon-sm inline"></i> Ispitivanja (${db.assessments.filter(a=>a.classId===sc.classId && a.subjectId===sc.subjectId).length})</button>
       <button data-tab="private" class="tab-btn"><i data-lucide="sticky-note" class="icon-sm inline"></i> Moje napomene</button>
     </div>
     <div class="p-8" id="csBody"></div>
@@ -1490,6 +1606,7 @@ function renderClassSession(scheduleId, date){
     body.innerHTML='';
     if(tab==='main') body.appendChild(renderMainTab());
     else if(tab==='homework') body.appendChild(renderHomeworkTab());
+    else if(tab==='assessments') body.appendChild(renderAssessmentTab());
     else body.appendChild(renderPrivateTab());
     if(window.lucide) lucide.createIcons();
   }
@@ -1501,6 +1618,7 @@ function renderClassSession(scheduleId, date){
         <div class="text-xs text-slate-500 mb-3 bg-slate-50 rounded-lg p-2">
           <div><b>Klik</b> na učenika mijenja prisustvo</div>
           <div><b>Dvoklik</b> otvara unos ocjene</div>
+          <div>Dugmad <b>P</b>/<b>O</b> dodaju pohvalu ili opomenu.</div>
         </div>
         <div class="space-y-2 max-h-[500px] overflow-y-auto scrollbar-thin pr-2" id="studList"></div>
       </div>
@@ -1550,7 +1668,11 @@ function renderClassSession(scheduleId, date){
               <div class="text-xs text-slate-500">${st==='present'?'Prisutan/na':st==='absent'?'ODSUTAN/NA':'Kasni'}</div>
             </div>
             <div class="${iconColor}"><i data-lucide="${icon}"></i></div>
-            ${myGrades.length?`<div class="flex gap-1">${myGrades.map(g=>`<span class="grade-pill ${gradeClass(g.value)}" title="${g.note||''}">${g.value}</span>`).join('')}</div>`:''}
+            <div class="flex gap-1">
+              <button data-note-student="${s.id}" data-note-type="pohvala" class="px-2 py-1 rounded bg-emerald-50 text-emerald-700 text-xs font-bold hover:bg-emerald-100" title="Dodaj pohvalu">P</button>
+              <button data-note-student="${s.id}" data-note-type="opomena" class="px-2 py-1 rounded bg-red-50 text-red-700 text-xs font-bold hover:bg-red-100" title="Dodaj opomenu">O</button>
+            </div>
+            ${myGrades.length?`<div class="flex gap-1 flex-wrap">${myGrades.map(g=>`<span class="inline-flex items-center gap-0.5"><span class="grade-pill ${gradeClass(g.value)}" title="${g.note||''}">${g.value}${g.improved?'*':''}</span><button data-del-grade="${g.id}" class="text-red-500 hover:bg-red-50 rounded px-1" title="Obriši ocjenu"><i data-lucide="trash-2" class="icon-sm"></i></button></span>`).join('')}</div>`:''}
           </div>
         </div>`;
       }).join('') || '<div class="text-center text-slate-500 py-8">U razredu nema učenika.</div>';
@@ -1572,6 +1694,18 @@ function renderClassSession(scheduleId, date){
           openGradeModal(s_, r.dataset.stud, refreshStudents);
         });
       });
+      w.querySelectorAll('[data-del-grade]').forEach(b=>b.addEventListener('click', e=>{
+        e.stopPropagation();
+        if(semClosed){ alert('Semestar je zatvoren - ocjene se ne mogu brisati.'); return; }
+        if(confirm('Obrisati ovu ocjenu?')){
+          s_.grades=s_.grades.filter(g=>g.id!==b.dataset.delGrade);
+          saveDB(); refreshStudents();
+        }
+      }));
+      w.querySelectorAll('[data-note-student]').forEach(b=>b.addEventListener('click', e=>{
+        e.stopPropagation();
+        openBehaviorNoteModal({classId:sc.classId, studentId:b.dataset.noteStudent, type:b.dataset.noteType});
+      }));
     }
     refreshStudents();
 
@@ -1612,66 +1746,85 @@ function renderClassSession(scheduleId, date){
     w.querySelectorAll('.lesson-card').forEach(c=>{ c.addEventListener('dragstart', e=>e.dataTransfer.setData('text/lesson', c.dataset.lesson)); });
     w.querySelectorAll('[data-use]').forEach(b=>b.addEventListener('click', ()=>{ s_.lessonId=b.dataset.use; saveDB(); renderCurrent(); }));
     w.querySelector('#newLessonBtn').addEventListener('click', ()=>openLessonModal(null,false));
-    w.querySelector('#notesArea').addEventListener('input', e=>{ s_.notes=e.target.value; debouncedSaveDB(700); });
+    w.querySelector('#notesArea').addEventListener('input', e=>{ s_.notes=e.target.value; debouncedSaveDB(900); });
     return w;
   }
 
   function renderHomeworkTab(){
-    const w=el(`<div class="card p-6 max-w-5xl">
+    const dueOnThisDate=subjectHomework.filter(h=>isSameDate(h.dueDate, date));
+    const assignedOnThisDate=subjectHomework.filter(h=>isSameDate(h.assignedDate, date));
+    const w=el(`<div class="card p-6 max-w-3xl">
       <div class="flex items-center justify-between mb-4">
         <h2 class="font-bold flex items-center gap-2"><i data-lucide="clipboard-pen-line"></i> Zadaće za ${cls.name} - ${sub.name}</h2>
         <button id="addHW" class="btn btn-primary"><i data-lucide="plus"></i> Nova zadaća</button>
+      </div>
+      <div class="grid md:grid-cols-2 gap-3 mb-4">
+        <div class="bg-amber-50 border border-amber-100 rounded-xl p-4">
+          <div class="text-xs text-amber-700 font-semibold mb-1">Rok na datum časa (${date})</div>
+          ${dueOnThisDate.length?dueOnThisDate.map(h=>`<div class="text-sm font-medium">${h.title}</div>`).join(''):'<div class="text-sm text-slate-500">Nema zadaća sa rokom na ovaj datum.</div>'}
+        </div>
+        <div class="bg-blue-50 border border-blue-100 rounded-xl p-4">
+          <div class="text-xs text-blue-700 font-semibold mb-1">Zadano na datum časa (${date})</div>
+          ${assignedOnThisDate.length?assignedOnThisDate.map(h=>`<div class="text-sm font-medium">${h.title}</div>`).join(''):'<div class="text-sm text-slate-500">Nema zadaća zadanih na ovaj datum.</div>'}
+        </div>
       </div>
       <div class="space-y-3">
         ${subjectHomework.length?subjectHomework.slice().reverse().map(h=>`<div class="border border-slate-200 rounded-xl p-4">
           <div class="flex items-start justify-between gap-2">
             <div class="flex-1">
-              <div class="font-bold flex items-center gap-2 flex-wrap">${h.title} ${h.dueDate===date?'<span class="badge bg-blue-50 text-blue-700">danas</span>':''}</div>
+              <div class="font-bold">${h.title}</div>
               <div class="text-xs text-slate-500 mt-1">Zadana: ${h.assignedDate} · Rok: <b class="${h.dueDate<todayStr()?'text-red-600':'text-emerald-600'}">${h.dueDate||'-'}</b></div>
+              ${(()=>{ const c=homeworkCounts(h); return `<div class="text-xs mt-1 flex gap-1 flex-wrap"><span class="badge bg-emerald-50 text-emerald-700">+ ${c['+']}</span><span class="badge bg-red-50 text-red-700">- ${c['-']}</span><span class="badge bg-slate-50 text-slate-600">○ ${c.o}</span></div>`; })()}
               <p class="text-sm text-slate-700 mt-2 whitespace-pre-wrap">${h.description||''}</p>
             </div>
             <div class="flex gap-1">
+              <button data-mark-hw="${h.id}" class="btn btn-soft" style="padding:6px 10px;font-size:12px;"><i data-lucide="check-square" class="icon-sm"></i> Označi</button>
               <button data-edit-hw="${h.id}" class="btn-ghost"><i data-lucide="pencil"></i></button>
               <button data-del-hw="${h.id}" class="btn-ghost text-red-600 hover:bg-red-50"><i data-lucide="trash-2"></i></button>
-            </div>
-          </div>
-          <div class="mt-4 border-t border-slate-100 pt-3">
-            <div class="flex items-center justify-between gap-2 flex-wrap mb-2">
-              <div class="text-sm font-semibold flex items-center gap-2"><i data-lucide="list-checks" class="icon-sm"></i> Pregled zadaće po učeniku</div>
-              <div class="text-xs text-slate-500">+ urađeno · ○ polovično · - nije urađeno</div>
-            </div>
-            <div class="grid md:grid-cols-2 gap-2">
-              ${students.map(st=>{
-                const status=(h.reviews||{})[st.id]||'';
-                const btn=(val,label,clsName)=>`<button data-hw-review="${h.id}|${st.id}|${val}" class="px-2 py-1 rounded-lg border text-sm font-bold ${status===val?clsName:'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'}">${label}</button>`;
-                return `<div class="flex items-center gap-2 bg-slate-50 border border-slate-100 rounded-xl p-2">
-                  <div class="flex-1 min-w-0 text-sm font-medium truncate">${st.name}</div>
-                  <div class="flex gap-1">
-                    ${btn('plus','+','bg-emerald-600 text-white border-emerald-600')}
-                    ${btn('partial','○','bg-amber-500 text-white border-amber-500')}
-                    ${btn('minus','-','bg-red-600 text-white border-red-600')}
-                  </div>
-                </div>`;
-              }).join('')}
             </div>
           </div>
         </div>`).join(''):'<div class="text-center text-slate-500 py-8">Nema zadanih zadaća za ovaj predmet u ovom razredu.</div>'}
       </div>
     </div>`);
-    w.querySelector('#addHW').addEventListener('click', ()=>openHomeworkModal(null, sc.classId, sc.subjectId, me.id));
+    w.querySelector('#addHW').addEventListener('click', ()=>openHomeworkModal(null, sc.classId, sc.subjectId, me.id, sc.id));
+    w.querySelectorAll('[data-mark-hw]').forEach(b=>b.addEventListener('click', ()=>openHomeworkCheckModal(b.dataset.markHw)));
     w.querySelectorAll('[data-edit-hw]').forEach(b=>b.addEventListener('click', ()=>openHomeworkModal(b.dataset.editHw)));
     w.querySelectorAll('[data-del-hw]').forEach(b=>b.addEventListener('click', ()=>{
       if(confirm('Obrisati zadaću?')){ db.homework=db.homework.filter(h=>h.id!==b.dataset.delHw); saveDB(); render(); }
     }));
-    w.querySelectorAll('[data-hw-review]').forEach(b=>b.addEventListener('click', ()=>{
-      const [hwId, studentId, status]=b.dataset.hwReview.split('|');
-      const h=db.homework.find(x=>x.id===hwId);
-      if(!h) return;
-      if(!h.reviews) h.reviews={};
-      if(h.reviews[studentId]===status) delete h.reviews[studentId];
-      else h.reviews[studentId]=status;
-      saveDB();
-      renderTab('homework');
+    return w;
+  }
+
+  function renderAssessmentTab(){
+    const list=db.assessments.filter(a=>a.classId===sc.classId && a.subjectId===sc.subjectId).sort((a,b)=>(a.date||'').localeCompare(b.date||''));
+    const w=el(`<div class="card p-6 max-w-3xl">
+      <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
+        <h2 class="font-bold flex items-center gap-2"><i data-lucide="file-check-2"></i> Ispitivanja za ${cls.name} - ${sub.name}</h2>
+        <button id="addAssessHere" class="btn btn-primary"><i data-lucide="plus"></i> Novo ispitivanje</button>
+      </div>
+      <div class="space-y-3">
+        ${list.length?list.map(a=>`<div class="border border-slate-200 rounded-xl p-4">
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <div class="flex items-center gap-2 flex-wrap mb-1">
+                <span class="badge ${a.type==='test'?'bg-red-50 text-red-700':a.type==='oral'?'bg-blue-50 text-blue-700':'bg-amber-50 text-amber-700'}">${assessmentLabel(a.type)}</span>
+                <span class="badge bg-slate-50 text-slate-700"><i data-lucide="calendar" class="icon-sm"></i> ${a.date}</span>
+              </div>
+              <div class="font-bold">${a.title}</div>
+              <p class="text-sm text-slate-700 mt-1 whitespace-pre-wrap">${a.description||''}</p>
+            </div>
+            <div class="flex gap-1">
+              <button data-edit-a="${a.id}" class="btn-ghost"><i data-lucide="pencil"></i></button>
+              <button data-del-a="${a.id}" class="btn-ghost text-red-600 hover:bg-red-50"><i data-lucide="trash-2"></i></button>
+            </div>
+          </div>
+        </div>`).join(''):'<div class="text-center text-slate-500 py-8">Nema planiranih ispitivanja za ovaj predmet.</div>'}
+      </div>
+    </div>`);
+    w.querySelector('#addAssessHere').addEventListener('click', ()=>openAssessmentModal(null, 'teacher', { classId:sc.classId, subjectId:sc.subjectId, scheduleId:sc.id, date }));
+    w.querySelectorAll('[data-edit-a]').forEach(b=>b.addEventListener('click', ()=>openAssessmentModal(b.dataset.editA, 'teacher')));
+    w.querySelectorAll('[data-del-a]').forEach(b=>b.addEventListener('click', ()=>{
+      if(confirm('Obrisati ispitivanje?')){ db.assessments=db.assessments.filter(a=>a.id!==b.dataset.delA); saveDB(); render(); }
     }));
     return w;
   }
@@ -1709,7 +1862,7 @@ function renderClassSession(scheduleId, date){
     const ta=w.querySelector('#pn'); const sb=w.querySelector('#savePn');
     let t;
     ta.addEventListener('input', ()=>{
-      s_.privateNotes[me.id]=ta.value; debouncedSaveDB(700);
+      s_.privateNotes[me.id]=ta.value; debouncedSaveDB(900);
       sb.innerHTML='<i data-lucide="loader" class="animate-spin"></i> Spremam...'; if(window.lucide) lucide.createIcons();
       clearTimeout(t); t=setTimeout(()=>{ sb.innerHTML='<i data-lucide="check"></i> Spremljeno'; if(window.lucide) lucide.createIcons(); },300);
     });
@@ -1772,7 +1925,7 @@ function renderTeacherGrades(){
                 ${subs.map(sid=>{
                   const grades=collectGradesFor(s.id, sid, me.id, view.semesterId);
                   const avg=grades.length?(grades.reduce((a,b)=>a+b.value,0)/grades.length).toFixed(2):'-';
-                  return `<td class="px-4 py-2"><div class="flex items-center gap-1 flex-wrap">${grades.map(g=>`<button class="grade-pill ${gradeClass(g.value)}" data-improve-regular="${g.sessionId}|${g.id}" title="Klik za opcije - ${(GRADE_TYPES.find(t=>t.v===g.type)?.label)||''}: ${g.note||''}">${g.value}${g.improved?'*':''}</button>`).join('')}<span class="ml-1 text-xs text-slate-500">⌀ ${avg}</span></div></td>`;
+                  return `<td class="px-4 py-2"><div class="flex items-center gap-1 flex-wrap">${grades.map(g=>`<span class="inline-flex items-center gap-0.5"><button class="grade-pill ${gradeClass(g.value)}" data-improve-regular="${g.sessionId}|${g.id}" title="Klik za popravljanje - ${(GRADE_TYPES.find(t=>t.v===g.type)?.label)||''}: ${g.note||''}">${g.value}${g.improved?'*':''}</button><button data-delete-regular="${g.sessionId}|${g.id}" class="text-red-500 hover:bg-red-50 rounded px-1" title="Obriši ocjenu"><i data-lucide="trash-2" class="icon-sm"></i></button></span>`).join('')}<span class="ml-1 text-xs text-slate-500">⌀ ${avg}</span></div></td>`;
                 }).join('')}
               </tr>`).join('')}
             </tbody>
@@ -1785,6 +1938,10 @@ function renderTeacherGrades(){
   wrap.querySelectorAll('[data-improve-regular]').forEach(b=>b.addEventListener('click', ()=>{
     const [sessionId, gradeId]=b.dataset.improveRegular.split('|');
     openRegularGradeImproveModal(sessionId, gradeId);
+  }));
+  wrap.querySelectorAll('[data-delete-regular]').forEach(b=>b.addEventListener('click', ()=>{
+    const [sessionId, gradeId]=b.dataset.deleteRegular.split('|');
+    deleteRegularGrade(sessionId, gradeId);
   }));
   return wrap;
 }
@@ -1808,20 +1965,17 @@ function openRegularGradeImproveModal(sessionId, gradeId){
   if(sem?.closed){ alert('Semestar je zatvoren - ocjene se ne mogu mijenjati.'); return; }
   const student=getUser(grade.studentId);
   let selected=null;
-  const m=openModal(`Ocjena · ${student?.name||''}`, `
+  const m=openModal(`Popravljanje ocjene · ${student?.name||''}`, `
     <div class="space-y-3">
       <div class="bg-blue-50 border border-blue-100 rounded-lg p-3 text-sm">
-        Trenutna ocjena: <span class="grade-pill ${gradeClass(grade.value)}" style="display:inline-flex;">${grade.value}</span>
-        <div class="text-xs text-slate-600 mt-1">${(GRADE_TYPES.find(t=>t.v===grade.type)?.label)||'Ocjena'} · ${cs.date}${grade.note?' · '+grade.note:''}</div>
+        Trenutna ocjena: <span class="grade-pill ${gradeClass(grade.value)}" style="display:inline-flex;">${grade.value}</span>. Odaberite novu, veću ocjenu.
       </div>
       <div><label class="text-sm font-medium">Nova ocjena</label>
         <div class="flex gap-2 mt-2">
           ${[1,2,3,4,5].map(n=>`<button data-g="${n}" class="grade-pick flex-1 py-3 border-2 border-slate-200 rounded-lg font-bold text-xl hover:bg-blue-50 hover:border-blue-400 ${n<=grade.value?'opacity-40':''}" ${n<=grade.value?'disabled':''}>${n}</button>`).join('')}
         </div>
-        <div class="text-xs text-slate-500 mt-1">Ako je ocjena pogrešno unesena, koristite dugme "Izbriši ocjenu".</div>
       </div>
       <div><label class="text-sm font-medium">Napomena</label><input id="f_note" class="form-input" placeholder="npr. popravni odgovor, dodatni zadatak"></div>
-      <button id="deleteGradeBtn" class="btn btn-danger w-full justify-center" type="button"><i data-lucide="trash-2"></i> Izbriši ocjenu</button>
     </div>`, ()=>{
     if(!selected){ alert('Odaberite veću ocjenu.'); return false; }
     grade.previousValue=grade.value;
@@ -1831,18 +1985,23 @@ function openRegularGradeImproveModal(sessionId, gradeId){
     grade.improveNote=m.querySelector('#f_note').value.trim();
     saveDB(); render(); return true;
   });
-  m.querySelector('#deleteGradeBtn').addEventListener('click', ()=>{
-    if(!confirm('Izbrisati ovu ocjenu? Ova radnja se ne može poništiti.')) return;
-    cs.grades = cs.grades.filter(g=>g.id!==gradeId);
-    saveDB();
-    m.remove();
-    render();
-  });
   m.querySelectorAll('.grade-pick:not([disabled])').forEach(b=>b.addEventListener('click', ()=>{
     selected=+b.dataset.g;
     m.querySelectorAll('.grade-pick').forEach(x=>x.classList.remove('bg-blue-500','text-white','border-blue-500'));
     b.classList.add('bg-blue-500','text-white','border-blue-500');
   }));
+}
+
+function deleteRegularGrade(sessionId, gradeId){
+  const cs=db.classSessions.find(x=>x.id===sessionId);
+  const grade=cs?.grades?.find(g=>g.id===gradeId);
+  if(!cs||!grade) return;
+  const sem=getSemester(cs.semesterId||semesterForDate(cs.date)?.id);
+  if(sem?.closed){ alert('Semestar je zatvoren - ocjene se ne mogu brisati.'); return; }
+  if(confirm('Obrisati ovu ocjenu?')){
+    cs.grades=cs.grades.filter(g=>g.id!==gradeId);
+    saveDB(); render();
+  }
 }
 
 /* ====== TEACHER SESSIONS ====== */
@@ -2105,8 +2264,10 @@ function renderTeacherHomework(){
             <div class="text-xs text-slate-500 mt-3 flex items-center gap-3 flex-wrap">
               <span class="flex items-center gap-1"><i data-lucide="calendar" class="icon-sm"></i> Zadana: ${h.assignedDate}</span>
               <span class="flex items-center gap-1 ${overdue?'text-red-600':'text-emerald-600'}"><i data-lucide="flag" class="icon-sm"></i> Rok: ${h.dueDate||'-'}</span>
+              ${(()=>{ const c=homeworkCounts(h); return `<span class="flex items-center gap-1 text-emerald-600"><i data-lucide="check" class="icon-sm"></i> + ${c['+']} / - ${c['-']} / ○ ${c.o}</span>`; })()}
             </div>
             <div class="flex gap-1 mt-3 pt-3 border-t border-slate-100">
+              <button data-mark="${h.id}" class="btn btn-soft justify-center text-sm"><i data-lucide="check-square" class="icon-sm"></i> Označi</button>
               <button data-edit="${h.id}" class="flex-1 btn btn-soft justify-center text-sm"><i data-lucide="pencil" class="icon-sm"></i> Uredi</button>
               <button data-del="${h.id}" class="btn btn-danger"><i data-lucide="trash-2" class="icon-sm"></i></button>
             </div>
@@ -2116,6 +2277,7 @@ function renderTeacherHomework(){
     </div>
   </div>`);
   wrap.querySelector('#addBtn').addEventListener('click', ()=>openHomeworkModal(null));
+  wrap.querySelectorAll('[data-mark]').forEach(b=>b.addEventListener('click', ()=>openHomeworkCheckModal(b.dataset.mark)));
   wrap.querySelectorAll('[data-edit]').forEach(b=>b.addEventListener('click', ()=>openHomeworkModal(b.dataset.edit)));
   wrap.querySelectorAll('[data-del]').forEach(b=>b.addEventListener('click', ()=>{
     if(confirm('Obrisati zadaću?')){ db.homework=db.homework.filter(h=>h.id!==b.dataset.del); saveDB(); render(); }
@@ -2123,9 +2285,9 @@ function renderTeacherHomework(){
   return wrap;
 }
 
-function openHomeworkModal(id, presetClassId, presetSubjectId, presetTeacherId){
+function openHomeworkModal(id, presetClassId, presetSubjectId, presetTeacherId, presetScheduleId=''){
   const me=getUser(session.userId);
-  const h=id?db.homework.find(x=>x.id===id):{ id:uid('hw'), classId:presetClassId||'', subjectId:presetSubjectId||'', teacherId:presetTeacherId||me.id, title:'', description:'', assignedDate:todayStr(), dueDate:'' };
+  const h=id?db.homework.find(x=>x.id===id):{ id:uid('hw'), classId:presetClassId||'', subjectId:presetSubjectId||'', teacherId:presetTeacherId||me.id, scheduleId:presetScheduleId||'', title:'', description:'', assignedDate:todayStr(), dueDate:'', doneBy:[], marks:{} };
   // razredi koje predaje
   const myScheds = db.schedule.filter(s=>s.teacherId===me.id);
   const myClasses = [...new Set(myScheds.map(s=>s.classId))];
@@ -2142,6 +2304,9 @@ function openHomeworkModal(id, presetClassId, presetSubjectId, presetTeacherId){
         <div><label class="text-sm font-medium">Zadana</label><input id="f_a" type="date" class="form-input" value="${h.assignedDate}"></div>
         <div><label class="text-sm font-medium">Rok</label><input id="f_due" type="date" class="form-input" value="${h.dueDate||''}"></div>
       </div>
+      <div><label class="text-sm font-medium">Prikaži u rasporedu na času</label><select id="f_slot" class="form-input"></select>
+        <div class="text-xs text-slate-500 mt-1">Ako ima više časova istog predmeta na isti datum, zadaća će se prikazati samo na ovdje odabranom času.</div>
+      </div>
     </div>
   `, ()=>{
     h.classId=m.querySelector('#f_cls').value;
@@ -2150,6 +2315,9 @@ function openHomeworkModal(id, presetClassId, presetSubjectId, presetTeacherId){
     h.description=m.querySelector('#f_d').value.trim();
     h.assignedDate=m.querySelector('#f_a').value;
     h.dueDate=m.querySelector('#f_due').value;
+    h.scheduleId=m.querySelector('#f_slot').value;
+    if(!Array.isArray(h.doneBy)) h.doneBy=[];
+    if(!h.marks || typeof h.marks!=='object') h.marks={};
     if(!h.title||!h.classId||!h.subjectId){ alert('Razred, predmet i naslov su obavezni'); return false; }
     if(id) Object.assign(db.homework.find(x=>x.id===id),h); else db.homework.push(h);
     saveDB(); render(); return true;
@@ -2158,8 +2326,41 @@ function openHomeworkModal(id, presetClassId, presetSubjectId, presetTeacherId){
     const cid=m.querySelector('#f_cls').value;
     const subsForClass=[...new Set(db.schedule.filter(s=>s.teacherId===me.id && s.classId===cid).map(s=>s.subjectId))];
     m.querySelector('#f_sub').innerHTML = subsForClass.map(sid=>`<option value="${sid}" ${h.subjectId===sid?'selected':''}>${getSubject(sid)?.name}</option>`).join('');
+    syncSlots();
   }
-  m.querySelector('#f_cls').addEventListener('change', syncSubs); syncSubs();
+  function syncSlots(){
+    const cid=m.querySelector('#f_cls').value;
+    const sid=m.querySelector('#f_sub').value || h.subjectId;
+    const slots=db.schedule.filter(s=>s.teacherId===me.id && s.classId===cid && s.subjectId===sid).sort((a,b)=>a.day-b.day||a.period-b.period);
+    m.querySelector('#f_slot').innerHTML='<option value="">Prvi odgovarajući čas tog datuma</option>'+slots.map(s=>`<option value="${s.id}" ${h.scheduleId===s.id?'selected':''}>${DAYS_SHORT[s.day]} · ${s.period+1}. čas (${PERIODS[s.period].s}) ${s.room?'· '+s.room:''}</option>`).join('');
+  }
+  m.querySelector('#f_cls').addEventListener('change', syncSubs);
+  m.querySelector('#f_sub').addEventListener('change', syncSlots);
+  syncSubs();
+}
+
+function openHomeworkCheckModal(homeworkId){
+  const h=db.homework.find(x=>x.id===homeworkId); if(!h) return;
+  if(!Array.isArray(h.doneBy)) h.doneBy=[];
+  if(!h.marks || typeof h.marks!=='object') h.marks={};
+  const sts=studentsOfClass(h.classId);
+  const m=openModal(`Označavanje zadaće · ${h.title}`, `
+    <div class="space-y-3">
+      <div class="bg-slate-50 border border-slate-100 rounded-xl p-3 text-sm text-slate-600">Označite zadaću: <b>+</b> urađeno, <b>-</b> nije urađeno, <b>○</b> čeka/nepregledano.</div>
+      <div class="space-y-2 max-h-72 overflow-y-auto scrollbar-thin">
+        ${sts.map(s=>{ const mark=homeworkMark(h,s.id); return `<div class="flex items-center justify-between gap-3 p-3 border border-slate-200 rounded-xl hover:bg-slate-50">
+          <span class="font-medium">${s.name}</span>
+          <div class="flex gap-1">
+            <label class="cursor-pointer"><input type="radio" name="hw_${s.id}" class="hw_mark sr-only" value="+" data-student="${s.id}" ${mark==='+'?'checked':''}><span class="badge bg-emerald-50 text-emerald-700">+</span></label>
+            <label class="cursor-pointer"><input type="radio" name="hw_${s.id}" class="hw_mark sr-only" value="-" data-student="${s.id}" ${mark==='-'?'checked':''}><span class="badge bg-red-50 text-red-700">-</span></label>
+            <label class="cursor-pointer"><input type="radio" name="hw_${s.id}" class="hw_mark sr-only" value="o" data-student="${s.id}" ${mark==='o'?'checked':''}><span class="badge bg-slate-50 text-slate-600">○</span></label>
+          </div>
+        </div>`; }).join('')}
+      </div>
+    </div>`, ()=>{
+    m.querySelectorAll('.hw_mark:checked').forEach(input=>setHomeworkMark(h, input.dataset.student, input.value));
+    saveDB(); render(); return true;
+  });
 }
 
 /* ====== TEACHER SUBSTITUTIONS ====== */
@@ -2264,6 +2465,89 @@ function openSubRequestModal(){
   build();
 }
 
+/* ====== TEACHER CONDUCT NOTES ====== */
+function renderTeacherConduct(){
+  const me=getUser(session.userId);
+  if(!view.classId){
+    const ids=teacherClassIds(me.id);
+    view.classId=ids[0] || homeroomClassOf(me.id)?.id || db.classes[0]?.id;
+  }
+  if(!view.noteType) view.noteType='all';
+  const classIds=teacherClassIds(me.id);
+  const cls=getClass(view.classId);
+  const allowedStudentIds=cls?studentsOfClass(cls.id).map(s=>s.id):[];
+  const list=db.classNotes.filter(n=>
+    (!cls || n.classId===cls.id) &&
+    (view.noteType==='all' || n.type===view.noteType) &&
+    (n.byTeacherId===me.id || isHomeroom(me.id))
+  ).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  const wrap=el(`<div>
+    ${pageHeader('Pohvale i opomene','Evidencija odgojnih bilješki koje unosite za učenike','megaphone',
+      `<select id="clsSel" class="form-input" style="width:auto;">
+        ${classIds.map(cid=>`<option value="${cid}" ${cid===view.classId?'selected':''}>${getClass(cid)?.name||''}</option>`).join('')}
+      </select>
+      <select id="typeSel" class="form-input" style="width:auto;">
+        <option value="all" ${view.noteType==='all'?'selected':''}>Sve</option>
+        <option value="pohvala" ${view.noteType==='pohvala'?'selected':''}>Pohvale</option>
+        <option value="opomena" ${view.noteType==='opomena'?'selected':''}>Opomene</option>
+      </select>
+      <button id="addPraise" class="btn btn-primary"><i data-lucide="thumbs-up"></i> Pohvala</button>
+      <button id="addWarning" class="btn btn-danger"><i data-lucide="alert-triangle"></i> Opomena</button>`)}
+    <div class="p-8 space-y-4">
+      <div class="grid md:grid-cols-3 gap-4">
+        <div class="card p-5"><div class="text-sm text-slate-500">Pohvale u razredu</div><div class="text-3xl font-bold text-emerald-600">${db.classNotes.filter(n=>n.classId===view.classId&&n.type==='pohvala').length}</div></div>
+        <div class="card p-5"><div class="text-sm text-slate-500">Opomene u razredu</div><div class="text-3xl font-bold text-red-600">${db.classNotes.filter(n=>n.classId===view.classId&&n.type==='opomena').length}</div></div>
+        <div class="card p-5"><div class="text-sm text-slate-500">Vaših zapisa</div><div class="text-3xl font-bold">${db.classNotes.filter(n=>n.classId===view.classId&&n.byTeacherId===me.id).length}</div></div>
+      </div>
+      <div class="card overflow-hidden">
+        ${list.length?`<table class="w-full text-sm">
+          <thead class="bg-slate-50 text-xs uppercase text-slate-500 text-left"><tr><th class="px-4 py-3">Datum</th><th class="px-4 py-3">Tip</th><th class="px-4 py-3">Učenik</th><th class="px-4 py-3">Unio</th><th class="px-4 py-3">Tekst</th><th class="px-4 py-3 text-right">Akcije</th></tr></thead>
+          <tbody>
+            ${list.map(n=>{ const s=getUser(n.studentId), t=getUser(n.byTeacherId); return `<tr class="border-t border-slate-100 hover:bg-slate-50">
+              <td class="px-4 py-3 font-mono text-xs">${n.date}</td>
+              <td class="px-4 py-3"><span class="badge ${n.type==='pohvala'?'bg-emerald-50 text-emerald-700':'bg-red-50 text-red-700'}">${n.type==='pohvala'?'Pohvala':'Opomena'}</span></td>
+              <td class="px-4 py-3 font-medium">${s?.name||''}</td>
+              <td class="px-4 py-3 text-slate-600">${t?.name||''}</td>
+              <td class="px-4 py-3 text-slate-700 max-w-xl"><div class="line-clamp-2">${n.text}</div></td>
+              <td class="px-4 py-3 text-right">${n.byTeacherId===me.id||isHomeroom(me.id)?`<button data-del-note="${n.id}" class="btn btn-danger" style="padding:5px 10px;font-size:12px;"><i data-lucide="trash-2" class="icon-sm"></i> Obriši</button>`:''}</td>
+            </tr>`; }).join('')}
+          </tbody>
+        </table>`:`<div class="p-10 text-center text-slate-500">Nema zapisa za odabrani filter.</div>`}
+      </div>
+    </div>
+  </div>`);
+  wrap.querySelector('#clsSel')?.addEventListener('change', e=>{ view.classId=e.target.value; render(); });
+  wrap.querySelector('#typeSel')?.addEventListener('change', e=>{ view.noteType=e.target.value; render(); });
+  wrap.querySelector('#addPraise').addEventListener('click', ()=>openBehaviorNoteModal({classId:view.classId,type:'pohvala'}));
+  wrap.querySelector('#addWarning').addEventListener('click', ()=>openBehaviorNoteModal({classId:view.classId,type:'opomena'}));
+  wrap.querySelectorAll('[data-del-note]').forEach(b=>b.addEventListener('click', ()=>{
+    if(confirm('Obrisati zapis?')){ db.classNotes=db.classNotes.filter(n=>n.id!==b.dataset.delNote); saveDB(); render(); }
+  }));
+  return wrap;
+}
+
+function openBehaviorNoteModal({classId, studentId='', type='pohvala'}={}){
+  const me=getUser(session.userId);
+  const cls=getClass(classId) || getClass(getUser(studentId)?.classId) || getClass(teacherClassIds(me.id)[0]);
+  const students=cls?studentsOfClass(cls.id):[];
+  const m=openModal(type==='pohvala'?'Nova pohvala':'Nova opomena', `
+    <div class="space-y-3">
+      <div><label class="text-sm font-medium">Razred</label><input class="form-input" value="${cls?.name||''}" disabled></div>
+      <div><label class="text-sm font-medium">Učenik</label>
+        <select id="f_student" class="form-input">${students.map(s=>`<option value="${s.id}" ${s.id===studentId?'selected':''}>${s.name}</option>`).join('')}</select></div>
+      <div><label class="text-sm font-medium">Tip</label>
+        <select id="f_type" class="form-input"><option value="pohvala" ${type==='pohvala'?'selected':''}>Pohvala</option><option value="opomena" ${type==='opomena'?'selected':''}>Opomena</option></select></div>
+      <div><label class="text-sm font-medium">Tekst</label><textarea id="f_text" rows="4" class="form-input" placeholder="Upišite razlog i detalje..."></textarea></div>
+    </div>`, ()=>{
+    const sid=m.querySelector('#f_student').value;
+    const t=m.querySelector('#f_type').value;
+    const text=m.querySelector('#f_text').value.trim();
+    if(!sid||!text){ alert('Odaberite učenika i unesite tekst.'); return false; }
+    db.classNotes.push({ id:uid('n'), studentId:sid, classId:cls.id, type:t, text, byTeacherId:me.id, date:todayStr() });
+    saveDB(); render(); return true;
+  });
+}
+
 /* ====== TEACHER HOMEROOM ====== */
 function renderTeacherHomeroom(){
   const me=getUser(session.userId);
@@ -2284,6 +2568,7 @@ function renderTeacherHomeroom(){
       <button data-tab="commendations" class="tab-btn ${view.hrTab==='commendations'?'active':''}"><i data-lucide="thumbs-up" class="icon-sm inline"></i> Pohvale</button>
       <button data-tab="warnings" class="tab-btn ${view.hrTab==='warnings'?'active':''}"><i data-lucide="alert-triangle" class="icon-sm inline"></i> Opomene</button>
       <button data-tab="overview" class="tab-btn ${view.hrTab==='overview'?'active':''}"><i data-lucide="users" class="icon-sm inline"></i> Pregled</button>
+      <button data-tab="timeline" class="tab-btn ${view.hrTab==='timeline'?'active':''}"><i data-lucide="list-checks" class="icon-sm inline"></i> Sve</button>
     </div>
     <div class="p-8" id="hrBody"></div>
   </div>`);
@@ -2294,6 +2579,7 @@ function renderTeacherHomeroom(){
   if(view.hrTab==='absences') body.appendChild(renderHRAbsences(cls, sts));
   else if(view.hrTab==='commendations') body.appendChild(renderHRNotes(cls, sts, 'pohvala'));
   else if(view.hrTab==='warnings') body.appendChild(renderHRNotes(cls, sts, 'opomena'));
+  else if(view.hrTab==='timeline') body.appendChild(renderHRTimeline(cls, sts));
   else body.appendChild(renderHROverview(cls, sts));
   return wrap;
 }
@@ -2411,6 +2697,38 @@ function renderHROverview(cls, sts){
   </div>`);
 }
 
+function renderHRTimeline(cls, sts){
+  const semId=view.semesterId;
+  const studentIds=sts.map(s=>s.id);
+  const rows=[];
+  db.classNotes.filter(n=>n.classId===cls.id).forEach(n=>rows.push({date:n.date,type:n.type,studentId:n.studentId,by:n.byTeacherId,text:n.text,icon:n.type==='pohvala'?'thumbs-up':'alert-triangle'}));
+  db.classSessions.forEach(cs=>{
+    const sc=db.schedule.find(s=>s.id===cs.scheduleId); if(!sc||sc.classId!==cls.id) return;
+    if(semId){ const sid=cs.semesterId||semesterForDate(cs.date)?.id; if(sid!==semId) return; }
+    (cs.attendance||[]).filter(a=>studentIds.includes(a.studentId)&&a.status!=='present').forEach(a=>rows.push({date:cs.date,type:a.status==='absent'?'odsustvo':'kašnjenje',studentId:a.studentId,by:cs.conductedBy||sc.teacherId,text:`${getSubject(sc.subjectId)?.name||''} - ${a.status==='absent'?'odsutan':'kasni'}`,icon:a.status==='absent'?'user-x':'clock'}));
+    (cs.grades||[]).filter(g=>studentIds.includes(g.studentId)).forEach(g=>rows.push({date:cs.date,type:'ocjena',studentId:g.studentId,by:cs.conductedBy||sc.teacherId,text:`${getSubject(sc.subjectId)?.name||''}: ocjena ${g.value}${g.note?' - '+g.note:''}`,icon:'star'}));
+  });
+  db.homework.filter(h=>h.classId===cls.id).forEach(h=>rows.push({date:h.dueDate||h.assignedDate,type:'zadaća',studentId:null,by:h.teacherId,text:`${getSubject(h.subjectId)?.name||''}: ${h.title}`,icon:'clipboard-pen-line'}));
+  db.assessments.filter(a=>a.classId===cls.id).forEach(a=>rows.push({date:a.date,type:'ispitivanje',studentId:null,by:a.teacherId,text:`${getSubject(a.subjectId)?.name||''}: ${assessmentLabel(a.type)} - ${a.title}`,icon:'file-check-2'}));
+  db.finalGrades.filter(f=>studentIds.includes(f.studentId) && (!semId||f.semesterId===semId)).forEach(f=>rows.push({date:new Date(f.ts||Date.now()).toISOString().slice(0,10),type:'zaključna',studentId:f.studentId,by:f.teacherId,text:`${getSubject(f.subjectId)?.name||''}: zaključna ${f.value}`,icon:'check-circle-2'}));
+  rows.sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  return el(`<div class="card overflow-hidden">
+    <div class="p-4 border-b border-slate-100 font-bold flex items-center gap-2"><i data-lucide="list-checks"></i> Kompletna evidencija razreda ${cls.name}</div>
+    ${rows.length?`<table class="w-full text-sm">
+      <thead class="bg-slate-50 text-xs uppercase text-slate-500 text-left"><tr><th class="px-4 py-3">Datum</th><th class="px-4 py-3">Tip</th><th class="px-4 py-3">Učenik</th><th class="px-4 py-3">Unio</th><th class="px-4 py-3">Detalj</th></tr></thead>
+      <tbody>
+        ${rows.map(r=>`<tr class="border-t border-slate-100 hover:bg-slate-50">
+          <td class="px-4 py-3 font-mono text-xs">${r.date||'-'}</td>
+          <td class="px-4 py-3"><span class="badge bg-slate-50 text-slate-700"><i data-lucide="${r.icon}" class="icon-sm"></i> ${r.type}</span></td>
+          <td class="px-4 py-3 font-medium">${r.studentId?(getUser(r.studentId)?.name||''):'cijeli razred'}</td>
+          <td class="px-4 py-3 text-slate-600">${getUser(r.by)?.name||''}</td>
+          <td class="px-4 py-3 text-slate-700">${r.text||''}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table>`:`<div class="p-10 text-center text-slate-500">Nema zapisa.</div>`}
+  </div>`);
+}
+
 /* ====== ADMIN SUBSTITUTIONS ====== */
 function renderAdminSubstitutions(){
   return el(`<div>
@@ -2520,18 +2838,22 @@ function renderStudentDashboard(){
 /* student schedule - cells klikabilne za info modal */
 function renderStudentSchedule(){
   const me=getUser(session.userId);
+  if(!view.date) view.date=todayStr();
   const wrap=el(`<div>
-    ${pageHeader('Raspored', `Razred ${getClass(me.classId)?.name||''}`,'calendar-days')}
+    ${pageHeader('Raspored', `Razred ${getClass(me.classId)?.name||''}`,'calendar-days',
+      `<input id="dateSel" type="date" class="form-input" style="width:auto;" value="${view.date}">`)}
     <div class="p-8"></div>
   </div>`);
+  wrap.querySelector('#dateSel').addEventListener('change', e=>{ view.date=e.target.value; render(); });
   wrap.querySelector('.p-8').appendChild(buildScheduleGrid({
     classId: me.classId,
-    onSlotClick: (slotId)=>openStudentClassInfoModal(slotId)
+    dateForSubs: view.date,
+    onSlotClick: (slotId,date)=>openStudentClassInfoModal(slotId,date)
   }));
   return wrap;
 }
 
-function openStudentClassInfoModal(scheduleId){
+function openStudentClassInfoModal(scheduleId, date){
   const sc=db.schedule.find(s=>s.id===scheduleId);
   if(!sc) return;
   const sub=getSubject(sc.subjectId), tch=getUser(sc.teacherId), cls=getClass(sc.classId);
@@ -2540,7 +2862,7 @@ function openStudentClassInfoModal(scheduleId){
       <div class="p-6 text-white" style="background:${sub?.color||'#64748b'}">
         <div class="flex items-center justify-between">
           <div>
-            <div class="text-xs opacity-80">${DAYS[sc.day]}</div>
+            <div class="text-xs opacity-80">${DAYS[sc.day]}${date?' · '+date:''}</div>
             <div class="text-2xl font-bold">${sub?.name||''}</div>
             <div class="text-sm opacity-90 mt-1">${PERIODS[sc.period].s} – ${PERIODS[sc.period].e}</div>
           </div>
@@ -2564,6 +2886,10 @@ function openStudentClassInfoModal(scheduleId){
           <div class="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center"><i data-lucide="clock"></i></div>
           <div><div class="text-xs text-slate-500">Trajanje</div><div class="font-semibold">${sc.period+1}. čas (45 min)</div></div>
         </div>
+        ${date?`<div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center"><i data-lucide="calendar-days"></i></div>
+          <div><div class="text-xs text-slate-500">Datum</div><div class="font-semibold">${date}</div></div>
+        </div>`:''}
       </div>
     </div>
   </div>`);
@@ -2637,7 +2963,7 @@ function renderStudentHomework(){
   const me=getUser(session.userId);
   const list=db.homework.filter(h=>h.classId===me.classId).sort((a,b)=>(b.dueDate||'').localeCompare(a.dueDate||''));
   const today=todayStr();
-  return el(`<div>
+  const wrap=el(`<div>
     ${pageHeader('Zadaće',`Pregled zadaća za razred ${getClass(me.classId)?.name||''}`,'clipboard-pen-line')}
     <div class="p-8">
       <div class="grid md:grid-cols-2 gap-4">
@@ -2645,10 +2971,13 @@ function renderStudentHomework(){
           const sub=getSubject(h.subjectId), tch=getUser(h.teacherId);
           const overdue=h.dueDate && h.dueDate<today;
           const soon = h.dueDate && !overdue && (new Date(h.dueDate)-new Date(today))/(1000*60*60*24)<=3;
+          const mark=homeworkMark(h, me.id);
+          const done=mark==='+';
           return `<div class="card p-5">
             <div class="flex items-center gap-2 mb-2 flex-wrap">
               <span class="badge text-white" style="background:${sub?.color}">${sub?.name||''}</span>
               ${overdue?'<span class="badge bg-slate-100 text-slate-600">isteklo</span>':soon?'<span class="badge bg-red-50 text-red-700">uskoro!</span>':'<span class="badge bg-emerald-50 text-emerald-700">aktivno</span>'}
+              ${homeworkMarkBadge(mark)}
             </div>
             <h3 class="font-bold">${h.title}</h3>
             <p class="text-sm text-slate-700 mt-2 whitespace-pre-wrap">${h.description||''}</p>
@@ -2656,11 +2985,18 @@ function renderStudentHomework(){
               <span class="flex items-center gap-1"><i data-lucide="user" class="icon-sm"></i> ${tch?.name||''}</span>
               <span class="flex items-center gap-1 ${overdue?'text-red-600':soon?'text-amber-600':'text-emerald-600'}"><i data-lucide="flag" class="icon-sm"></i> Rok: <b>${h.dueDate||'-'}</b></span>
             </div>
+            <button data-toggle-hw="${h.id}" class="btn ${done?'btn-soft':'btn-primary'} mt-3 w-full justify-center"><i data-lucide="${done?'rotate-ccw':'check'}"></i> ${done?'Vrati na ○':'Označi +'}</button>
           </div>`;
         }).join('')||'<div class="col-span-2 text-center text-slate-500 py-12 card">Nema dodijeljenih zadaća.</div>'}
       </div>
     </div>
   </div>`);
+  wrap.querySelectorAll('[data-toggle-hw]').forEach(b=>b.addEventListener('click', ()=>{
+    const h=db.homework.find(x=>x.id===b.dataset.toggleHw); if(!h) return;
+    setHomeworkMark(h, me.id, homeworkMark(h, me.id)==='+' ? 'o' : '+');
+    saveDB(); render();
+  }));
+  return wrap;
 }
 
 function renderStudentAbsences(){
