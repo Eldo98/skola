@@ -71,6 +71,7 @@
   .page-subtitle{ font-size:13px; color:var(--muted); }
   .schedule-board{ background:white; border:1px solid var(--border); border-radius:18px; box-shadow:var(--shadow); overflow:hidden; }
   .schedule-board .grid{ min-width:980px; }
+  .mobile-schedule{ display:none; }
   .schedule-head{ background:#f6f8fb; color:#0f172a; border-color:var(--border) !important; }
   .schedule-head.today{ background:#edf4ff; color:#0c4a9b; }
   .schedule-time{ background:#f6f8fb; color:#52627a; }
@@ -82,6 +83,34 @@
   body.high-contrast{ --bg:#f7f9fc; --primary:#0f4c81; --primary-50:#e8f2ff; }
   .app-main > div > .bg-white.border-b.border-slate-200{ border:1px solid var(--border)!important; border-radius:20px; box-shadow:var(--shadow); }
   @media (max-width: 980px){ .app-frame{ width:calc(100vw - 24px); padding-top:20px; } .workspace{ grid-template-columns:1fr; } .sidebar-card{ position:static; } }
+  @media (max-width: 700px){
+    .app-shell{ background:linear-gradient(180deg,var(--navy) 0 10px,var(--bg) 10px 100%); }
+    .app-frame{ width:calc(100vw - 16px); padding:14px 0 22px; }
+    .top-card{ border-radius:18px; padding:12px; align-items:flex-start; }
+    .top-card .status-chip{ height:28px; padding:0 9px; font-size:12px; }
+    .top-card .status-chip:nth-of-type(3){ display:none; }
+    .workspace{ gap:10px; margin-top:10px; }
+    .sidebar-card{ border-radius:16px; padding:10px; overflow:hidden; }
+    .menu-caption{ display:none; }
+    .sidebar-card nav{ display:flex; gap:8px; overflow-x:auto; padding-bottom:4px; }
+    .menu-item{ flex:0 0 auto; padding:10px 12px; font-size:13px; white-space:nowrap; border-radius:12px; }
+    .menu-item span.flex-1{ flex:0 0 auto; }
+    .page-toolbar{ border-radius:16px; padding:14px; gap:10px; }
+    .page-title{ font-size:18px; }
+    .page-subtitle{ white-space:normal; }
+    .app-main > div{ gap:10px; }
+    .desktop-schedule{ display:none; }
+    .mobile-schedule{ display:block; }
+    .mobile-day-card{ background:#fff; border:1px solid var(--border); border-radius:16px; box-shadow:var(--shadow); overflow:hidden; }
+    .mobile-day-head{ padding:13px 14px; background:#f6f8fb; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; }
+    .mobile-event{ background:#fff; border:1px solid #dbe3ef; border-left:4px solid var(--event-color,#2563eb); border-radius:13px; padding:12px; }
+    .card.overflow-hidden{ overflow-x:auto; }
+    .card table{ min-width:720px; }
+    #csTabs, .px-8.pt-4.border-b.border-slate-200.flex{ overflow-x:auto; padding-left:12px!important; padding-right:12px!important; }
+    .tab-btn{ flex:0 0 auto; }
+    .p-8{ padding:12px!important; }
+    .grid.lg\:grid-cols-3, .grid.md\:grid-cols-4, .grid.md\:grid-cols-3, .grid.md\:grid-cols-2{ grid-template-columns:1fr!important; }
+  }
 </style>
 </head>
 <body class="min-h-screen">
@@ -1328,7 +1357,68 @@ function buildScheduleGrid(opts){
   const { classId=null, teacherId=null, editable=false, dateForSubs=null, onSlotClick=null } = opts;
   const todayDow = (new Date().getDay()+6)%7;
   const weekStart = startOfWeek(dateForSubs || todayStr());
-  const tbl = el(`<div class="schedule-board overflow-x-auto scrollbar-thin">
+  function mobileEventsForDay(di){
+    const cellDate=addDays(weekStart, di);
+    const events=[];
+    PERIODS.forEach((p,pi)=>{
+      let slots=[];
+      if(classId) slots=db.schedule.filter(s=>s.classId===classId && s.day===di && s.period===pi);
+      else if(teacherId) slots=db.schedule.filter(s=>s.teacherId===teacherId && s.day===di && s.period===pi);
+      if(editable && classId && !slots.length){
+        events.push({ empty:true, period:pi, time:`${p.s}-${p.e}`, day:di });
+      }
+      slots.forEach(slot=>{
+        const sub=getSubject(slot.subjectId), tch=getUser(slot.teacherId), cls=getClass(slot.classId);
+        const subbed = dateForSubs && db.substitutions.find(s=>s.scheduleId===slot.id && s.date===cellDate && s.status==='accepted');
+        const hw = db.homework.filter(h=>shouldShowHomeworkOnSlot(h, slot, cellDate));
+        const ass = db.assessments.filter(a=>shouldShowAssessmentOnSlot(a, slot, cellDate));
+        events.push({ slot, sub, title:sub?.name||'Čas', meta:classId?(tch?.name||''):(cls?.name||''), room:slot.room, period:pi, time:`${p.s}-${p.e}`, subbed, hw, ass });
+      });
+      if(teacherId && dateForSubs){
+        db.substitutions.filter(s=>s.substituteTeacherId===teacherId && s.status==='accepted' && s.date===cellDate).forEach(s=>{
+          const sc=db.schedule.find(x=>x.id===s.scheduleId);
+          if(!sc || sc.day!==di || sc.period!==pi || sc.teacherId===teacherId) return;
+          const subj=getSubject(sc.subjectId), origT=getUser(sc.teacherId), cls=getClass(sc.classId);
+          events.push({ slot:sc, sub:subj, title:subj?.name||'Zamjena', meta:`${cls?.name||''} · zamjena za ${origT?.name||''}`, room:sc.room, period:pi, time:`${p.s}-${p.e}`, substitute:true, hw:[], ass:[] });
+        });
+      }
+    });
+    return { cellDate, events:events.sort((a,b)=>a.period-b.period) };
+  }
+  function renderMobileSchedule(){
+    return `<div class="mobile-schedule space-y-3">
+      ${DAYS.map((day,di)=>{
+        const {cellDate, events}=mobileEventsForDay(di);
+        return `<div class="mobile-day-card">
+          <div class="mobile-day-head">
+            <div><div class="font-extrabold">${day}</div><div class="text-xs text-slate-500">${cellDate}</div></div>
+            <span class="badge bg-slate-50 text-slate-700">${events.length} časova</span>
+          </div>
+          <div class="p-3 space-y-2">
+            ${events.length?events.map(ev=>ev.empty?`<button class="mobile-event empty-slot text-left w-full hover:bg-blue-50" data-day="${ev.day}" data-period="${ev.period}" style="--event-color:#94a3b8">
+              <div class="text-xs font-mono text-slate-500">${ev.period+1}. čas · ${ev.time}</div>
+              <div class="font-bold text-slate-700 mt-1">+ Dodaj čas</div>
+            </button>`:`<div class="mobile-event ${onSlotClick?'cursor-pointer':''}" data-slot="${ev.slot.id}" data-date="${cellDate}" style="--event-color:${ev.sub?.color||'#64748b'}">
+              <div class="flex items-start justify-between gap-3">
+                <div>
+                  <div class="text-xs font-mono text-slate-500">${ev.period+1}. čas · ${ev.time}</div>
+                  <div class="font-extrabold text-base mt-0.5">${ev.title}</div>
+                  <div class="text-xs text-slate-600 mt-1">${ev.meta}${ev.room?' · '+ev.room:''}</div>
+                </div>
+                ${ev.substitute?'<span class="badge bg-emerald-50 text-emerald-700">zamjena</span>':''}
+              </div>
+              ${ev.hw.length||ev.ass.length?`<div class="mt-2 flex flex-wrap gap-1">
+                ${ev.hw.map(h=>`<span class="badge bg-amber-50 text-amber-700" title="${h.title}">Zadaća</span>`).join('')}
+                ${ev.ass.map(a=>`<span class="badge ${a.type==='test'?'bg-red-50 text-red-700':'bg-blue-50 text-blue-700'}" title="${a.title}">${assessmentLabel(a.type)}</span>`).join('')}
+              </div>`:''}
+            </div>`).join(''):'<div class="text-sm text-slate-500 p-2">Nema časova.</div>'}
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`;
+  }
+  const tbl = el(`<div class="schedule-responsive">
+  <div class="schedule-board desktop-schedule overflow-x-auto scrollbar-thin">
     <div class="grid" style="grid-template-columns: 110px repeat(${DAYS.length}, minmax(0,1fr));">
       <div class="schedule-head p-4 border-b border-r text-sm font-bold flex items-center justify-start gap-2"><i data-lucide="clock"></i> Čas</div>
       ${DAYS.map((d,di)=>{
@@ -1392,6 +1482,8 @@ function buildScheduleGrid(opts){
         }).join('')}
       `).join('')}
     </div>
+  </div>
+  ${renderMobileSchedule()}
   </div>`);
   if(editable){
     tbl.querySelectorAll('.empty-slot').forEach(s=>s.addEventListener('click', ()=>openSlotModal(classId, +s.dataset.day, +s.dataset.period)));
