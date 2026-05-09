@@ -2,6 +2,7 @@
 <html lang="bs">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>eŠkola - Školska Aplikacija</title>
 <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
 <script src="https://unpkg.com/lucide@latest"></script>
@@ -365,6 +366,7 @@ function setHomeworkMark(h, studentId, mark){
   h.doneBy=Object.entries(h.marks).filter(([_,v])=>v==='+').map(([id])=>id);
 }
 function homeworkDone(h, studentId){ return homeworkMark(h, studentId)==='+'; }
+function homeworkClosedForStudent(h){ return !!h.dueDate && h.dueDate < todayStr(); }
 function homeworkCounts(h){
   const students=studentsOfClass(h.classId);
   return students.reduce((acc,s)=>{ acc[homeworkMark(h,s.id)]++; return acc; }, {'+':0,'-':0,o:0,total:students.length});
@@ -698,7 +700,6 @@ function menuFor(user){
     { view:'student-dashboard', icon:'layout-dashboard', label:'Početna' },
     { view:'student-messages',  icon:'message-square',   label:'Poruke', badge: unreadMessagesFor(user.id)||null },
     { view:'student-schedule',  icon:'calendar-days',    label:'Raspored' },
-    { view:'student-materials', icon:'paperclip', label:'Materijali' },
     { view:'student-assessments', icon:'file-check-2', label:'Ispitivanja' },
     { view:'student-grades',    icon:'star',             label:'Ocjene' },
     { view:'student-finals',    icon:'check-circle-2',   label:'Zaključene ocjene' },
@@ -3712,7 +3713,7 @@ function renderStudentHomework(){
               <span class="flex items-center gap-1"><i data-lucide="user" class="icon-sm"></i> ${tch?.name||''}</span>
               <span class="flex items-center gap-1 ${overdue?'text-red-600':soon?'text-amber-600':'text-emerald-600'}"><i data-lucide="flag" class="icon-sm"></i> Rok: <b>${h.dueDate||'-'}</b></span>
             </div>
-            <button data-toggle-hw="${h.id}" class="btn ${done?'btn-soft':'btn-primary'} mt-3 w-full justify-center"><i data-lucide="${done?'rotate-ccw':'check'}"></i> ${done?'Vrati na ○':'Označi +'}</button>
+            ${homeworkClosedForStudent(h)?`<div class="mt-3 p-3 rounded-xl bg-slate-50 border border-slate-200 text-sm text-slate-600 flex items-center gap-2"><i data-lucide="lock" class="icon-sm"></i> Rok je prošao. Zadaća je zatvorena za učenike.</div>`:`<button data-toggle-hw="${h.id}" class="btn ${done?'btn-soft':'btn-primary'} mt-3 w-full justify-center"><i data-lucide="${done?'rotate-ccw':'check'}"></i> ${done?'Vrati na ○':'Označi +'}</button>`}
           </div>`;
         }).join('')||'<div class="col-span-2 text-center text-slate-500 py-12 card">Nema dodijeljenih zadaća.</div>'}
       </div>
@@ -3720,6 +3721,7 @@ function renderStudentHomework(){
   </div>`);
   wrap.querySelectorAll('[data-toggle-hw]').forEach(b=>b.addEventListener('click', ()=>{
     const h=db.homework.find(x=>x.id===b.dataset.toggleHw); if(!h) return;
+    if(homeworkClosedForStudent(h)){ alert('Rok je prošao. Zadaća je zatvorena za učenike.'); return; }
     setHomeworkMark(h, me.id, homeworkMark(h, me.id)==='+' ? 'o' : '+');
     saveDB(); render();
   }));
