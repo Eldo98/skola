@@ -446,11 +446,36 @@ function materialVisibleTo(material, user){
   return false;
 }
 function materialScopeLabel(material){
-  if(material.scheduleId){ const s=db.schedule.find(x=>x.id===material.scheduleId); return `Čas: ${getClass(s?.classId)?.name||''} · ${getSubject(s?.subjectId)?.name||''}`; }
+  if(material.scheduleId){ const s=db.schedule.find(x=>x.id===material.scheduleId); return `Čas: ${getClass(s?.classId)?.name||''} · ${getSubject(s?.subjectId)?.name||''} · ${DAYS_SHORT[s?.day]||''} ${typeof s?.period==='number'?s.period+1:''}. čas`; }
   if(material.classId && material.subjectId) return `${getClass(material.classId)?.name||''} · ${getSubject(material.subjectId)?.name||''}`;
   if(material.classId) return `Razred ${getClass(material.classId)?.name||''}`;
   if(material.subjectId) return getSubject(material.subjectId)?.name||'Predmet';
   return 'Svi korisnici';
+}
+function materialSortValue(material){
+  const s=material.scheduleId?db.schedule.find(x=>x.id===material.scheduleId):null;
+  const className=getClass(material.classId || s?.classId)?.name || 'ZZZ';
+  const subjectName=getSubject(material.subjectId || s?.subjectId)?.name || 'ZZZ';
+  const day=typeof s?.day==='number'?s.day:9;
+  const period=typeof s?.period==='number'?s.period:99;
+  return `${className}|${day}|${period}|${subjectName}|${material.title||''}`;
+}
+function sortMaterialsByClassAndPeriod(a,b){
+  const av=materialSortValue(a), bv=materialSortValue(b);
+  if(av!==bv) return av.localeCompare(bv);
+  return (b.createdAt||0)-(a.createdAt||0);
+}
+function materialMatchesSlot(material, slot){
+  if(material.scheduleId) return material.scheduleId===slot.id;
+  if(material.subjectId && material.subjectId!==slot.subjectId) return false;
+  if(material.classId && material.classId!==slot.classId) return false;
+  return !!material.subjectId || !!material.classId;
+}
+function materialCanImportToSlot(material, slot){
+  if(material.scheduleId===slot.id) return false;
+  if(material.subjectId && material.subjectId!==slot.subjectId) return false;
+  if(material.classId && material.classId!==slot.classId) return false;
+  return true;
 }
 function isTypingNow(){
   const a=document.activeElement;
@@ -953,7 +978,7 @@ function renderHomeworkOverview(mode='admin'){
 function renderMaterials(mode){
   const me=getUser(session.userId);
   const canAdd=mode==='admin'||mode==='teacher';
-  const list=db.materials.filter(m=>materialVisibleTo(m, me)).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
+  const list=db.materials.filter(m=>materialVisibleTo(m, me)).sort(sortMaterialsByClassAndPeriod);
   const wrap=el(`<div>
     ${pageHeader('Materijali','Datoteke, linkovi, prezentacije i dokumenti za nastavu','paperclip',
       canAdd?`<button id="addMaterial" class="btn btn-primary"><i data-lucide="plus"></i> Dodaj materijal</button>`:'')}
@@ -991,9 +1016,14 @@ function openMaterialModal(preset={}){
   const me=getUser(session.userId);
   let filePayload=null;
   let fileLoading=false;
-  const classOptions = db.classes.map(c=>`<option value="${c.id}" ${preset.classId===c.id?'selected':''}>${c.name}</option>`).join('');
-  const subjectOptions = db.subjects.map(s=>`<option value="${s.id}" ${preset.subjectId===s.id?'selected':''}>${s.name}</option>`).join('');
-  const scheduleOptions = db.schedule.map(s=>`<option value="${s.id}" ${preset.scheduleId===s.id?'selected':''}>${getClass(s.classId)?.name||''} · ${getSubject(s.subjectId)?.name||''} · ${DAYS_SHORT[s.day]} ${s.period+1}. čas</option>`).join('');
+  const lockedSchedule = preset.scheduleId ? db.schedule.find(s=>s.id===preset.scheduleId) : null;
+  const lockedClassId = lockedSchedule?.classId || preset.classId || '';
+  const lockedSubjectId = lockedSchedule?.subjectId || preset.subjectId || '';
+  const availableSchedules = me.role==='admin' ? db.schedule : db.schedule.filter(s=>s.teacherId===me.id);
+  const availableSubjects = me.role==='admin' ? db.subjects : db.subjects.filter(s=>(me.subjects||[]).includes(s.id));
+  const classOptions = db.classes.map(c=>`<option value="${c.id}" ${lockedClassId===c.id?'selected':''}>${c.name}</option>`).join('');
+  const subjectOptions = availableSubjects.map(s=>`<option value="${s.id}" ${lockedSubjectId===s.id?'selected':''}>${s.name}</option>`).join('');
+  const scheduleOptions = (lockedSchedule?[lockedSchedule]:availableSchedules).map(s=>`<option value="${s.id}" ${preset.scheduleId===s.id?'selected':''}>${getClass(s.classId)?.name||''} · ${getSubject(s.subjectId)?.name||''} · ${DAYS_SHORT[s.day]} ${s.period+1}. čas</option>`).join('');
   const modal=openModal('Dodaj materijal', `
     <div class="space-y-3">
       <div><label class="text-sm font-medium">Naziv</label><input id="mat_title" class="form-input" placeholder="npr. Prezentacija - fotosinteza"></div>
@@ -1004,16 +1034,26 @@ function openMaterialModal(preset={}){
       <div id="urlBox"><label class="text-sm font-medium">URL</label><input id="mat_url" class="form-input" placeholder="https://...pptx, pdf, docs..."></div>
       <div id="fileBox" class="hidden"><label class="text-sm font-medium">Datoteka</label><input id="mat_file" type="file" class="form-input" accept=".pdf,.ppt,.pptx,.doc,.docx,.xls,.xlsx,.txt,.md,.csv,.json,image/*"><div id="fileInfo" class="text-xs text-slate-500 mt-1">Za veće PowerPoint datoteke preporučen je internet link. Lokalna datoteka se čuva u browser/Firebase bazu ako nije prevelika.</div></div>
       <div class="grid grid-cols-2 gap-3">
-        <div><label class="text-sm font-medium">Razred</label><select id="mat_class" class="form-input"><option value="">Svi</option>${classOptions}</select></div>
-        <div><label class="text-sm font-medium">Predmet</label><select id="mat_subject" class="form-input"><option value="">Svi</option>${subjectOptions}</select></div>
+        <div><label class="text-sm font-medium">Razred</label><select id="mat_class" class="form-input" ${lockedSchedule?'disabled':''}><option value="">Svi</option>${classOptions}</select></div>
+        <div><label class="text-sm font-medium">Predmet</label><select id="mat_subject" class="form-input" ${lockedSchedule?'disabled':''}>${lockedSchedule?'':'<option value="">Svi</option>'}${subjectOptions}</select></div>
       </div>
-      <div><label class="text-sm font-medium">Tačan čas (opcionalno)</label><select id="mat_schedule" class="form-input"><option value="">Nije vezano za jedan čas</option>${scheduleOptions}</select></div>
+      <div><label class="text-sm font-medium">Tačan čas (opcionalno)</label><select id="mat_schedule" class="form-input" ${lockedSchedule?'disabled':''}>${lockedSchedule?'':'<option value="">Nije vezano za jedan čas</option>'}${scheduleOptions}</select>
+        ${lockedSchedule?'<div class="text-xs text-blue-700 mt-1">Materijal dodajete iz časa, zato je zaključan na taj razred, predmet i čas.</div>':''}
+      </div>
     </div>`, ()=>{
     if(fileLoading){ alert('Datoteka se još učitava, sačekajte trenutak.'); return false; }
     const source=modal.querySelector('#mat_source').value;
     const title=modal.querySelector('#mat_title').value.trim();
     if(!title){ alert('Naziv je obavezan.'); return false; }
     const mat={ id:uid('mat'), title, description:modal.querySelector('#mat_desc').value.trim(), source, url:'', dataUrl:'', mime:'', fileName:'', classId:modal.querySelector('#mat_class').value, subjectId:modal.querySelector('#mat_subject').value, scheduleId:modal.querySelector('#mat_schedule').value, createdBy:me.id, createdAt:Date.now() };
+    if(lockedSchedule){
+      mat.classId=lockedSchedule.classId;
+      mat.subjectId=lockedSchedule.subjectId;
+      mat.scheduleId=lockedSchedule.id;
+    } else if(mat.scheduleId){
+      const s=db.schedule.find(x=>x.id===mat.scheduleId);
+      if(s){ mat.classId=s.classId; mat.subjectId=s.subjectId; }
+    }
     if(source==='url'){
       mat.url=modal.querySelector('#mat_url').value.trim();
       if(!mat.url){ alert('URL je obavezan.'); return false; }
@@ -1037,6 +1077,43 @@ function openMaterialModal(preset={}){
     reader.onload=()=>{ filePayload={ dataUrl:reader.result, mime:file.type||'application/octet-stream', fileName:file.name, size:file.size }; fileLoading=false; modal.querySelector('#fileInfo').textContent=`Učitano: ${file.name} (${Math.round(file.size/1024)} KB)`; };
     reader.onerror=()=>{ fileLoading=false; alert('Greška pri učitavanju datoteke.'); };
     reader.readAsDataURL(file);
+  });
+}
+
+function openImportMaterialModal(slot){
+  const me=getUser(session.userId);
+  const subject=getSubject(slot.subjectId);
+  const cls=getClass(slot.classId);
+  const candidates=db.materials
+    .filter(m=>materialVisibleTo(m, me))
+    .filter(m=>materialCanImportToSlot(m, slot))
+    .sort(sortMaterialsByClassAndPeriod);
+  let selectedId=candidates[0]?.id||'';
+  const modal=openModal('Uvezi postojeći materijal', `
+    <div class="space-y-3">
+      <div class="bg-blue-50 border border-blue-100 rounded-xl p-3 text-sm text-blue-800">
+        Uvoz je ograničen na kompatibilne materijale. U čas <b>${subject?.name||''}</b> ne može se uvesti materijal iz drugog predmeta.
+      </div>
+      <div class="text-sm text-slate-600">Cilj: <b>${cls?.name||''}</b> · <b>${subject?.name||''}</b> · ${DAYS_SHORT[slot.day]} ${slot.period+1}. čas</div>
+      <div class="space-y-2 max-h-80 overflow-y-auto scrollbar-thin">
+        ${candidates.length?candidates.map(m=>`<label class="flex items-start gap-3 p-3 border border-slate-200 rounded-xl hover:bg-slate-50 cursor-pointer">
+          <input type="radio" name="mat_import" class="mt-1" value="${m.id}" ${m.id===selectedId?'checked':''}>
+          <div class="flex-1 min-w-0">
+            <div class="font-bold truncate">${m.title}</div>
+            <div class="text-xs text-slate-500 mt-1">${materialScopeLabel(m)} · ${m.source==='url'?'link':(m.fileName||'datoteka')}</div>
+            ${m.description?`<div class="text-sm text-slate-600 mt-1 line-clamp-2">${m.description}</div>`:''}
+          </div>
+        </label>`).join(''):'<div class="text-center text-slate-500 py-8">Nema kompatibilnih materijala za uvoz.</div>'}
+      </div>
+    </div>`, ()=>{
+    const chosen=modal.querySelector('input[name="mat_import"]:checked')?.value;
+    if(!chosen){ alert('Odaberite materijal za uvoz.'); return false; }
+    const src=db.materials.find(m=>m.id===chosen);
+    if(!src) return false;
+    if(!materialCanImportToSlot(src, slot)){ alert('Ovaj materijal ne pripada ovom predmetu/razredu.'); return false; }
+    const copy={...src, id:uid('mat'), classId:slot.classId, subjectId:slot.subjectId, scheduleId:slot.id, createdBy:me.id, createdAt:Date.now(), importedFrom:src.id};
+    db.materials.push(copy);
+    saveDB(); render(); return true;
   });
 }
 
@@ -2182,16 +2259,21 @@ function renderClassSession(scheduleId, date){
   }
 
   function renderMaterialTab(){
-    const list=db.materials.filter(m=>
-      m.scheduleId===sc.id ||
-      (m.classId===sc.classId && (!m.subjectId || m.subjectId===sc.subjectId)) ||
-      (!m.classId && m.subjectId===sc.subjectId) ||
-      (!m.classId && !m.subjectId && !m.scheduleId)
-    ).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
+    const list=db.materials
+      .filter(m=>materialMatchesSlot(m, sc))
+      .sort((a,b)=>{
+        const exactA=a.scheduleId===sc.id?0:1;
+        const exactB=b.scheduleId===sc.id?0:1;
+        if(exactA!==exactB) return exactA-exactB;
+        return sortMaterialsByClassAndPeriod(a,b);
+      });
     const w=el(`<div class="card p-6 max-w-4xl">
       <div class="flex items-center justify-between mb-4 flex-wrap gap-2">
         <h2 class="font-bold flex items-center gap-2"><i data-lucide="paperclip"></i> Materijali za ${cls.name} - ${sub.name}</h2>
-        <button id="addMatHere" class="btn btn-primary"><i data-lucide="plus"></i> Dodaj materijal</button>
+        <div class="flex gap-2 flex-wrap">
+          <button id="importMatHere" class="btn btn-soft"><i data-lucide="import"></i> Uvezi postojeći</button>
+          <button id="addMatHere" class="btn btn-primary"><i data-lucide="plus"></i> Dodaj materijal</button>
+        </div>
       </div>
       <div class="grid md:grid-cols-2 gap-3">
         ${list.length?list.map(m=>`<div class="border border-slate-200 rounded-xl p-4">
@@ -2210,6 +2292,7 @@ function renderClassSession(scheduleId, date){
         </div>`).join(''):'<div class="col-span-2 text-center text-slate-500 py-8">Nema materijala za ovaj čas.</div>'}
       </div>
     </div>`);
+    w.querySelector('#importMatHere').addEventListener('click', ()=>openImportMaterialModal(sc));
     w.querySelector('#addMatHere').addEventListener('click', ()=>openMaterialModal({classId:sc.classId, subjectId:sc.subjectId, scheduleId:sc.id}));
     w.querySelectorAll('[data-open-mat]').forEach(b=>b.addEventListener('click', ()=>openMaterialViewer(b.dataset.openMat)));
     w.querySelectorAll('[data-down-mat]').forEach(b=>b.addEventListener('click', ()=>downloadMaterial(b.dataset.downMat)));
