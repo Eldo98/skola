@@ -7,6 +7,7 @@
 <script src="https://unpkg.com/lucide@latest"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-app-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.5/firebase-storage-compat.js"></script>
 <style>
   :root{
     --bg:#eef2f8; --card:#ffffff; --border:#dbe3ef; --text:#0f172a; --muted:#5f6f86;
@@ -80,6 +81,17 @@
   .lesson-event .muted{ color:#52627a; }
   .lesson-event.subbed{ opacity:.58; }
   .lesson-event.substitute-stripe{ background-image:linear-gradient(135deg,#fff 0%,#fff 48%,#f8fafc 48%,#f8fafc 52%,#fff 52%,#fff 100%); background-size:14px 14px; }
+  .classroom-board{ position:relative; min-height:620px; background:#fff; border:1px solid #d8e2ef; border-radius:18px; box-shadow:var(--shadow); overflow:hidden; }
+  .classroom-board::before{ content:""; position:absolute; inset:0; background:radial-gradient(circle at 22% 18%,rgba(37,99,235,.045),transparent 24%),linear-gradient(#fff,#fff); pointer-events:none; }
+  .classroom-title{ position:absolute; left:5.5%; top:7%; font-size:24px; font-weight:900; letter-spacing:-.02em; font-style:italic; }
+  .classroom-subtitle{ position:absolute; left:8%; top:45%; font-size:22px; font-weight:900; font-style:italic; }
+  .seat-token{ position:absolute; min-width:150px; max-width:190px; transform:translate(-50%,-50%); cursor:grab; user-select:none; }
+  .seat-token:active{ cursor:grabbing; }
+  .seat-card{ background:white; border:1px solid #dbe3ef; border-radius:16px; padding:10px 12px; box-shadow:0 10px 24px rgba(15,23,42,.08); }
+  .seat-card.present,.seat-card.absent,.seat-card.late{ border-left:1px solid #dbe3ef; background:white; }
+  .seat-actions{ display:flex; gap:4px; margin-top:6px; }
+  .seat-actions button{ font-size:10px; padding:2px 6px; border-radius:999px; }
+  .seat-grade{ display:inline-flex; align-items:center; justify-content:center; min-width:30px; height:30px; padding:0 8px; border-radius:8px; background:#f1f5f9; color:#0f172a; font-weight:900; font-size:16px; border:1px solid #dbe3ef; }
   body.high-contrast{ --bg:#f7f9fc; --primary:#0f4c81; --primary-50:#e8f2ff; }
   .app-main > div > .bg-white.border-b.border-slate-200{ border:1px solid var(--border)!important; border-radius:20px; box-shadow:var(--shadow); }
   @media (max-width: 980px){ .app-frame{ width:calc(100vw - 24px); padding-top:20px; } .workspace{ grid-template-columns:1fr; } .sidebar-card{ position:static; } }
@@ -104,6 +116,10 @@
     .mobile-day-card{ background:#fff; border:1px solid var(--border); border-radius:16px; box-shadow:var(--shadow); overflow:hidden; }
     .mobile-day-head{ padding:13px 14px; background:#f6f8fb; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; }
     .mobile-event{ background:#fff; border:1px solid #dbe3ef; border-left:4px solid var(--event-color,#2563eb); border-radius:13px; padding:12px; }
+    .classroom-board{ min-height:720px; overflow:auto; }
+    .classroom-title{ top:4%; left:6%; font-size:20px; }
+    .classroom-subtitle{ top:18%; left:6%; font-size:18px; }
+    .seat-token{ min-width:140px; }
     .card.overflow-hidden{ overflow-x:auto; }
     .card table{ min-width:720px; }
     #csTabs, .px-8.pt-4.border-b.border-slate-200.flex{ overflow-x:auto; padding-left:12px!important; padding-right:12px!important; }
@@ -136,10 +152,13 @@ const DEFAULT_DB = {
   finalGrades: [], // { id,studentId,subjectId,semesterId,teacherId,value,previousValue,improved,popravniValue,popravniDate,note,status,ts }
   completions: [], // { id,studentId,classId,subjectId,semesterId,status:'pending|completed|not_completed',note,byTeacherId,ts }
   classDuties: [], // { id,classId,start,end,studentIds,note,createdBy,createdAt }
+  seatingPlans: [], // { classId,seats:{studentId:{x,y}} }
+  studentProfiles: [], // { studentId, about, health, talents, support, family, notes, updatedBy, updatedAt, sentAt }
+  absenceRequests: [], // { id,parentId,studentId,classId,scheduleId,date,type,reason,status,note,decidedBy,decidedAt,createdAt }
   classNotes: [],
   homework: [],    // { id,classId,subjectId,teacherId,scheduleId,title,description,assignedDate,dueDate,doneBy,marks:{studentId:'+'|'-'|'o'} }
   assessments: [], // { id,classId,subjectId,teacherId,scheduleId,type,title,description,date,createdBy,studentIds:[] }
-  materials: [],   // { id,title,description,source:'url|local',url,dataUrl,mime,fileName,classId,subjectId,scheduleId,createdBy,createdAt }
+  materials: [],   // { id,title,description,source:'url|local',url,dataUrl,mime,fileName,classId,subjectId,scheduleId,scheduleIds:[],createdBy,createdAt }
   messages: []     // { id,fromId,toId,subject,body,ts,readAt,attachments:[] }
 };
 
@@ -204,9 +223,12 @@ function debouncedSaveDB(delay=700){
 
 function normalizeDB(data){
   const d = data || JSON.parse(JSON.stringify(DEFAULT_DB));
-  ['users','classes','subjects','semesters','schedule','lessons','classSessions','substitutions','finalGrades','completions','classDuties','classNotes','homework','assessments','materials','messages'].forEach(k=>{
+  ['users','classes','subjects','semesters','schedule','lessons','classSessions','substitutions','finalGrades','completions','classDuties','seatingPlans','studentProfiles','absenceRequests','classNotes','homework','assessments','materials','messages'].forEach(k=>{
     if(!Array.isArray(d[k])) d[k]=[];
   });
+  d.users.forEach(u=>{ if(u.role==='parent' && !Array.isArray(u.childrenIds)) u.childrenIds=[]; });
+  d.absenceRequests.forEach(r=>{ if(!r.status) r.status='pending'; if(!r.type) r.type='planned'; if(typeof r.scheduleId==='undefined') r.scheduleId=''; });
+  d.seatingPlans.forEach(p=>{ if(!p.seats || typeof p.seats!=='object' || Array.isArray(p.seats)) p.seats={}; });
   d.subjects.forEach(s=>{ if(!s.gradingMode) s.gradingMode='grades'; });
   d.semesters.forEach(s=>{ if(typeof s.requiredGrades!=='number') s.requiredGrades=4; if(typeof s.closed!=='boolean') s.closed=false; });
   d.schedule.forEach(s=>{ if(typeof s.room==='undefined') s.room=''; });
@@ -217,7 +239,15 @@ function normalizeDB(data){
     h.doneBy.forEach(id=>{ if(!h.marks[id]) h.marks[id]='+'; });
   });
   d.assessments.forEach(a=>{ if(typeof a.scheduleId==='undefined') a.scheduleId=''; if(!Array.isArray(a.studentIds)) a.studentIds=[]; });
-  d.materials.forEach(m=>{ if(!m.source) m.source=m.url?'url':'local'; if(typeof m.scheduleId==='undefined') m.scheduleId=''; if(typeof m.classId==='undefined') m.classId=''; if(typeof m.subjectId==='undefined') m.subjectId=''; });
+  d.materials.forEach(m=>{
+    if(!m.source) m.source=m.url?'url':'local';
+    if(typeof m.scheduleId==='undefined') m.scheduleId='';
+    if(!Array.isArray(m.scheduleIds)) m.scheduleIds=[];
+    if(m.scheduleId && !m.scheduleIds.includes(m.scheduleId)) m.scheduleIds.push(m.scheduleId);
+    if(!m.scheduleId && m.scheduleIds.length===1) m.scheduleId=m.scheduleIds[0];
+    if(typeof m.classId==='undefined') m.classId='';
+    if(typeof m.subjectId==='undefined') m.subjectId='';
+  });
   d.messages.forEach(m=>{ if(!Array.isArray(m.attachments)) m.attachments=[]; });
   d.classSessions.forEach(cs=>{ if(!cs.privateNotes) cs.privateNotes={}; if(!Array.isArray(cs.grades)) cs.grades=[]; if(!Array.isArray(cs.attendance)) cs.attendance=[]; });
   return d;
@@ -254,7 +284,8 @@ function seedDB(){
     { id:'u6', username:'tarik',  password:'123', role:'student', name:'Tarik Mehić',    email:'tarik@skola.ba', classId:'c1' },
     { id:'u9', username:'amila',  password:'123', role:'student', name:'Amila Hadžić',   email:'amila@skola.ba', classId:'c1' },
     { id:'u10',username:'denis',  password:'123', role:'student', name:'Denis Salihović',email:'denis@skola.ba', classId:'c1' },
-    { id:'u7', username:'sara',   password:'123', role:'student', name:'Sara Delić',     email:'sara@skola.ba',  classId:'c2' }
+    { id:'u7', username:'sara',   password:'123', role:'student', name:'Sara Delić',     email:'sara@skola.ba',  classId:'c2' },
+    { id:'u11',username:'roditelj',password:'123', role:'parent',  name:'Roditelj Selimović', email:'roditelj@skola.ba', childrenIds:['u4'] }
   );
   d.schedule = [
     {id:'sc1',classId:'c1',day:0,period:0,subjectId:'s1',teacherId:'u2',room:'12'},
@@ -287,6 +318,9 @@ function seedDB(){
   d.assessments = [
     { id:'a1', classId:'c1', subjectId:'s1', teacherId:'u2', type:'test', title:'Test iz linearnih jednačina', description:'Zadaci iz oblasti linearnih jednačina.', date:'2025-09-22', createdBy:'u2' }
   ];
+  d.studentProfiles = [
+    { studentId:'u4', about:'Vrijedan učenik, pokazuje interes za matematiku i informatiku.', health:'Nema posebnih napomena.', talents:'Matematika, rad na računarima.', support:'Povremeno dodatno pojašnjenje za pismene radove.', family:'Kontakt roditelja kroz roditeljski nalog.', notes:'Demo CV profil.', updatedBy:'u1', updatedAt:Date.now(), sentAt:null }
+  ];
   localStorage.setItem(LS_KEY, JSON.stringify(d));
   return d;
 }
@@ -306,6 +340,42 @@ function homeroomClassOf(userId){ return db.classes.find(c=>c.homeroomTeacherId=
 function pendingSubsForMe(userId){ return db.substitutions.filter(s=>s.originalTeacherId===userId && s.status==='pending').length; }
 function unreadMessagesFor(userId){ return db.messages.filter(m=>m.toId===userId && !m.readAt).length; }
 function teacherClassIds(userId){ return [...new Set(db.schedule.filter(s=>s.teacherId===userId).map(s=>s.classId))]; }
+function childrenOfParent(parentId){ const p=getUser(parentId); return (p?.childrenIds||[]).map(getUser).filter(Boolean); }
+function profileForStudent(studentId){
+  let p=db.studentProfiles.find(x=>x.studentId===studentId);
+  if(!p){ p={studentId, about:'', health:'', talents:'', support:'', family:'', notes:'', updatedBy:null, updatedAt:null, sentAt:null}; db.studentProfiles.push(p); }
+  return p;
+}
+function absenceRequestMatches(req, studentId, scheduleId, date){
+  if(req.studentId!==studentId || req.date!==date) return false;
+  if(req.scheduleId) return req.scheduleId===scheduleId;
+  const sc=db.schedule.find(s=>s.id===scheduleId);
+  return sc && sc.classId===req.classId;
+}
+function absenceDecisionFor(studentId, scheduleId, date){
+  return db.absenceRequests
+    .filter(r=>['approved_excused','rejected_unexcused'].includes(r.status) && absenceRequestMatches(r, studentId, scheduleId, date))
+    .sort((a,b)=>(b.decidedAt||b.createdAt||0)-(a.decidedAt||a.createdAt||0))[0] || null;
+}
+function requestStatusBadge(status){
+  if(status==='approved_excused') return '<span class="badge bg-emerald-50 text-emerald-700">opravdano</span>';
+  if(status==='rejected_unexcused') return '<span class="badge bg-red-50 text-red-700">neopravdano</span>';
+  return '<span class="badge bg-amber-50 text-amber-700">na čekanju</span>';
+}
+function applyAbsenceRequestDecision(req){
+  db.classSessions.forEach(cs=>{
+    if(cs.date!==req.date) return;
+    const sc=db.schedule.find(s=>s.id===cs.scheduleId);
+    if(!sc || sc.classId!==req.classId) return;
+    if(req.scheduleId && req.scheduleId!==sc.id) return;
+    if(!Array.isArray(cs.attendance)) cs.attendance=[];
+    let att=cs.attendance.find(a=>a.studentId===req.studentId);
+    if(!att){ att={studentId:req.studentId,status:'absent'}; cs.attendance.push(att); }
+    att.status='absent';
+    att.excused=req.status==='approved_excused';
+    att.absenceRequestId=req.id;
+  });
+}
 function effectiveTeacherFor(scheduleId, date){
   const sub = db.substitutions.find(s=>s.scheduleId===scheduleId && s.date===date && s.status==='accepted');
   const sc = db.schedule.find(s=>s.id===scheduleId);
@@ -421,6 +491,24 @@ function dutyRangeLabel(duty){
   if(!duty) return '';
   return duty.start===duty.end ? duty.start : `${duty.start} do ${duty.end}`;
 }
+function defaultSeatPosition(index){
+  const col=index%4;
+  const row=Math.floor(index/4);
+  return { x: 13 + col*24, y: 57 + row*13 };
+}
+function getSeatingPlan(classId){
+  let plan=db.seatingPlans.find(p=>p.classId===classId);
+  if(!plan){ plan={ classId, seats:{} }; db.seatingPlans.push(plan); }
+  if(!plan.seats || typeof plan.seats!=='object') plan.seats={};
+  studentsOfClass(classId).forEach((s,i)=>{ if(!plan.seats[s.id]) plan.seats[s.id]=defaultSeatPosition(i); });
+  return plan;
+}
+function resetSeatingPlan(classId){
+  const plan=getSeatingPlan(classId);
+  plan.seats={};
+  studentsOfClass(classId).forEach((s,i)=>plan.seats[s.id]=defaultSeatPosition(i));
+  saveDB();
+}
 function isOfficeFile(material){
   const name=(material.fileName||material.url||material.title||'').toLowerCase();
   return /\.(ppt|pptx|doc|docx|xls|xlsx)$/i.test(name) || /powerpoint|presentation|word|excel|officedocument/i.test(material.mime||'');
@@ -439,33 +527,42 @@ function materialIcon(material){
   if(isTextFile(material)) return 'file-type';
   return 'paperclip';
 }
+function materialScheduleIds(material){
+  const ids=Array.isArray(material.scheduleIds)?material.scheduleIds.slice():[];
+  if(material.scheduleId && !ids.includes(material.scheduleId)) ids.push(material.scheduleId);
+  return ids.filter(Boolean);
+}
 function materialVisibleTo(material, user){
   if(user.role==='admin') return true;
   if(material.createdBy===user.id) return true;
+  const scheduleIds=materialScheduleIds(material);
   if(user.role==='teacher'){
     const classIds=teacherClassIds(user.id);
-    return (!material.classId && !material.subjectId && !material.scheduleId) ||
+    return (!material.classId && !material.subjectId && !scheduleIds.length) ||
       (material.classId && classIds.includes(material.classId)) ||
       (material.subjectId && (user.subjects||[]).includes(material.subjectId)) ||
-      (material.scheduleId && db.schedule.some(s=>s.id===material.scheduleId && s.teacherId===user.id));
+      (scheduleIds.length && db.schedule.some(s=>scheduleIds.includes(s.id) && s.teacherId===user.id));
   }
   if(user.role==='student'){
-    return (!material.classId && !material.subjectId && !material.scheduleId) ||
+    return (!material.classId && !material.subjectId && !scheduleIds.length) ||
       material.classId===user.classId ||
-      (material.scheduleId && db.schedule.some(s=>s.id===material.scheduleId && s.classId===user.classId)) ||
+      (scheduleIds.length && db.schedule.some(s=>scheduleIds.includes(s.id) && s.classId===user.classId)) ||
       (material.subjectId && db.schedule.some(s=>s.classId===user.classId && s.subjectId===material.subjectId));
   }
   return false;
 }
 function materialScopeLabel(material){
-  if(material.scheduleId){ const s=db.schedule.find(x=>x.id===material.scheduleId); return `Čas: ${getClass(s?.classId)?.name||''} · ${getSubject(s?.subjectId)?.name||''} · ${DAYS_SHORT[s?.day]||''} ${typeof s?.period==='number'?s.period+1:''}. čas`; }
+  const scheduleIds=materialScheduleIds(material);
+  if(scheduleIds.length===1){ const s=db.schedule.find(x=>x.id===scheduleIds[0]); return `Čas: ${getClass(s?.classId)?.name||''} · ${getSubject(s?.subjectId)?.name||''} · ${DAYS_SHORT[s?.day]||''} ${typeof s?.period==='number'?s.period+1:''}. čas`; }
+  if(scheduleIds.length>1) return `Uvezeno u ${scheduleIds.length} časova`;
   if(material.classId && material.subjectId) return `${getClass(material.classId)?.name||''} · ${getSubject(material.subjectId)?.name||''}`;
   if(material.classId) return `Razred ${getClass(material.classId)?.name||''}`;
   if(material.subjectId) return getSubject(material.subjectId)?.name||'Predmet';
   return 'Svi korisnici';
 }
 function materialSortValue(material){
-  const s=material.scheduleId?db.schedule.find(x=>x.id===material.scheduleId):null;
+  const firstScheduleId=materialScheduleIds(material)[0];
+  const s=firstScheduleId?db.schedule.find(x=>x.id===firstScheduleId):null;
   const className=getClass(material.classId || s?.classId)?.name || 'ZZZ';
   const subjectName=getSubject(material.subjectId || s?.subjectId)?.name || 'ZZZ';
   const day=typeof s?.day==='number'?s.day:9;
@@ -478,10 +575,10 @@ function sortMaterialsByClassAndPeriod(a,b){
   return (b.createdAt||0)-(a.createdAt||0);
 }
 function materialMatchesSlot(material, slot){
-  return !!material.scheduleId && material.scheduleId===slot.id;
+  return materialScheduleIds(material).includes(slot.id);
 }
 function materialCanImportToSlot(material, slot){
-  if(material.scheduleId===slot.id) return false;
+  if(materialScheduleIds(material).includes(slot.id)) return false;
   if(material.subjectId && material.subjectId!==slot.subjectId) return false;
   if(material.classId && material.classId!==slot.classId) return false;
   return true;
@@ -493,6 +590,11 @@ function isTypingNow(){
 
 function getFirebaseConfig(){
   return { ...DEFAULT_FIREBASE_CONFIG, path: 'eskola/main' };
+}
+function ensureFirebaseApp(){
+  if(typeof firebase==='undefined') throw new Error('Firebase SDK nije učitan.');
+  const cfg=getFirebaseConfig();
+  return firebase.apps && firebase.apps.length ? firebase.app() : firebase.initializeApp(cfg);
 }
 function firebaseLabel(){
   if(firebaseStatus==='connected') return 'Firebase RTDB connected';
@@ -506,7 +608,7 @@ function initFirebaseSync(){
   if(typeof firebase==='undefined' || !firebase.database){ firebaseStatus='error'; firebaseError='Firebase SDK nije učitan.'; return; }
   try{
     firebaseStatus='connecting';
-    const app = firebase.apps && firebase.apps.length ? firebase.app() : firebase.initializeApp(cfg);
+    const app = ensureFirebaseApp();
     firebaseRef = firebase.database(app).ref(cfg.path || 'eskola/main');
     firebaseRef.on('value', snap=>{
       const remote = snap.val();
@@ -546,6 +648,39 @@ function firebasePushNow(){
   }).catch(err=>{
     firebaseStatus='error'; firebaseError=err.message || String(err); render();
   });
+}
+
+function safeStorageName(name){
+  return (name||'file').replace(/[^a-zA-Z0-9._-]+/g,'_').slice(0,120);
+}
+function readFileAsDataURL(file){
+  return new Promise((resolve,reject)=>{
+    const reader=new FileReader();
+    reader.onload=()=>resolve(reader.result);
+    reader.onerror=reject;
+    reader.readAsDataURL(file);
+  });
+}
+async function uploadFileForApp(file, folder='files', onProgress=()=>{}){
+  const maxFallback=8*1024*1024;
+  const maxStorageFile=150*1024*1024;
+  if(file.size>maxStorageFile) throw new Error('Datoteka je veća od 150MB. Pošaljite manju datoteku ili internet link.');
+  if(typeof firebase!=='undefined' && firebase.storage){
+    const app=ensureFirebaseApp();
+    const path=`eskola/${folder}/${Date.now()}_${uid('file')}_${safeStorageName(file.name)}`;
+    const task=firebase.storage(app).ref(path).put(file, { contentType:file.type||'application/octet-stream' });
+    await new Promise((resolve,reject)=>{
+      task.on('state_changed', snap=>{
+        const pct=snap.totalBytes?Math.round((snap.bytesTransferred/snap.totalBytes)*100):0;
+        onProgress(pct);
+      }, reject, resolve);
+    });
+    const url=await task.snapshot.ref.getDownloadURL();
+    return { source:'url', url, dataUrl:'', mime:file.type||'application/octet-stream', fileName:file.name, size:file.size, storagePath:path };
+  }
+  if(file.size>maxFallback) throw new Error('Za datoteke veće od 8MB treba Firebase Storage. Provjerite storage rules ili koristite internet link.');
+  const dataUrl=await readFileAsDataURL(file);
+  return { source:'local', url:'', dataUrl, mime:file.type||'application/octet-stream', fileName:file.name, size:file.size };
 }
 
 document.addEventListener('focusout', ()=>{
@@ -612,6 +747,7 @@ function renderLogin(){
 function defaultViewFor(user){
   if(user.role==='admin') return { name:'admin-dashboard' };
   if(user.role==='teacher') return { name:'teacher-schedule' };
+  if(user.role==='parent') return { name:'parent-dashboard' };
   return { name:'student-dashboard' };
 }
 
@@ -665,13 +801,14 @@ function renderShell(){
   wrap.querySelector('main').appendChild(renderView());
   return wrap;
 }
-function roleLabel(r){ return r==='admin'?'Administrator':r==='teacher'?'Profesor':'Učenik'; }
+function roleLabel(r){ return r==='admin'?'Administrator':r==='teacher'?'Profesor':r==='parent'?'Roditelj':'Učenik'; }
 
 function menuFor(user){
   if(user.role==='admin') return [
     { view:'admin-dashboard', icon:'layout-dashboard', label:'Dashboard' },
     { view:'admin-messages', icon:'message-square', label:'Poruke', badge: unreadMessagesFor(user.id)||null },
     { view:'admin-users', icon:'users', label:'Korisnici' },
+    { view:'admin-student-profiles', icon:'id-card', label:'CV učenika' },
     { view:'admin-classes', icon:'school', label:'Razredi' },
     { view:'admin-subjects', icon:'book-open', label:'Predmeti' },
     { view:'admin-semesters', icon:'calendar-range', label:'Semestri' },
@@ -703,6 +840,11 @@ function menuFor(user){
     if(isHomeroom(user.id)) m.push({ view:'teacher-homeroom', icon:'award', label:'Razredna evidencija' });
     return m;
   }
+  if(user.role==='parent') return [
+    { view:'parent-dashboard', icon:'layout-dashboard', label:'Početna' },
+    { view:'parent-absence-requests', icon:'file-check-2', label:'Pravdanja' },
+    { view:'parent-messages', icon:'message-square', label:'Poruke', badge: unreadMessagesFor(user.id)||null }
+  ];
   return [
     { view:'student-dashboard', icon:'layout-dashboard', label:'Početna' },
     { view:'student-messages',  icon:'message-square',   label:'Poruke', badge: unreadMessagesFor(user.id)||null },
@@ -721,6 +863,7 @@ function renderView(){
     case 'admin-dashboard': return renderAdminDashboard();
     case 'admin-messages': return renderMessages();
     case 'admin-users': return renderAdminUsers();
+    case 'admin-student-profiles': return renderAdminStudentProfiles();
     case 'admin-classes': return renderAdminClasses();
     case 'admin-subjects': return renderAdminSubjects();
     case 'admin-semesters': return renderAdminSemesters();
@@ -757,6 +900,9 @@ function renderView(){
     case 'student-homework':  return renderStudentHomework();
     case 'student-absences':  return renderStudentAbsences();
     case 'student-notes':     return renderStudentNotes();
+    case 'parent-dashboard': return renderParentDashboard();
+    case 'parent-absence-requests': return renderParentAbsenceRequests();
+    case 'parent-messages': return renderMessages();
   }
   return el('<div class="p-8">404</div>');
 }
@@ -852,7 +998,7 @@ function openMessageModal(toId='', subject=''){
       </div>
       <div><label class="text-sm font-medium">Naslov</label><input id="f_subj" class="form-input" value="${subject}"></div>
       <div><label class="text-sm font-medium">Poruka</label><textarea id="f_body" rows="6" class="form-input" placeholder="Napišite poruku..."></textarea></div>
-      <div><label class="text-sm font-medium">Datoteke (opcionalno)</label><input id="f_files" type="file" multiple class="form-input" accept=".pdf,.ppt,.pptx,.doc,.docx,.xls,.xlsx,.txt,.md,.csv,.json,image/*"><div id="msgFileInfo" class="text-xs text-slate-500 mt-1">Možete dodati sliku, Word, PDF, PowerPoint ili drugi dokument sa telefona/računara.</div></div>
+      <div><label class="text-sm font-medium">Datoteke (opcionalno)</label><input id="f_files" type="file" multiple class="form-input" accept=".pdf,.ppt,.pptx,.doc,.docx,.xls,.xlsx,.txt,.md,.csv,.json,image/*"><div id="msgFileInfo" class="text-xs text-slate-500 mt-1">Možete dodati veće slike, Word, PDF, PowerPoint ili drugi dokument. Veće datoteke se šalju preko Firebase Storage.</div></div>
     </div>`, ()=>{
     if(filesLoading){ alert('Datoteke se još učitavaju, sačekajte.'); return false; }
     const to=m.querySelector('#f_to').value;
@@ -868,17 +1014,14 @@ function openMessageModal(toId='', subject=''){
     attachments=[];
     if(!files.length){ m.querySelector('#msgFileInfo').textContent='Nema odabranih datoteka.'; return; }
     const total=files.reduce((sum,f)=>sum+f.size,0);
-    if(total>10*1024*1024){ alert('Ukupna veličina datoteka je veća od 10MB. Pošaljite manje datoteke ili link.'); e.target.value=''; return; }
+    if(total>250*1024*1024){ alert('Ukupna veličina datoteka je veća od 250MB. Pošaljite manje datoteka ili link.'); e.target.value=''; return; }
     filesLoading=true; m.querySelector('#msgFileInfo').textContent='Učitavanje datoteka...';
-    Promise.all(files.map(file=>new Promise((resolve,reject)=>{
-      const reader=new FileReader();
-      reader.onload=()=>resolve({ id:uid('att'), name:file.name, mime:file.type||'application/octet-stream', size:file.size, dataUrl:reader.result });
-      reader.onerror=reject;
-      reader.readAsDataURL(file);
-    }))).then(list=>{
+    Promise.all(files.map((file,idx)=>uploadFileForApp(file,'messages',pct=>{
+      m.querySelector('#msgFileInfo').textContent=`Učitavanje ${idx+1}/${files.length}: ${file.name} (${pct}%)`;
+    }).then(payload=>({ id:uid('att'), name:file.name, mime:file.type||payload.mime, size:file.size, dataUrl:payload.dataUrl||'', url:payload.url||'', source:payload.source, storagePath:payload.storagePath||'' })))).then(list=>{
       attachments=list; filesLoading=false;
       m.querySelector('#msgFileInfo').textContent=`Dodano datoteka: ${attachments.map(a=>a.name).join(', ')}`;
-    }).catch(()=>{ filesLoading=false; alert('Greška pri učitavanju datoteka.'); });
+    }).catch(err=>{ filesLoading=false; alert(err.message||'Greška pri učitavanju datoteka.'); });
   });
 }
 
@@ -895,12 +1038,12 @@ function openMessageView(id){
       </div>
       <div class="text-xs text-slate-500">${new Date(msg.ts).toLocaleString('bs-BA')}</div>
       <div class="border border-slate-200 rounded-xl p-4 whitespace-pre-wrap text-sm leading-6">${msg.body}</div>
-      ${(msg.attachments||[]).length?`<div class="space-y-2"><div class="font-semibold text-sm">Datoteke</div>${msg.attachments.map(a=>`<div class="flex items-center justify-between gap-3 border border-slate-200 rounded-xl p-3"><div class="min-w-0"><div class="font-medium truncate">${a.name}</div><div class="text-xs text-slate-500">${a.mime||'datoteka'} · ${Math.round((a.size||0)/1024)} KB</div></div><button data-open-attachment="${a.id}" class="btn btn-soft" style="padding:5px 10px;font-size:12px;"><i data-lucide="download" class="icon-sm"></i> Otvori</button></div>`).join('')}</div>`:''}
+      ${(msg.attachments||[]).length?`<div class="space-y-2"><div class="font-semibold text-sm">Datoteke</div>${msg.attachments.map(a=>`<div class="flex items-center justify-between gap-3 border border-slate-200 rounded-xl p-3"><div class="min-w-0"><div class="font-medium truncate">${a.name}</div><div class="text-xs text-slate-500">${a.mime||'datoteka'} · ${Math.round((a.size||0)/1024)} KB ${a.source==='url'?'· cloud':''}</div></div><button data-open-attachment="${a.id}" class="btn btn-soft" style="padding:5px 10px;font-size:12px;"><i data-lucide="download" class="icon-sm"></i> Otvori</button></div>`).join('')}</div>`:''}
     </div>`, ()=>true);
   modal.querySelector('#mSave').innerHTML='<i data-lucide="check"></i> Zatvori';
   modal.querySelectorAll('[data-open-attachment]').forEach(b=>b.addEventListener('click', ()=>{
     const att=(msg.attachments||[]).find(a=>a.id===b.dataset.openAttachment); if(!att) return;
-    const a=document.createElement('a'); a.href=att.dataUrl; a.target='_blank'; a.download=att.name||'datoteka'; document.body.appendChild(a); a.click(); a.remove();
+    const a=document.createElement('a'); a.href=att.url||att.dataUrl; a.target='_blank'; if(!att.url) a.download=att.name||'datoteka'; document.body.appendChild(a); a.click(); a.remove();
   }));
   if(window.lucide) lucide.createIcons();
 }
@@ -1025,6 +1168,7 @@ function renderMaterials(mode){
               <div class="font-bold truncate">${m.title}</div>
               <div class="text-xs text-slate-500 mt-1 truncate">${materialScopeLabel(m)}</div>
               <div class="text-xs text-slate-500 mt-1">${m.source==='url'?'Internet link':(m.fileName||'Lokalna datoteka')}</div>
+              ${materialScheduleIds(m).length?`<div class="text-xs text-blue-600 mt-1">Časova: ${materialScheduleIds(m).length}</div>`:''}
             </div>
           </div>
           ${m.description?`<p class="text-sm text-slate-600 mt-3 line-clamp-2">${m.description}</p>`:''}
@@ -1066,7 +1210,7 @@ function openMaterialModal(preset={}){
         <select id="mat_source" class="form-input"><option value="url">Internet link</option><option value="local">Lokalna datoteka</option></select>
       </div>
       <div id="urlBox"><label class="text-sm font-medium">URL</label><input id="mat_url" class="form-input" placeholder="https://...pptx, pdf, docs..."></div>
-      <div id="fileBox" class="hidden"><label class="text-sm font-medium">Datoteka</label><input id="mat_file" type="file" class="form-input" accept=".pdf,.ppt,.pptx,.doc,.docx,.xls,.xlsx,.txt,.md,.csv,.json,image/*"><div id="fileInfo" class="text-xs text-slate-500 mt-1">Za veće PowerPoint datoteke preporučen je internet link. Lokalna datoteka se čuva u browser/Firebase bazu ako nije prevelika.</div></div>
+      <div id="fileBox" class="hidden"><label class="text-sm font-medium">Datoteka</label><input id="mat_file" type="file" class="form-input" accept=".pdf,.ppt,.pptx,.doc,.docx,.xls,.xlsx,.txt,.md,.csv,.json,image/*"><div id="fileInfo" class="text-xs text-slate-500 mt-1">Veće datoteke se šalju preko Firebase Storage. Za PowerPoint linkove se koristi Office online viewer.</div></div>
       <div class="grid grid-cols-2 gap-3">
         <div><label class="text-sm font-medium">Razred</label><select id="mat_class" class="form-input" ${lockedSchedule?'disabled':''}><option value="">Svi</option>${classOptions}</select></div>
         <div><label class="text-sm font-medium">Predmet</label><select id="mat_subject" class="form-input" ${lockedSchedule?'disabled':''}>${lockedSchedule?'':'<option value="">Svi</option>'}${subjectOptions}</select></div>
@@ -1079,14 +1223,16 @@ function openMaterialModal(preset={}){
     const source=modal.querySelector('#mat_source').value;
     const title=modal.querySelector('#mat_title').value.trim();
     if(!title){ alert('Naziv je obavezan.'); return false; }
-    const mat={ id:uid('mat'), title, description:modal.querySelector('#mat_desc').value.trim(), source, url:'', dataUrl:'', mime:'', fileName:'', classId:modal.querySelector('#mat_class').value, subjectId:modal.querySelector('#mat_subject').value, scheduleId:modal.querySelector('#mat_schedule').value, createdBy:me.id, createdAt:Date.now() };
+    const mat={ id:uid('mat'), title, description:modal.querySelector('#mat_desc').value.trim(), source, url:'', dataUrl:'', mime:'', fileName:'', classId:modal.querySelector('#mat_class').value, subjectId:modal.querySelector('#mat_subject').value, scheduleId:modal.querySelector('#mat_schedule').value, scheduleIds:[], createdBy:me.id, createdAt:Date.now() };
     if(lockedSchedule){
       mat.classId=lockedSchedule.classId;
       mat.subjectId=lockedSchedule.subjectId;
       mat.scheduleId=lockedSchedule.id;
+      mat.scheduleIds=[lockedSchedule.id];
     } else if(mat.scheduleId){
       const s=db.schedule.find(x=>x.id===mat.scheduleId);
       if(s){ mat.classId=s.classId; mat.subjectId=s.subjectId; }
+      mat.scheduleIds=[mat.scheduleId];
     }
     if(source==='url'){
       mat.url=modal.querySelector('#mat_url').value.trim();
@@ -1105,12 +1251,14 @@ function openMaterialModal(preset={}){
   sourceSel.addEventListener('change', syncSource); syncSource();
   modal.querySelector('#mat_file').addEventListener('change', e=>{
     const file=e.target.files?.[0]; if(!file) return;
-    if(file.size > 8*1024*1024){ alert('Datoteka je veća od 8MB. Za velike prezentacije koristi internet link.'); e.target.value=''; return; }
     fileLoading=true; modal.querySelector('#fileInfo').textContent='Učitavanje datoteke...';
-    const reader=new FileReader();
-    reader.onload=()=>{ filePayload={ dataUrl:reader.result, mime:file.type||'application/octet-stream', fileName:file.name, size:file.size }; fileLoading=false; modal.querySelector('#fileInfo').textContent=`Učitano: ${file.name} (${Math.round(file.size/1024)} KB)`; };
-    reader.onerror=()=>{ fileLoading=false; alert('Greška pri učitavanju datoteke.'); };
-    reader.readAsDataURL(file);
+    uploadFileForApp(file,'materials',pct=>{
+      modal.querySelector('#fileInfo').textContent=`Učitavanje: ${file.name} (${pct}%)`;
+    }).then(payload=>{
+      filePayload=payload;
+      fileLoading=false;
+      modal.querySelector('#fileInfo').textContent=`Učitano: ${file.name} (${Math.round(file.size/1024)} KB)${payload.source==='url'?' · cloud':''}`;
+    }).catch(err=>{ fileLoading=false; e.target.value=''; alert(err.message||'Greška pri učitavanju datoteke.'); });
   });
 }
 
@@ -1145,8 +1293,12 @@ function openImportMaterialModal(slot){
     const src=db.materials.find(m=>m.id===chosen);
     if(!src) return false;
     if(!materialCanImportToSlot(src, slot)){ alert('Ovaj materijal ne pripada ovom predmetu/razredu.'); return false; }
-    const copy={...src, id:uid('mat'), classId:slot.classId, subjectId:slot.subjectId, scheduleId:slot.id, createdBy:me.id, createdAt:Date.now(), importedFrom:src.id};
-    db.materials.push(copy);
+    if(!Array.isArray(src.scheduleIds)) src.scheduleIds=[];
+    if(src.scheduleId && !src.scheduleIds.includes(src.scheduleId)) src.scheduleIds.push(src.scheduleId);
+    if(!src.scheduleIds.includes(slot.id)) src.scheduleIds.push(slot.id);
+    if(!src.classId) src.classId=slot.classId;
+    if(!src.subjectId) src.subjectId=slot.subjectId;
+    src.importedTo=(src.importedTo||0)+1;
     saveDB(); render(); return true;
   });
 }
@@ -1351,6 +1503,61 @@ function renderAdminDashboard(){
   </div>`);
 }
 
+/* ====== STUDENT CV / PROFILES ====== */
+function renderAdminStudentProfiles(){
+  if(!view.studentId) view.studentId=db.users.find(u=>u.role==='student')?.id;
+  const students=db.users.filter(u=>u.role==='student');
+  const student=getUser(view.studentId);
+  const profile=student?profileForStudent(student.id):null;
+  const cls=getClass(student?.classId);
+  const hr=getUser(cls?.homeroomTeacherId);
+  const wrap=el(`<div>
+    ${pageHeader('CV učenika','Administrativni profil učenika koji se šalje razredniku','id-card',
+      `<select id="studentSel" class="form-input" style="width:auto;">${students.map(s=>`<option value="${s.id}" ${s.id===view.studentId?'selected':''}>${s.name} (${getClass(s.classId)?.name||''})</option>`).join('')}</select>`)}
+    <div class="p-8">
+      ${student?`<div class="card p-6 max-w-4xl">
+        <div class="flex items-center justify-between gap-3 flex-wrap mb-5">
+          <div>
+            <h2 class="text-xl font-bold">${student.name}</h2>
+            <p class="text-sm text-slate-500">Razred: ${cls?.name||'-'} · Razrednik: ${hr?.name||'nije dodijeljen'}</p>
+          </div>
+          <button id="sendProfile" class="btn btn-primary"><i data-lucide="send"></i> Pošalji razredniku</button>
+        </div>
+        <div class="grid md:grid-cols-2 gap-4">
+          <label class="text-sm font-medium">Opšti opis<textarea id="p_about" rows="5" class="form-input">${profile.about||''}</textarea></label>
+          <label class="text-sm font-medium">Zdravlje / važne napomene<textarea id="p_health" rows="5" class="form-input">${profile.health||''}</textarea></label>
+          <label class="text-sm font-medium">Talenti / aktivnosti<textarea id="p_talents" rows="4" class="form-input">${profile.talents||''}</textarea></label>
+          <label class="text-sm font-medium">Podrška u učenju<textarea id="p_support" rows="4" class="form-input">${profile.support||''}</textarea></label>
+          <label class="text-sm font-medium">Porodica / kontakt<textarea id="p_family" rows="4" class="form-input">${profile.family||''}</textarea></label>
+          <label class="text-sm font-medium">Dodatne napomene<textarea id="p_notes" rows="4" class="form-input">${profile.notes||''}</textarea></label>
+        </div>
+        <div class="flex gap-2 mt-5">
+          <button id="saveProfile" class="btn btn-primary"><i data-lucide="save"></i> Sačuvaj CV</button>
+          <div class="text-xs text-slate-500 self-center">Zadnja izmjena: ${profile.updatedAt?new Date(profile.updatedAt).toLocaleString('bs-BA'):'nikad'} ${profile.sentAt?'· poslano: '+new Date(profile.sentAt).toLocaleString('bs-BA'):''}</div>
+        </div>
+      </div>`:'<div class="card p-10 text-center text-slate-500">Nema učenika.</div>'}
+    </div>
+  </div>`);
+  wrap.querySelector('#studentSel')?.addEventListener('change', e=>{ view.studentId=e.target.value; render(); });
+  function collectProfile(){
+    profile.about=wrap.querySelector('#p_about').value.trim();
+    profile.health=wrap.querySelector('#p_health').value.trim();
+    profile.talents=wrap.querySelector('#p_talents').value.trim();
+    profile.support=wrap.querySelector('#p_support').value.trim();
+    profile.family=wrap.querySelector('#p_family').value.trim();
+    profile.notes=wrap.querySelector('#p_notes').value.trim();
+    profile.updatedBy=session.userId; profile.updatedAt=Date.now();
+  }
+  wrap.querySelector('#saveProfile')?.addEventListener('click', ()=>{ collectProfile(); saveDB(); render(); });
+  wrap.querySelector('#sendProfile')?.addEventListener('click', ()=>{
+    if(!hr){ alert('Razred nema dodijeljenog razrednika.'); return; }
+    collectProfile(); profile.sentAt=Date.now();
+    db.messages.push({ id:uid('msg'), fromId:session.userId, toId:hr.id, subject:`CV učenika: ${student.name}`, body:`Admin je poslao CV profil učenika ${student.name}.\n\nOpšti opis:\n${profile.about||'-'}\n\nZdravlje:\n${profile.health||'-'}\n\nTalenti:\n${profile.talents||'-'}\n\nPodrška:\n${profile.support||'-'}\n\nPorodica/kontakt:\n${profile.family||'-'}\n\nNapomene:\n${profile.notes||'-'}`, ts:Date.now(), readAt:null, attachments:[] });
+    saveDB(); alert('CV je poslan razredniku.'); render();
+  });
+  return wrap;
+}
+
 /* ====== ADMIN USERS ====== */
 function renderAdminUsers(){
   const wrap=el(`<div>
@@ -1402,6 +1609,7 @@ function openUserModal(id){
         <select id="f_role" class="form-input">
           <option value="student" ${u.role==='student'?'selected':''}>Učenik</option>
           <option value="teacher" ${u.role==='teacher'?'selected':''}>Profesor</option>
+          <option value="parent" ${u.role==='parent'?'selected':''}>Roditelj</option>
           <option value="admin" ${u.role==='admin'?'selected':''}>Administrator</option>
         </select>
       </div>
@@ -1414,6 +1622,7 @@ function openUserModal(id){
     u.role=m.querySelector('#f_role').value;
     if(u.role==='student'){ u.classId=m.querySelector('#f_class')?.value||''; delete u.subjects; }
     if(u.role==='teacher'){ u.subjects=Array.from(m.querySelectorAll('.f_sub:checked')).map(c=>c.value); delete u.classId; }
+    if(u.role==='parent'){ u.childrenIds=Array.from(m.querySelectorAll('.f_child:checked')).map(c=>c.value); delete u.subjects; delete u.classId; }
     if(!u.name||!u.username){ alert('Ime i korisničko ime su obavezni.'); return false; }
     if(isNew) db.users.push(u); else Object.assign(getUser(id), u);
     saveDB(); render(); return true;
@@ -1430,6 +1639,11 @@ function openUserModal(id){
       extra.innerHTML=`<label class="text-sm font-medium">Predmeti</label>
         <div class="grid grid-cols-2 gap-2 mt-1 p-3 border border-slate-200 rounded-lg max-h-40 overflow-y-auto">
           ${db.subjects.map(s=>`<label class="flex items-center gap-2 text-sm"><input type="checkbox" class="f_sub" value="${s.id}" ${(u.subjects||[]).includes(s.id)?'checked':''}> ${s.name}</label>`).join('')}
+        </div>`;
+    } else if(r==='parent'){
+      extra.innerHTML=`<label class="text-sm font-medium">Djeca</label>
+        <div class="grid grid-cols-1 gap-2 mt-1 p-3 border border-slate-200 rounded-lg max-h-48 overflow-y-auto">
+          ${db.users.filter(x=>x.role==='student').map(s=>`<label class="flex items-center gap-2 text-sm"><input type="checkbox" class="f_child" value="${s.id}" ${(u.childrenIds||[]).includes(s.id)?'checked':''}> ${s.name} (${getClass(s.classId)?.name||''})</label>`).join('')}
         </div>`;
     } else extra.innerHTML='';
   }
@@ -2035,6 +2249,13 @@ function renderClassSession(scheduleId, date){
   if(!s_.semesterId){ s_.semesterId=semesterForDate(date)?.id||null; }
   if(!s_.privateNotes) s_.privateNotes={};
   students.forEach(s=>{ if(!s_.attendance.find(a=>a.studentId===s.id)) s_.attendance.push({studentId:s.id,status:'present'}); });
+  students.forEach(s=>{
+    const req=absenceDecisionFor(s.id, scheduleId, date);
+    const att=s_.attendance.find(a=>a.studentId===s.id);
+    if(req && att && att.status==='present'){
+      att.status='absent'; att.excused=req.status==='approved_excused'; att.absenceRequestId=req.id;
+    }
+  });
 
   const sem=getSemester(s_.semesterId);
   const semClosed = sem?.closed;
@@ -2096,7 +2317,10 @@ function renderClassSession(scheduleId, date){
   function renderMainTab(){
     const w=el(`<div class="grid lg:grid-cols-3 gap-6">
       <div class="card p-5">
-        <h2 class="font-bold mb-3 flex items-center gap-2"><i data-lucide="users"></i> Učenici (${students.length})</h2>
+        <div class="flex items-center justify-between gap-2 mb-3">
+          <h2 class="font-bold flex items-center gap-2"><i data-lucide="users"></i> Učenici (${students.length})</h2>
+          <button id="resetAttendanceBtn" class="btn btn-soft" style="padding:5px 10px;font-size:12px;"><i data-lucide="rotate-ccw" class="icon-sm"></i> Reset</button>
+        </div>
         <div class="text-xs text-slate-500 mb-3 bg-slate-50 rounded-lg p-2">
           <div><b>Klik</b> na učenika mijenja prisustvo</div>
           <div><b>Dvoklik</b> otvara unos ocjene</div>
@@ -2147,14 +2371,14 @@ function renderClassSession(scheduleId, date){
             <div class="w-9 h-9 rounded-full text-white flex items-center justify-center font-bold text-xs" style="background:linear-gradient(135deg,#3b82f6,#6366f1)">${s.name.split(' ').map(x=>x[0]).slice(0,2).join('')}</div>
             <div class="flex-1 min-w-0">
               <div class="font-medium text-sm truncate">${s.name}</div>
-              <div class="text-xs text-slate-500">${st==='present'?'Prisutan/na':st==='absent'?'ODSUTAN/NA':'Kasni'}</div>
+              <div class="text-xs text-slate-500">${st==='present'?'Prisutan/na':st==='absent'?'ODSUTAN/NA':'Kasni'}${att?.status==='absent'?(att.excused?' · opravdano':' · neopravdano'):''}</div>
             </div>
             <div class="${iconColor}"><i data-lucide="${icon}"></i></div>
             <div class="flex gap-1">
               <button data-note-student="${s.id}" data-note-type="pohvala" class="px-2 py-1 rounded bg-emerald-50 text-emerald-700 text-xs font-bold hover:bg-emerald-100" title="Dodaj pohvalu">P</button>
               <button data-note-student="${s.id}" data-note-type="opomena" class="px-2 py-1 rounded bg-red-50 text-red-700 text-xs font-bold hover:bg-red-100" title="Dodaj opomenu">O</button>
             </div>
-            ${myGrades.length?`<div class="flex gap-1 flex-wrap">${myGrades.map(g=>`<span class="inline-flex items-center gap-0.5"><span class="grade-pill ${gradeClass(g.value)}" title="${g.note||''}">${g.value}${g.improved?'*':''}</span><button data-del-grade="${g.id}" class="text-red-500 hover:bg-red-50 rounded px-1" title="Obriši ocjenu"><i data-lucide="trash-2" class="icon-sm"></i></button></span>`).join('')}</div>`:''}
+            ${myGrades.length?`<div class="flex gap-1 flex-wrap">${myGrades.map(g=>`<span class="inline-flex items-center gap-0.5"><span class="seat-grade" title="${g.note||''}">${g.value}${g.improved?'*':''}</span><button data-del-grade="${g.id}" class="text-red-500 hover:bg-red-50 rounded px-1" title="Obriši ocjenu"><i data-lucide="trash-2" class="icon-sm"></i></button></span>`).join('')}</div>`:''}
           </div>
         </div>`;
       }).join('') || '<div class="text-center text-slate-500 py-8">U razredu nema učenika.</div>';
@@ -2191,8 +2415,98 @@ function renderClassSession(scheduleId, date){
       }));
     }
     refreshStudents();
+    w.querySelector('#resetAttendanceBtn').addEventListener('click', ()=>{
+      if(!confirm('Resetovati prisustvo za ovaj čas na "prisutan"? Ocjene, lekcija i napomene ostaju.')) return;
+      s_.attendance=students.map(s=>({studentId:s.id,status:'present'}));
+      saveDB(); refreshStudents();
+    });
+    renderCurrent(w);
+    w.querySelectorAll('.lesson-card').forEach(c=>{ c.addEventListener('dragstart', e=>e.dataTransfer.setData('text/lesson', c.dataset.lesson)); });
+    w.querySelectorAll('[data-use]').forEach(b=>b.addEventListener('click', ()=>{ s_.lessonId=b.dataset.use; saveDB(); renderCurrent(w); }));
+    w.querySelector('#newLessonBtn').addEventListener('click', ()=>openLessonModal(null,false));
+    w.querySelector('#notesArea').addEventListener('input', e=>{ s_.notes=e.target.value; debouncedSaveDB(900); });
 
-    function renderCurrent(){
+    return w;
+  }
+
+  function renderSeatingTab(){
+    const plan=getSeatingPlan(sc.classId);
+    const w=el(`<div class="space-y-4">
+      <div class="card p-4 flex items-center justify-between gap-3 flex-wrap">
+        <div>
+          <div class="font-bold flex items-center gap-2"><i data-lucide="armchair"></i> Raspored učenika u učionici</div>
+          <div class="text-sm text-slate-500">Klik na učenika mijenja prisustvo. Dvoklik otvara ocjenu. Prevucite karticu da promijenite mjesto.</div>
+        </div>
+        <button id="resetSeats" class="btn btn-soft"><i data-lucide="rotate-ccw"></i> Resetuj raspored</button>
+      </div>
+      <div id="classroomBoard" class="classroom-board">
+        <div class="classroom-title">Ovo je u času: ${sub.name} · ${cls.name}</div>
+        <div class="classroom-subtitle">Učenici</div>
+        ${students.map((s,i)=>{
+          const pos=plan.seats[s.id]||defaultSeatPosition(i);
+          const att=s_.attendance.find(a=>a.studentId===s.id);
+          const st=att?.status||'present';
+          const statusLabel=st==='present'?'prisutan':st==='absent'?'odsutan':'kasni';
+          const grades=s_.grades.filter(g=>g.studentId===s.id);
+          return `<div class="seat-token" draggable="true" data-seat-student="${s.id}" style="left:${pos.x}%;top:${pos.y}%">
+            <div class="seat-card ${st}">
+              <div class="font-bold text-sm truncate">${s.name}</div>
+              <div class="text-xs text-slate-500 mt-0.5">${statusLabel}</div>
+              ${grades.length?`<div class="flex flex-wrap gap-1 mt-2">${grades.map(g=>`<span class="seat-grade" title="${g.note||''}">${g.value}</span>`).join('')}</div>`:''}
+              <div class="seat-actions">
+                <button data-seat-att="${s.id}" class="bg-slate-100 hover:bg-slate-200">pris.</button>
+                <button data-seat-note="${s.id}|pohvala" class="bg-emerald-50 text-emerald-700 hover:bg-emerald-100">P</button>
+                <button data-seat-note="${s.id}|opomena" class="bg-red-50 text-red-700 hover:bg-red-100">O</button>
+              </div>
+            </div>
+          </div>`;
+        }).join('')}
+      </div>
+    </div>`);
+    const board=w.querySelector('#classroomBoard');
+    let dragged=null;
+    w.querySelectorAll('[data-seat-student]').forEach(token=>{
+      token.addEventListener('dragstart', e=>{ dragged=token.dataset.seatStudent; e.dataTransfer.setData('text/plain', dragged); });
+      token.addEventListener('click', e=>{
+        if(e.target.closest('button')) return;
+        const att=s_.attendance.find(a=>a.studentId===token.dataset.seatStudent);
+        att.status=att.status==='present'?'absent':att.status==='absent'?'late':'present';
+        saveDB(); renderTab('seating');
+      });
+      token.addEventListener('dblclick', e=>{
+        e.preventDefault();
+        if(semClosed){ alert('Semestar je zatvoren - ocjene se ne mogu mijenjati.'); return; }
+        if(subjectUsesCompletion(sc.subjectId)){ alert('Ovaj predmet nema brojčane ocjene.'); return; }
+        openGradeModal(s_, token.dataset.seatStudent, ()=>renderTab('seating'));
+      });
+    });
+    board.addEventListener('dragover', e=>e.preventDefault());
+    board.addEventListener('drop', e=>{
+      e.preventDefault();
+      const sid=dragged || e.dataTransfer.getData('text/plain'); if(!sid) return;
+      const rect=board.getBoundingClientRect();
+      const x=Math.max(5, Math.min(95, ((e.clientX-rect.left)/rect.width)*100));
+      const y=Math.max(12, Math.min(92, ((e.clientY-rect.top)/rect.height)*100));
+      plan.seats[sid]={x,y};
+      saveDB(); renderTab('seating');
+    });
+    w.querySelectorAll('[data-seat-att]').forEach(b=>b.addEventListener('click', e=>{
+      e.stopPropagation();
+      const att=s_.attendance.find(a=>a.studentId===b.dataset.seatAtt);
+      att.status=att.status==='present'?'absent':att.status==='absent'?'late':'present';
+      saveDB(); renderTab('seating');
+    }));
+    w.querySelectorAll('[data-seat-note]').forEach(b=>b.addEventListener('click', e=>{
+      e.stopPropagation();
+      const [studentId,type]=b.dataset.seatNote.split('|');
+      openBehaviorNoteModal({classId:sc.classId, studentId, type});
+    }));
+    w.querySelector('#resetSeats').addEventListener('click', ()=>{ if(confirm('Resetovati raspored sjedenja?')){ resetSeatingPlan(sc.classId); renderTab('seating'); } });
+
+    return w;
+  }
+
+  function renderCurrent(w){
       const cur=w.querySelector('#currentLesson');
       const ul=s_.lessonId?db.lessons.find(l=>l.id===s_.lessonId):null;
       if(ul){
@@ -2206,7 +2520,7 @@ function renderClassSession(scheduleId, date){
           </div>
           <p class="text-sm text-slate-700 mt-2 whitespace-pre-wrap">${ul.content}</p>
         </div>`;
-        cur.querySelector('#clearLesson').addEventListener('click', ()=>{ s_.lessonId=null; saveDB(); renderCurrent(); });
+        cur.querySelector('#clearLesson').addEventListener('click', ()=>{ s_.lessonId=null; saveDB(); renderCurrent(w); });
       } else {
         cur.innerHTML=`<div id="dropZone" class="border-2 border-dashed border-slate-300 rounded-xl p-6 text-center text-slate-500">
           <i data-lucide="inbox" class="mx-auto"></i>
@@ -2221,17 +2535,10 @@ function renderClassSession(scheduleId, date){
         dz.addEventListener('drop', e=>{
           e.preventDefault(); dz.classList.remove('drag-over');
           const id=e.dataTransfer.getData('text/lesson');
-          if(id){ s_.lessonId=id; saveDB(); renderCurrent(); }
+          if(id){ s_.lessonId=id; saveDB(); renderCurrent(w); }
         });
       }
     }
-    renderCurrent();
-    w.querySelectorAll('.lesson-card').forEach(c=>{ c.addEventListener('dragstart', e=>e.dataTransfer.setData('text/lesson', c.dataset.lesson)); });
-    w.querySelectorAll('[data-use]').forEach(b=>b.addEventListener('click', ()=>{ s_.lessonId=b.dataset.use; saveDB(); renderCurrent(); }));
-    w.querySelector('#newLessonBtn').addEventListener('click', ()=>openLessonModal(null,false));
-    w.querySelector('#notesArea').addEventListener('input', e=>{ s_.notes=e.target.value; debouncedSaveDB(900); });
-    return w;
-  }
 
   function renderHomeworkTab(){
     const dueOnThisDate=homeworkThisSlot.filter(h=>isSameDate(h.dueDate, date));
@@ -2317,8 +2624,8 @@ function renderClassSession(scheduleId, date){
     const list=db.materials
       .filter(m=>materialMatchesSlot(m, sc))
       .sort((a,b)=>{
-        const exactA=a.scheduleId===sc.id?0:1;
-        const exactB=b.scheduleId===sc.id?0:1;
+        const exactA=materialScheduleIds(a).includes(sc.id)?0:1;
+        const exactB=materialScheduleIds(b).includes(sc.id)?0:1;
         if(exactA!==exactB) return exactA-exactB;
         return sortMaterialsByClassAndPeriod(a,b);
       });
@@ -3197,6 +3504,8 @@ function renderTeacherHomeroom(){
       <button data-tab="absences" class="tab-btn ${view.hrTab==='absences'?'active':''}"><i data-lucide="user-x" class="icon-sm inline"></i> Izostanci</button>
       <button data-tab="commendations" class="tab-btn ${view.hrTab==='commendations'?'active':''}"><i data-lucide="thumbs-up" class="icon-sm inline"></i> Pohvale</button>
       <button data-tab="warnings" class="tab-btn ${view.hrTab==='warnings'?'active':''}"><i data-lucide="alert-triangle" class="icon-sm inline"></i> Opomene</button>
+      <button data-tab="profiles" class="tab-btn ${view.hrTab==='profiles'?'active':''}"><i data-lucide="id-card" class="icon-sm inline"></i> CV</button>
+      <button data-tab="absenceRequests" class="tab-btn ${view.hrTab==='absenceRequests'?'active':''}"><i data-lucide="file-check-2" class="icon-sm inline"></i> Pravdanja</button>
       <button data-tab="duties" class="tab-btn ${view.hrTab==='duties'?'active':''}"><i data-lucide="clipboard-check" class="icon-sm inline"></i> Redari</button>
       <button data-tab="completion" class="tab-btn ${view.hrTab==='completion'?'active':''}"><i data-lucide="badge-check" class="icon-sm inline"></i> Odradio</button>
       <button data-tab="homework" class="tab-btn ${view.hrTab==='homework'?'active':''}"><i data-lucide="clipboard-pen-line" class="icon-sm inline"></i> Zadaće</button>
@@ -3212,6 +3521,8 @@ function renderTeacherHomeroom(){
   if(view.hrTab==='absences') body.appendChild(renderHRAbsences(cls, sts));
   else if(view.hrTab==='commendations') body.appendChild(renderHRNotes(cls, sts, 'pohvala'));
   else if(view.hrTab==='warnings') body.appendChild(renderHRNotes(cls, sts, 'opomena'));
+  else if(view.hrTab==='profiles') body.appendChild(renderHRProfiles(cls, sts));
+  else if(view.hrTab==='absenceRequests') body.appendChild(renderHRAbsenceRequests(cls, sts));
   else if(view.hrTab==='duties') body.appendChild(renderHRDuties(cls, sts));
   else if(view.hrTab==='completion') body.appendChild(renderHRCompletions(cls, sts));
   else if(view.hrTab==='homework') body.appendChild(renderHRHomework(cls, sts));
@@ -3300,6 +3611,59 @@ function renderHRNotes(cls, sts, type){
   });
   w.querySelectorAll('[data-del]').forEach(b=>b.addEventListener('click', ()=>{
     if(confirm('Obrisati?')){ db.classNotes=db.classNotes.filter(n=>n.id!==b.dataset.del); saveDB(); render(); }
+  }));
+  return w;
+}
+
+function renderHRProfiles(cls, sts){
+  return el(`<div class="grid md:grid-cols-2 gap-4">
+    ${sts.map(s=>{ const p=profileForStudent(s.id); return `<div class="card p-5">
+      <div class="flex items-start justify-between gap-3 mb-3">
+        <div><h3 class="font-bold text-lg">${s.name}</h3><div class="text-xs text-slate-500">Ažurirano: ${p.updatedAt?new Date(p.updatedAt).toLocaleString('bs-BA'):'nije uneseno'}</div></div>
+        ${p.sentAt?'<span class="badge bg-emerald-50 text-emerald-700">poslano</span>':'<span class="badge bg-slate-50 text-slate-600">nije poslano</span>'}
+      </div>
+      <div class="space-y-2 text-sm">
+        <div><b>Opis:</b> ${p.about||'-'}</div>
+        <div><b>Zdravlje:</b> ${p.health||'-'}</div>
+        <div><b>Talenti:</b> ${p.talents||'-'}</div>
+        <div><b>Podrška:</b> ${p.support||'-'}</div>
+        <div><b>Porodica/kontakt:</b> ${p.family||'-'}</div>
+        <div><b>Napomene:</b> ${p.notes||'-'}</div>
+      </div>
+    </div>`; }).join('') || '<div class="card p-10 text-center text-slate-500">Nema učenika.</div>'}
+  </div>`);
+}
+
+function renderHRAbsenceRequests(cls, sts){
+  const list=db.absenceRequests.filter(r=>r.classId===cls.id).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
+  const w=el(`<div class="card overflow-hidden">
+    ${list.length?`<table class="w-full text-sm">
+      <thead class="bg-slate-50 text-xs uppercase text-slate-500 text-left"><tr><th class="px-4 py-3">Datum</th><th class="px-4 py-3">Učenik</th><th class="px-4 py-3">Čas</th><th class="px-4 py-3">Roditelj</th><th class="px-4 py-3">Razlog</th><th class="px-4 py-3">Status</th><th class="px-4 py-3 text-right">Akcije</th></tr></thead>
+      <tbody>
+        ${list.map(r=>{ const student=getUser(r.studentId), parent=getUser(r.parentId), sc=r.scheduleId?db.schedule.find(s=>s.id===r.scheduleId):null; return `<tr class="border-t border-slate-100 hover:bg-slate-50">
+          <td class="px-4 py-3 font-mono text-xs">${r.date}</td>
+          <td class="px-4 py-3 font-medium">${student?.name||''}</td>
+          <td class="px-4 py-3">${sc?`${getSubject(sc.subjectId)?.name||''} · ${sc.period+1}. čas`:'Cijeli dan'}</td>
+          <td class="px-4 py-3 text-slate-600">${parent?.name||''}</td>
+          <td class="px-4 py-3 text-slate-700 max-w-sm"><div class="line-clamp-2">${r.reason||'-'}</div></td>
+          <td class="px-4 py-3">${requestStatusBadge(r.status)}</td>
+          <td class="px-4 py-3 text-right">
+            ${r.status==='pending'?`<button data-abs-act="${r.id}|approved_excused" class="btn btn-soft" style="padding:5px 10px;font-size:12px;">Opravdaj</button><button data-abs-act="${r.id}|rejected_unexcused" class="btn btn-danger" style="padding:5px 10px;font-size:12px;">Neopravdano</button>`:''}
+            <button data-abs-note="${r.id}" class="btn btn-soft" style="padding:5px 10px;font-size:12px;"><i data-lucide="sticky-note" class="icon-sm"></i></button>
+          </td>
+        </tr>`; }).join('')}
+      </tbody>
+    </table>`:'<div class="p-10 text-center text-slate-500">Nema zahtjeva roditelja.</div>'}
+  </div>`);
+  w.querySelectorAll('[data-abs-act]').forEach(b=>b.addEventListener('click', ()=>{
+    const [id,status]=b.dataset.absAct.split('|'); const req=db.absenceRequests.find(r=>r.id===id); if(!req) return;
+    req.status=status; req.decidedBy=session.userId; req.decidedAt=Date.now();
+    applyAbsenceRequestDecision(req); saveDB(); render();
+  }));
+  w.querySelectorAll('[data-abs-note]').forEach(b=>b.addEventListener('click', ()=>{
+    const req=db.absenceRequests.find(r=>r.id===b.dataset.absNote); if(!req) return;
+    const note=prompt('Napomena razrednika:', req.note||''); if(note===null) return;
+    req.note=note; saveDB(); render();
   }));
   return w;
 }
@@ -3818,6 +4182,74 @@ function renderStudentNotes(){
       </div>
     </div>
   </div>`);
+}
+
+/* ====== PARENT VIEWS ====== */
+function renderParentDashboard(){
+  const me=getUser(session.userId);
+  const kids=childrenOfParent(me.id);
+  const reqs=db.absenceRequests.filter(r=>r.parentId===me.id);
+  const wrap=el(`<div>
+    ${pageHeader('Roditeljski portal',`Dobro došli, ${me.name}`,'layout-dashboard',`<button id="newReq" class="btn btn-primary"><i data-lucide="plus"></i> Novo pravdanje</button>`)}
+    <div class="p-8 grid md:grid-cols-3 gap-4">
+      <div class="card p-5"><div class="text-sm text-slate-500">Djeca</div><div class="text-3xl font-bold">${kids.length}</div><div class="text-xs text-slate-500 mt-1">${kids.map(k=>k.name).join(', ')||'-'}</div></div>
+      <div class="card p-5"><div class="text-sm text-slate-500">Zahtjevi</div><div class="text-3xl font-bold">${reqs.length}</div></div>
+      <div class="card p-5"><div class="text-sm text-slate-500">Na čekanju</div><div class="text-3xl font-bold text-amber-600">${reqs.filter(r=>r.status==='pending').length}</div></div>
+    </div>
+  </div>`);
+  wrap.querySelector('#newReq').addEventListener('click', ()=>openParentAbsenceRequestModal());
+  return wrap;
+}
+
+function renderParentAbsenceRequests(){
+  const me=getUser(session.userId);
+  const kids=childrenOfParent(me.id);
+  const list=db.absenceRequests.filter(r=>r.parentId===me.id).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
+  const wrap=el(`<div>
+    ${pageHeader('Pravdanja i najave odsustva','Pošaljite razredniku zahtjev za pravdanje ili najavu odsustva','file-check-2',`<button id="newReq" class="btn btn-primary"><i data-lucide="plus"></i> Novi zahtjev</button>`)}
+    <div class="p-8">
+      <div class="card overflow-hidden">
+        ${list.length?`<table class="w-full text-sm">
+          <thead class="bg-slate-50 text-xs uppercase text-slate-500 text-left"><tr><th class="px-4 py-3">Datum</th><th class="px-4 py-3">Dijete</th><th class="px-4 py-3">Čas</th><th class="px-4 py-3">Tip</th><th class="px-4 py-3">Razlog</th><th class="px-4 py-3">Status</th></tr></thead>
+          <tbody>${list.map(r=>{ const child=getUser(r.studentId), sc=r.scheduleId?db.schedule.find(s=>s.id===r.scheduleId):null; return `<tr class="border-t border-slate-100"><td class="px-4 py-3 font-mono text-xs">${r.date}</td><td class="px-4 py-3 font-medium">${child?.name||''}</td><td class="px-4 py-3">${sc?`${getSubject(sc.subjectId)?.name||''} · ${sc.period+1}. čas`:'Cijeli dan'}</td><td class="px-4 py-3">${r.type==='excuse'?'Pravdanje':'Najava'}</td><td class="px-4 py-3 text-slate-600">${r.reason||'-'}</td><td class="px-4 py-3">${requestStatusBadge(r.status)}</td></tr>`; }).join('')}</tbody>
+        </table>`:'<div class="p-10 text-center text-slate-500">Još nema zahtjeva.</div>'}
+      </div>
+    </div>
+  </div>`);
+  wrap.querySelector('#newReq').addEventListener('click', ()=>openParentAbsenceRequestModal());
+  return wrap;
+}
+
+function openParentAbsenceRequestModal(){
+  const me=getUser(session.userId);
+  const kids=childrenOfParent(me.id);
+  const m=openModal('Novi zahtjev za odsustvo', `<div id="reqBody"></div>`, ()=>{
+    const studentId=m.querySelector('#r_student').value;
+    const child=getUser(studentId);
+    const date=m.querySelector('#r_date').value;
+    const scheduleId=m.querySelector('#r_schedule').value;
+    const reason=m.querySelector('#r_reason').value.trim();
+    const type=m.querySelector('#r_type').value;
+    if(!studentId||!date||!reason){ alert('Odaberite dijete, datum i razlog.'); return false; }
+    db.absenceRequests.push({ id:uid('abs'), parentId:me.id, studentId, classId:child.classId, scheduleId, date, type, reason, status:'pending', note:'', decidedBy:null, decidedAt:null, createdAt:Date.now() });
+    saveDB(); render(); return true;
+  });
+  function build(){
+    const studentId=m.querySelector('#r_student')?.value || kids[0]?.id || '';
+    const date=m.querySelector('#r_date')?.value || todayStr();
+    const child=getUser(studentId);
+    const dow=(parseLocalDate(date).getDay()+6)%7;
+    const slots=child?db.schedule.filter(s=>s.classId===child.classId && s.day===dow).sort((a,b)=>a.period-b.period):[];
+    m.querySelector('#reqBody').innerHTML=`<div class="space-y-3">
+      <div><label class="text-sm font-medium">Dijete</label><select id="r_student" class="form-input">${kids.map(k=>`<option value="${k.id}" ${k.id===studentId?'selected':''}>${k.name} (${getClass(k.classId)?.name||''})</option>`).join('')}</select></div>
+      <div class="grid grid-cols-2 gap-3"><div><label class="text-sm font-medium">Datum</label><input id="r_date" type="date" class="form-input" value="${date}"></div><div><label class="text-sm font-medium">Tip</label><select id="r_type" class="form-input"><option value="planned">Unaprijed najava</option><option value="excuse">Pravdanje izostanka</option></select></div></div>
+      <div><label class="text-sm font-medium">Čas</label><select id="r_schedule" class="form-input"><option value="">Cijeli dan / svi časovi</option>${slots.map(s=>`<option value="${s.id}">${s.period+1}. čas - ${getSubject(s.subjectId)?.name||''} (${PERIODS[s.period].s})</option>`).join('')}</select></div>
+      <div><label class="text-sm font-medium">Razlog</label><textarea id="r_reason" rows="4" class="form-input" placeholder="Napišite razlog odsustva..."></textarea></div>
+    </div>`;
+    m.querySelector('#r_student').addEventListener('change', build);
+    m.querySelector('#r_date').addEventListener('change', build);
+  }
+  build();
 }
 
 /* MODAL */
