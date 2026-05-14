@@ -2103,11 +2103,22 @@ function renderAdminSchedule(){
     ${pageHeader('Raspored časova','Sedmični raspored po razredima','calendar-days',
       `<select id="clsSel" class="form-input" style="width:auto;">
         ${db.classes.map(c=>`<option value="${c.id}" ${c.id===view.classId?'selected':''}>${c.name}</option>`).join('')}
-      </select><input id="dateSel" type="date" class="form-input" style="width:auto;" value="${view.date}">`)}
+      </select><input id="dateSel" type="date" class="form-input" style="width:auto;" value="${view.date}">
+      <button id="clearScheduleBtn" class="btn btn-danger"><i data-lucide="trash-2"></i> Obriši cijeli raspored</button>`)}
     <div class="p-8" id="schedHolder"></div>
   </div>`);
   wrap.querySelector('#clsSel').addEventListener('change', e=>{ view.classId=e.target.value; render(); });
   wrap.querySelector('#dateSel').addEventListener('change', e=>{ view.date=e.target.value; render(); });
+  wrap.querySelector('#clearScheduleBtn').addEventListener('click', ()=>{
+    if(!confirm('Obrisati CIJELI raspored za sve razrede i profesore? Ovo će ukloniti sve časove iz rasporeda svima.')) return;
+    if(!confirm('Potvrdi još jednom: svi rasporedi će biti prazni. Održani časovi i ocjene ostaju, ali sedmični raspored se briše.')) return;
+    db.schedule=[];
+    db.substitutions=[];
+    db.homework.forEach(h=>{ h.scheduleId=''; });
+    db.assessments.forEach(a=>{ a.scheduleId=''; });
+    db.materials.forEach(m=>{ m.scheduleId=''; m.scheduleIds=[]; });
+    saveDB(); render();
+  });
   wrap.querySelector('#schedHolder').appendChild(buildScheduleGrid({classId:view.classId, editable:true, dateForSubs:view.date}));
   return wrap;
 }
