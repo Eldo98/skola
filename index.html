@@ -986,29 +986,73 @@ function renderMessages(){
 
 function openMessageModal(toId='', subject=''){
   const me=getUser(session.userId);
-  const users=db.users.filter(u=>u.id!==me.id).sort((a,b)=>a.name.localeCompare(b.name));
-  const groupOptions = me.role==='admin' ? '<option value="__all_teachers">Svim profesorima</option>' : '';
+  const allUsers=db.users.filter(u=>u.id!==me.id);
+  const taughtClassIds=me.role==='teacher'?teacherClassIds(me.id):[];
+  const taughtStudents=db.users.filter(u=>u.role==='student' && taughtClassIds.includes(u.classId));
+  const taughtStudentIds=taughtStudents.map(u=>u.id);
+  const taughtParents=db.users.filter(u=>u.role==='parent' && (u.childrenIds||[]).some(id=>taughtStudentIds.includes(id)));
+  let recipientOptions=[];
+  if(me.role==='admin') recipientOptions=allUsers;
+  else if(me.role==='teacher') recipientOptions=[...db.users.filter(u=>u.role==='teacher'&&u.id!==me.id), ...taughtStudents, ...taughtParents, ...db.users.filter(u=>u.role==='admin')];
+  else recipientOptions=allUsers;
+  recipientOptions=[...new Map(recipientOptions.map(u=>[u.id,u])).values()].sort((a,b)=>a.name.localeCompare(b.name));
+
+  const groups=[];
+  if(me.role==='admin'){
+    groups.push({label:'Svi profesori', ids:db.users.filter(u=>u.role==='teacher').map(u=>u.id)});
+    groups.push({label:'Svi roditelji', ids:db.users.filter(u=>u.role==='parent').map(u=>u.id)});
+    groups.push({label:'Svi učenici', ids:db.users.filter(u=>u.role==='student').map(u=>u.id)});
+  }
+  if(me.role==='teacher'){
+    groups.push({label:'Svi profesori', ids:db.users.filter(u=>u.role==='teacher'&&u.id!==me.id).map(u=>u.id)});
+    groups.push({label:'Svi učenici koje učim', ids:taughtStudentIds});
+    groups.push({label:'Svi roditelji učenika koje učim', ids:taughtParents.map(u=>u.id)});
+    taughtClassIds.forEach(cid=>{
+      const cls=getClass(cid);
+      const classStudents=db.users.filter(u=>u.role==='student'&&u.classId===cid);
+      const classStudentIds=classStudents.map(u=>u.id);
+      const classParents=db.users.filter(u=>u.role==='parent'&&(u.childrenIds||[]).some(id=>classStudentIds.includes(id)));
+      groups.push({label:`Učenici ${cls?.name||''}`, ids:classStudentIds});
+      groups.push({label:`Roditelji ${cls?.name||''}`, ids:classParents.map(u=>u.id)});
+    });
+  }
+  const preselected=new Set(toId?[toId]:[]);
   let attachments=[];
   let filesLoading=false;
   const m=openModal('Nova poruka', `
     <div class="space-y-3">
-      <div><label class="text-sm font-medium">Prima</label>
-        <select id="f_to" class="form-input">${groupOptions}${users.map(u=>`<option value="${u.id}" ${u.id===toId?'selected':''}>${u.name} (${roleLabel(u.role)})</option>`).join('')}</select>
-        ${me.role==='admin'?'<div class="text-xs text-slate-500 mt-1">Admin može poslati istu obavijest svim profesorima odjednom.</div>':''}
+      <div>
+        <label class="text-sm font-medium">Primaoci</label>
+        ${groups.length?`<div class="flex flex-wrap gap-2 mt-2">
+          ${groups.filter(g=>g.ids.length).map((g,i)=>`<button type="button" data-select-group="${i}" class="btn btn-soft" style="padding:5px 10px;font-size:12px;">${g.label}</button>`).join('')}
+          <button type="button" id="clearRecipients" class="btn btn-danger" style="padding:5px 10px;font-size:12px;">Poništi</button>
+        </div>`:''}
+        <div class="border border-slate-200 rounded-xl p-3 mt-2 max-h-56 overflow-y-auto scrollbar-thin grid md:grid-cols-2 gap-2">
+          ${recipientOptions.map(u=>`<label class="flex items-center gap-2 text-sm p-2 rounded-lg hover:bg-slate-50"><input type="checkbox" class="msg_to" value="${u.id}" ${preselected.has(u.id)?'checked':''}> <span>${u.name} <span class="text-xs text-slate-500">(${roleLabel(u.role)})</span></span></label>`).join('') || '<div class="text-sm text-slate-500">Nema dostupnih primalaca.</div>'}
+        </div>
+        <div id="recipientCount" class="text-xs text-slate-500 mt-1">Odabrano: ${preselected.size}</div>
       </div>
       <div><label class="text-sm font-medium">Naslov</label><input id="f_subj" class="form-input" value="${subject}"></div>
       <div><label class="text-sm font-medium">Poruka</label><textarea id="f_body" rows="6" class="form-input" placeholder="Napišite poruku..."></textarea></div>
       <div><label class="text-sm font-medium">Datoteke (opcionalno)</label><input id="f_files" type="file" multiple class="form-input" accept=".pdf,.ppt,.pptx,.doc,.docx,.xls,.xlsx,.txt,.md,.csv,.json,image/*"><div id="msgFileInfo" class="text-xs text-slate-500 mt-1">Možete dodati veće slike, Word, PDF, PowerPoint ili drugi dokument. Veće datoteke se šalju preko Firebase Storage.</div></div>
     </div>`, ()=>{
     if(filesLoading){ alert('Datoteke se još učitavaju, sačekajte.'); return false; }
-    const to=m.querySelector('#f_to').value;
+    const recipients=[...new Set(Array.from(m.querySelectorAll('.msg_to:checked')).map(x=>x.value).filter(id=>id!==me.id))];
     const body=m.querySelector('#f_body').value.trim();
-    if(!to||(!body && !attachments.length)){ alert('Odaberite primaoca i unesite poruku ili dodajte datoteku.'); return false; }
+    if(!recipients.length||(!body && !attachments.length)){ alert('Odaberite barem jednog primaoca i unesite poruku ili dodajte datoteku.'); return false; }
     const subjectValue=m.querySelector('#f_subj').value.trim();
-    const recipients = to==='__all_teachers' ? db.users.filter(u=>u.role==='teacher').map(u=>u.id) : [to];
-    recipients.forEach(toId=>db.messages.push({ id:uid('msg'), fromId:me.id, toId, subject:subjectValue, body, ts:Date.now(), readAt:null, broadcast:to==='__all_teachers'?'teachers':null, attachments:attachments.map(a=>({...a})) }));
+    recipients.forEach(toId=>db.messages.push({ id:uid('msg'), fromId:me.id, toId, subject:subjectValue, body, ts:Date.now(), readAt:null, broadcast:recipients.length>1?'multi':null, attachments:attachments.map(a=>({...a})) }));
     saveDB(); render(); return true;
   });
+  function syncRecipientCount(){ m.querySelector('#recipientCount').textContent='Odabrano: '+m.querySelectorAll('.msg_to:checked').length; }
+  m.querySelectorAll('.msg_to').forEach(c=>c.addEventListener('change', syncRecipientCount));
+  m.querySelectorAll('[data-select-group]').forEach(b=>b.addEventListener('click', ()=>{
+    const group=groups[+b.dataset.selectGroup];
+    m.querySelectorAll('.msg_to').forEach(c=>{ if(group.ids.includes(c.value)) c.checked=true; });
+    syncRecipientCount();
+  }));
+  m.querySelector('#clearRecipients')?.addEventListener('click', ()=>{ m.querySelectorAll('.msg_to').forEach(c=>c.checked=false); syncRecipientCount(); });
+  syncRecipientCount();
   m.querySelector('#f_files').addEventListener('change', e=>{
     const files=Array.from(e.target.files||[]);
     attachments=[];
@@ -1730,7 +1774,9 @@ function renderAdminSubjects(){
   wrap.querySelector('#addBtn').addEventListener('click', ()=>openSubjectModal());
   wrap.querySelectorAll('[data-edit]').forEach(b=>b.addEventListener('click', ()=>openSubjectModal(b.dataset.edit)));
   wrap.querySelectorAll('[data-del]').forEach(b=>b.addEventListener('click', ()=>{
-    if(confirm('Obrisati predmet?')){ db.subjects=db.subjects.filter(s=>s.id!==b.dataset.del); saveDB(); render(); }
+    if(confirm('Obrisati predmet i SVE podatke iz tog predmeta (raspored, časove, ocjene, zaključne, lekcije, zadaće, ispitivanja i materijale)?')){
+      deleteSubjectDeep(b.dataset.del); saveDB(); render();
+    }
   }));
   return wrap;
 }
@@ -1761,6 +1807,27 @@ function openSubjectModal(id){
     m.querySelectorAll('.color-pick').forEach(x=>x.classList.remove('ring-2','ring-offset-2','ring-slate-700'));
     b.classList.add('ring-2','ring-offset-2','ring-slate-700');
   }));
+}
+
+function deleteSubjectDeep(subjectId){
+  const removedScheduleIds=db.schedule.filter(s=>s.subjectId===subjectId).map(s=>s.id);
+  db.subjects=db.subjects.filter(s=>s.id!==subjectId);
+  db.users.forEach(u=>{ if(Array.isArray(u.subjects)) u.subjects=u.subjects.filter(id=>id!==subjectId); });
+  db.schedule=db.schedule.filter(s=>s.subjectId!==subjectId);
+  db.lessons=db.lessons.filter(l=>l.subjectId!==subjectId);
+  db.classSessions=db.classSessions.filter(cs=>!removedScheduleIds.includes(cs.scheduleId));
+  db.substitutions=db.substitutions.filter(s=>!removedScheduleIds.includes(s.scheduleId));
+  db.finalGrades=db.finalGrades.filter(f=>f.subjectId!==subjectId);
+  db.completions=db.completions.filter(c=>c.subjectId!==subjectId);
+  db.homework=db.homework.filter(h=>h.subjectId!==subjectId);
+  db.assessments=db.assessments.filter(a=>a.subjectId!==subjectId);
+  db.materials=db.materials.filter(m=>m.subjectId!==subjectId).map(m=>{
+    const ids=materialScheduleIds(m).filter(id=>!removedScheduleIds.includes(id));
+    m.scheduleIds=ids;
+    m.scheduleId=ids[0]||'';
+    return m;
+  });
+  db.absenceRequests.forEach(r=>{ if(removedScheduleIds.includes(r.scheduleId)) r.scheduleId=''; });
 }
 
 /* ====== ADMIN SEMESTERS ====== */
@@ -2335,6 +2402,7 @@ function renderClassSession(scheduleId, date){
         <div class="text-xs text-slate-500 mb-3 bg-slate-50 rounded-lg p-2">
           <div><b>Klik</b> na učenika mijenja prisustvo</div>
           <div><b>Dvoklik</b> otvara unos ocjene</div>
+          <div>Dugme <b>+</b> odmah dodaje ocjenu.</div>
           <div>Dugmad <b>P</b>/<b>O</b> dodaju pohvalu ili opomenu.</div>
         </div>
         <div class="space-y-2 max-h-[500px] overflow-y-auto scrollbar-thin pr-2" id="studList"></div>
@@ -2386,6 +2454,7 @@ function renderClassSession(scheduleId, date){
             </div>
             <div class="${iconColor}"><i data-lucide="${icon}"></i></div>
             <div class="flex gap-1">
+              <button data-add-grade="${s.id}" class="px-2 py-1 rounded bg-slate-100 text-slate-700 text-xs font-bold hover:bg-slate-200" title="Dodaj ocjenu">+</button>
               <button data-note-student="${s.id}" data-note-type="pohvala" class="px-2 py-1 rounded bg-emerald-50 text-emerald-700 text-xs font-bold hover:bg-emerald-100" title="Dodaj pohvalu">P</button>
               <button data-note-student="${s.id}" data-note-type="opomena" class="px-2 py-1 rounded bg-red-50 text-red-700 text-xs font-bold hover:bg-red-100" title="Dodaj opomenu">O</button>
             </div>
@@ -2419,6 +2488,12 @@ function renderClassSession(scheduleId, date){
           s_.grades=s_.grades.filter(g=>g.id!==b.dataset.delGrade);
           saveDB(); refreshStudents();
         }
+      }));
+      w.querySelectorAll('[data-add-grade]').forEach(b=>b.addEventListener('click', e=>{
+        e.stopPropagation();
+        if(semClosed){ alert('Semestar je zatvoren - ocjene se ne mogu mijenjati.'); return; }
+        if(subjectUsesCompletion(sc.subjectId)){ alert('Ovaj predmet nema brojčane ocjene. Razrednik u evidenciji označava odradio/nije odradio.'); return; }
+        openGradeModal(s_, b.dataset.addGrade, refreshStudents);
       }));
       w.querySelectorAll('[data-note-student]').forEach(b=>b.addEventListener('click', e=>{
         e.stopPropagation();
@@ -3549,30 +3624,33 @@ function renderHRAbsences(cls, sts){
     const sc=db.schedule.find(s=>s.id===cs.scheduleId); if(!sc||sc.classId!==cls.id) return;
     if(semId){ const sid=cs.semesterId||semesterForDate(cs.date)?.id; if(sid!==semId) return; }
     (cs.attendance||[]).filter(a=>a.status!=='present').forEach(a=>{
-      rows.push({ date:cs.date, subject:getSubject(sc.subjectId), studentId:a.studentId, status:a.status });
+      rows.push({ date:cs.date, subject:getSubject(sc.subjectId), studentId:a.studentId, status:a.status, excused:a.excused===true });
     });
   });
-  const byStud={}; sts.forEach(s=>byStud[s.id]={absent:0, late:0, items:[]});
-  rows.forEach(r=>{ const b=byStud[r.studentId]; if(!b) return; b.items.push(r); if(r.status==='absent') b.absent++; else b.late++; });
+  const byStud={}; sts.forEach(s=>byStud[s.id]={absent:0, late:0, excused:0, unexcused:0, items:[]});
+  rows.forEach(r=>{ const b=byStud[r.studentId]; if(!b) return; b.items.push(r); if(r.status==='absent'){ b.absent++; if(r.excused) b.excused++; else b.unexcused++; } else b.late++; });
 
   return el(`<div class="space-y-4">
-    <div class="grid md:grid-cols-3 gap-3">
+    <div class="grid md:grid-cols-4 gap-3">
       <div class="card p-5"><div class="text-sm text-slate-500">Ukupno odsustva</div><div class="text-3xl font-bold text-red-600">${rows.filter(r=>r.status==='absent').length}</div></div>
       <div class="card p-5"><div class="text-sm text-slate-500">Ukupno kašnjenja</div><div class="text-3xl font-bold text-amber-600">${rows.filter(r=>r.status==='late').length}</div></div>
-      <div class="card p-5"><div class="text-sm text-slate-500">Učenika sa odsustvima</div><div class="text-3xl font-bold">${Object.values(byStud).filter(b=>b.items.length).length}</div></div>
+      <div class="card p-5"><div class="text-sm text-slate-500">Opravdani</div><div class="text-3xl font-bold text-emerald-600">${rows.filter(r=>r.status==='absent'&&r.excused).length}</div></div>
+      <div class="card p-5"><div class="text-sm text-slate-500">Neopravdani</div><div class="text-3xl font-bold text-red-700">${rows.filter(r=>r.status==='absent'&&!r.excused).length}</div></div>
     </div>
     <div class="card overflow-hidden">
       <div class="p-4 border-b border-slate-100 font-bold flex items-center gap-2"><i data-lucide="user-x"></i> Po učeniku</div>
       <table class="w-full text-sm">
         <thead class="bg-slate-50 text-xs uppercase text-slate-500 text-left">
-          <tr><th class="px-4 py-3">Učenik</th><th class="px-4 py-3">Odsustva</th><th class="px-4 py-3">Kašnjenja</th><th class="px-4 py-3">Detalji</th></tr>
+          <tr><th class="px-4 py-3">Učenik</th><th class="px-4 py-3">Odsustva</th><th class="px-4 py-3">Opravdani</th><th class="px-4 py-3">Neopravdani</th><th class="px-4 py-3">Kašnjenja</th><th class="px-4 py-3">Detalji</th></tr>
         </thead>
         <tbody>
           ${sts.map(s=>{ const b=byStud[s.id]; return `<tr class="border-t border-slate-100">
             <td class="px-4 py-3 font-medium">${s.name}</td>
             <td class="px-4 py-3"><span class="badge bg-red-50 text-red-700">${b.absent}</span></td>
+            <td class="px-4 py-3"><span class="badge bg-emerald-50 text-emerald-700">${b.excused}</span></td>
+            <td class="px-4 py-3"><span class="badge bg-red-50 text-red-700">${b.unexcused}</span></td>
             <td class="px-4 py-3"><span class="badge bg-amber-50 text-amber-700">${b.late}</span></td>
-            <td class="px-4 py-3"><div class="flex flex-wrap gap-1">${b.items.slice(0,12).map(it=>`<span class="text-[10px] ${it.status==='absent'?'bg-red-50 text-red-700':'bg-amber-50 text-amber-700'} px-1.5 py-0.5 rounded" title="${it.subject?.name}">${it.date} · ${it.subject?.name||''}</span>`).join('')||'<span class="text-slate-400 text-xs">-</span>'}${b.items.length>12?`<span class="text-xs text-slate-400">+${b.items.length-12}</span>`:''}</div></td>
+            <td class="px-4 py-3"><div class="flex flex-wrap gap-1">${b.items.slice(0,12).map(it=>`<span class="text-[10px] ${it.status==='absent'?(it.excused?'bg-emerald-50 text-emerald-700':'bg-red-50 text-red-700'):'bg-amber-50 text-amber-700'} px-1.5 py-0.5 rounded" title="${it.subject?.name}">${it.date} · ${it.subject?.name||''}${it.status==='absent'?(it.excused?' · O':' · N'):''}</span>`).join('')||'<span class="text-slate-400 text-xs">-</span>'}${b.items.length>12?`<span class="text-xs text-slate-400">+${b.items.length-12}</span>`:''}</div></td>
           </tr>`; }).join('')}
         </tbody>
       </table>
@@ -3669,7 +3747,9 @@ function renderHRAbsenceRequests(cls, sts){
   w.querySelectorAll('[data-abs-act]').forEach(b=>b.addEventListener('click', ()=>{
     const [id,status]=b.dataset.absAct.split('|'); const req=db.absenceRequests.find(r=>r.id===id); if(!req) return;
     req.status=status; req.decidedBy=session.userId; req.decidedAt=Date.now();
-    applyAbsenceRequestDecision(req); saveDB(); render();
+    applyAbsenceRequestDecision(req);
+    if(status==='approved_excused') db.absenceRequests=db.absenceRequests.filter(r=>r.id!==id);
+    saveDB(); render();
   }));
   w.querySelectorAll('[data-abs-note]').forEach(b=>b.addEventListener('click', ()=>{
     const req=db.absenceRequests.find(r=>r.id===b.dataset.absNote); if(!req) return;
@@ -4160,15 +4240,15 @@ function renderStudentHomework(){
 function renderStudentAbsences(){
   const me=getUser(session.userId);
   const list=[];
-  db.classSessions.forEach(cs=>{ const sc=db.schedule.find(s=>s.id===cs.scheduleId); (cs.attendance||[]).filter(a=>a.studentId===me.id && a.status!=='present').forEach(a=>list.push({date:cs.date, subject:getSubject(sc?.subjectId), status:a.status})); });
+  db.classSessions.forEach(cs=>{ const sc=db.schedule.find(s=>s.id===cs.scheduleId); (cs.attendance||[]).filter(a=>a.studentId===me.id && a.status!=='present').forEach(a=>list.push({date:cs.date, subject:getSubject(sc?.subjectId), status:a.status, excused:a.excused===true})); });
   return el(`<div>
     ${pageHeader('Moji izostanci','Pregled odsustva','user-x')}
     <div class="p-8">
       <div class="card overflow-hidden">
         <table class="w-full">
-          <thead class="bg-slate-50 text-xs uppercase text-slate-500 text-left"><tr><th class="px-4 py-3">Datum</th><th class="px-4 py-3">Predmet</th><th class="px-4 py-3">Status</th></tr></thead>
+          <thead class="bg-slate-50 text-xs uppercase text-slate-500 text-left"><tr><th class="px-4 py-3">Datum</th><th class="px-4 py-3">Predmet</th><th class="px-4 py-3">Status</th><th class="px-4 py-3">Opravdanje</th></tr></thead>
           <tbody>
-            ${list.map(x=>`<tr class="border-t border-slate-100"><td class="px-4 py-3">${x.date}</td><td class="px-4 py-3"><span class="badge text-white" style="background:${x.subject?.color}">${x.subject?.name||''}</span></td><td class="px-4 py-3"><span class="badge ${x.status==='absent'?'bg-red-50 text-red-700':'bg-amber-50 text-amber-700'}">${x.status==='absent'?'Odsutan':'Kasni'}</span></td></tr>`).join('')||'<tr><td colspan="3" class="text-center py-8 text-slate-500">Nemate evidentiranih izostanaka.</td></tr>'}
+            ${list.map(x=>`<tr class="border-t border-slate-100"><td class="px-4 py-3">${x.date}</td><td class="px-4 py-3"><span class="badge text-white" style="background:${x.subject?.color}">${x.subject?.name||''}</span></td><td class="px-4 py-3"><span class="badge ${x.status==='absent'?'bg-red-50 text-red-700':'bg-amber-50 text-amber-700'}">${x.status==='absent'?'Odsutan':'Kasni'}</span></td><td class="px-4 py-3">${x.status==='absent'?(x.excused?'<span class="badge bg-emerald-50 text-emerald-700">opravdano</span>':'<span class="badge bg-red-50 text-red-700">neopravdano</span>'):'-'}</td></tr>`).join('')||'<tr><td colspan="4" class="text-center py-8 text-slate-500">Nemate evidentiranih izostanaka.</td></tr>'}
           </tbody>
         </table>
       </div>
