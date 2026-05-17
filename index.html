@@ -159,6 +159,7 @@ const DEFAULT_DB = {
   homework: [],    // { id,classId,subjectId,teacherId,scheduleId,title,description,assignedDate,dueDate,doneBy,marks:{studentId:'+'|'-'|'o'} }
   assessments: [], // { id,classId,subjectId,teacherId,scheduleId,type,title,description,date,createdBy,studentIds:[] }
   materials: [],   // { id,title,description,source:'url|local',url,dataUrl,mime,fileName,classId,subjectId,scheduleId,scheduleIds:[],createdBy,createdAt }
+  botLogs: [],     // { id,userId,date,kind,ts }
   messages: []     // { id,fromId,toId,subject,body,ts,readAt,attachments:[] }
 };
 
@@ -223,10 +224,10 @@ function debouncedSaveDB(delay=700){
 
 function normalizeDB(data){
   const d = data || JSON.parse(JSON.stringify(DEFAULT_DB));
-  ['users','classes','subjects','semesters','schedule','lessons','classSessions','substitutions','finalGrades','completions','classDuties','seatingPlans','studentProfiles','absenceRequests','classNotes','homework','assessments','materials','messages'].forEach(k=>{
+  ['users','classes','subjects','semesters','schedule','lessons','classSessions','substitutions','finalGrades','completions','classDuties','seatingPlans','studentProfiles','absenceRequests','classNotes','homework','assessments','materials','botLogs','messages'].forEach(k=>{
     if(!Array.isArray(d[k])) d[k]=[];
   });
-  d.users.forEach(u=>{ if(u.role==='parent' && !Array.isArray(u.childrenIds)) u.childrenIds=[]; });
+  d.users.forEach(u=>{ if(u.role==='parent' && !Array.isArray(u.childrenIds)) u.childrenIds=[]; if(typeof u.isBot!=='boolean') u.isBot=false; if(!Array.isArray(u.botDates)) u.botDates=[]; if(!u.botStyle) u.botStyle='normal'; });
   d.absenceRequests.forEach(r=>{ if(!r.status) r.status='pending'; if(!r.type) r.type='planned'; if(typeof r.scheduleId==='undefined') r.scheduleId=''; });
   d.seatingPlans.forEach(p=>{ if(!p.seats || typeof p.seats!=='object' || Array.isArray(p.seats)) p.seats={}; });
   d.subjects.forEach(s=>{ if(!s.gradingMode) s.gradingMode='grades'; });
@@ -361,6 +362,93 @@ function requestStatusBadge(status){
   if(status==='approved_excused') return '<span class="badge bg-emerald-50 text-emerald-700">opravdano</span>';
   if(status==='rejected_unexcused') return '<span class="badge bg-red-50 text-red-700">neopravdano</span>';
   return '<span class="badge bg-amber-50 text-amber-700">na čekanju</span>';
+}
+function simpleHash(str){
+  let h=0;
+  for(let i=0;i<str.length;i++) h=((h<<5)-h)+str.charCodeAt(i)|0;
+  return Math.abs(h);
+}
+function botRan(userId,date,kind){ return db.botLogs.some(l=>l.userId===userId && l.date===date && l.kind===kind); }
+function markBotRan(userId,date,kind){ db.botLogs.push({id:uid('botlog'),userId,date,kind,ts:Date.now()}); }
+function botShouldRun(user,date,force=false){ return user?.isBot && (force || (user.botDates||[]).includes(date)); }
+function ensureSessionForSchedule(scheduleId,date,conductedBy){
+  const sc=db.schedule.find(s=>s.id===scheduleId); if(!sc) return null;
+  let cs=db.classSessions.find(x=>x.scheduleId===scheduleId && x.date===date);
+  if(!cs){
+    const students=studentsOfClass(sc.classId);
+    cs={ id:uid('cs'), scheduleId, date, semesterId:semesterForDate(date)?.id||activeSemester()?.id||null, lessonId:null, notes:'', privateNotes:{}, conductedBy, attendance:students.map(s=>({studentId:s.id,status:'present'})), grades:[] };
+    db.classSessions.push(cs);
+  }
+  if(!Array.isArray(cs.attendance)) cs.attendance=[];
+  studentsOfClass(sc.classId).forEach(s=>{ if(!cs.attendance.find(a=>a.studentId===s.id)) cs.attendance.push({studentId:s.id,status:'present'}); });
+  return cs;
+}
+function runTeacherBot(user,date,force=false){
+  if(!botShouldRun(user,date,force) || (!force && botRan(user.id,date,'teacher'))) return 0;
+  const dow=(parseLocalDate(date).getDay()+6)%7;
+  const slots=db.schedule.filter(s=>s.teacherId===user.id && s.day===dow);
+  let actions=0;
+  slots.forEach(sc=>{
+    const cs=ensureSessionForSchedule(sc.id,date,user.id); if(!cs) return;
+    const students=studentsOfClass(sc.classId);
+    cs.notes = cs.notes || `Bot ${user.name} je evidentirao čas (${getSubject(sc.subjectId)?.name||''}).`;
+    cs.conductedBy=user.id;
+    students.forEach((st,i)=>{
+      const att=cs.attendance.find(a=>a.studentId===st.id);
+      const h=simpleHash(`${user.id}-${date}-${sc.id}-${st.id}`);
+      att.status = h%13===0 ? 'absent' : h%11===0 ? 'late' : 'present';
+      if(att.status==='present' && !cs.grades.some(g=>g.studentId===st.id) && h%5===0 && !subjectUsesCompletion(sc.subjectId)){
+        cs.grades.push({id:uid('g'),studentId:st.id,value:(h%5)+1,type:'activity',note:'Bot unos - aktivnost na času',ts:Date.now(),bot:true});
+      }
+    });
+    const lesson=db.lessons.find(l=>l.teacherId===user.id && l.subjectId===sc.subjectId);
+    if(lesson && !cs.lessonId) cs.lessonId=lesson.id;
+    const msgKey=`bot-msg-${user.id}-${date}-${sc.id}`;
+    if(!db.botLogs.some(l=>l.kind===msgKey)){
+      students.forEach(st=>db.messages.push({id:uid('msg'),fromId:user.id,toId:st.id,subject:`Obavještenje: ${getSubject(sc.subjectId)?.name||''}`,body:`Automatsko obavještenje za ${getClass(sc.classId)?.name||''}: čas je evidentiran za ${date}.`,ts:Date.now(),readAt:null,attachments:[],bot:true}));
+      markBotRan(user.id,date,msgKey);
+    }
+    actions++;
+  });
+  markBotRan(user.id,date,'teacher');
+  return actions;
+}
+function runParentBot(user,date,force=false){
+  if(!botShouldRun(user,date,force) || (!force && botRan(user.id,date,'parent'))) return 0;
+  let actions=0;
+  childrenOfParent(user.id).forEach(child=>{
+    const dow=(parseLocalDate(date).getDay()+6)%7;
+    const slot=db.schedule.find(s=>s.classId===child.classId && s.day===dow);
+    if(!slot) return;
+    const exists=db.absenceRequests.some(r=>r.parentId===user.id && r.studentId===child.id && r.date===date && r.scheduleId===slot.id);
+    if(!exists){
+      db.absenceRequests.push({id:uid('abs'),parentId:user.id,studentId:child.id,classId:child.classId,scheduleId:slot.id,date,type:'planned',reason:'Bot roditelj: najavljeno odsustvo.',status:'pending',note:'',decidedBy:null,decidedAt:null,createdAt:Date.now(),bot:true});
+      actions++;
+    }
+  });
+  markBotRan(user.id,date,'parent');
+  return actions;
+}
+function runStudentBot(user,date,force=false){
+  if(!botShouldRun(user,date,force) || (!force && botRan(user.id,date,'student'))) return 0;
+  let actions=0;
+  db.homework.filter(h=>h.classId===user.classId && h.dueDate && h.dueDate>=date).slice(0,3).forEach(h=>{
+    if(homeworkMark(h,user.id)!=='+'){ setHomeworkMark(h,user.id,'+'); actions++; }
+  });
+  const teachers=[...new Set(db.schedule.filter(s=>s.classId===user.classId).map(s=>s.teacherId))].map(getUser).filter(Boolean);
+  teachers.slice(0,1).forEach(t=>db.messages.push({id:uid('msg'),fromId:user.id,toId:t.id,subject:'Bot učenik - potvrda',body:`Učenik bot ${user.name} je automatski potvrdio aktivnosti za ${date}.`,ts:Date.now(),readAt:null,attachments:[],bot:true}));
+  markBotRan(user.id,date,'student');
+  return actions;
+}
+function runBots(date=todayStr(), force=false){
+  let count=0;
+  db.users.filter(u=>u.isBot).forEach(u=>{
+    if(u.role==='teacher') count+=runTeacherBot(u,date,force);
+    if(u.role==='parent') count+=runParentBot(u,date,force);
+    if(u.role==='student') count+=runStudentBot(u,date,force);
+  });
+  if(count) saveDB();
+  return count;
 }
 function applyAbsenceRequestDecision(req){
   db.classSessions.forEach(cs=>{
@@ -808,6 +896,7 @@ function menuFor(user){
     { view:'admin-dashboard', icon:'layout-dashboard', label:'Dashboard' },
     { view:'admin-messages', icon:'message-square', label:'Poruke', badge: unreadMessagesFor(user.id)||null },
     { view:'admin-users', icon:'users', label:'Korisnici' },
+    { view:'admin-bots', icon:'bot', label:'Botovi' },
     { view:'admin-student-profiles', icon:'id-card', label:'CV učenika' },
     { view:'admin-classes', icon:'school', label:'Razredi' },
     { view:'admin-subjects', icon:'book-open', label:'Predmeti' },
@@ -863,6 +952,7 @@ function renderView(){
     case 'admin-dashboard': return renderAdminDashboard();
     case 'admin-messages': return renderMessages();
     case 'admin-users': return renderAdminUsers();
+    case 'admin-bots': return renderAdminBots();
     case 'admin-student-profiles': return renderAdminStudentProfiles();
     case 'admin-classes': return renderAdminClasses();
     case 'admin-subjects': return renderAdminSubjects();
@@ -1615,7 +1705,7 @@ function renderAdminUsers(){
           </thead>
           <tbody>
             ${db.users.map(u=>`<tr class="border-t border-slate-100 hover:bg-slate-50">
-              <td class="px-4 py-3 font-medium flex items-center gap-2">${u.name}${isHomeroom(u.id)?'<i data-lucide="award" class="icon-sm text-amber-500" title="Razrednik"></i>':''}</td>
+              <td class="px-4 py-3 font-medium flex items-center gap-2">${u.name}${isHomeroom(u.id)?'<i data-lucide="award" class="icon-sm text-amber-500" title="Razrednik"></i>':''}${u.isBot?'<span class="badge bg-blue-50 text-blue-700"><i data-lucide="bot" class="icon-sm"></i> bot</span>':''}</td>
               <td class="px-4 py-3 text-slate-600">${u.username}</td>
               <td class="px-4 py-3"><span class="badge ${u.role==='admin'?'bg-purple-50 text-purple-700':u.role==='teacher'?'bg-emerald-50 text-emerald-700':'bg-blue-50 text-blue-700'}">${roleLabel(u.role)}</span></td>
               <td class="px-4 py-3 text-sm text-slate-600">${u.role==='student'?(getClass(u.classId)?.name||'-'):u.role==='teacher'?(u.subjects||[]).map(id=>getSubject(id)?.name).filter(Boolean).join(', '):'-'}</td>
@@ -1638,6 +1728,44 @@ function renderAdminUsers(){
   return wrap;
 }
 
+function renderAdminBots(){
+  if(!view.botDate) view.botDate=todayStr();
+  const bots=db.users.filter(u=>u.isBot);
+  const wrap=el(`<div>
+    ${pageHeader('Botovi','Automatski korisnici koji rade samo na odabrane datume','bot',
+      `<input id="botDate" type="date" class="form-input" style="width:auto;" value="${view.botDate}">
+       <button id="runBots" class="btn btn-primary"><i data-lucide="play"></i> Pokreni botove za datum</button>`)}
+    <div class="p-8 space-y-4">
+      <div class="card p-5 bg-blue-50 border-blue-100 text-sm text-blue-800">
+        Bot profesor evidentira časove, prisustvo, poneku ocjenu i šalje obavijesti učenicima. Bot roditelj šalje zahtjev za odsustvo. Bot učenik označava zadaće i šalje potvrdu profesoru.
+      </div>
+      <div class="card overflow-hidden">
+        <table class="w-full text-sm">
+          <thead class="bg-slate-50 text-xs uppercase text-slate-500 text-left"><tr><th class="px-4 py-3">Korisnik</th><th class="px-4 py-3">Uloga</th><th class="px-4 py-3">Datumi</th><th class="px-4 py-3">Stil</th><th class="px-4 py-3">Logovi</th><th class="px-4 py-3 text-right">Akcije</th></tr></thead>
+          <tbody>
+            ${bots.length?bots.map(u=>`<tr class="border-t border-slate-100 hover:bg-slate-50">
+              <td class="px-4 py-3 font-medium">${u.name}</td>
+              <td class="px-4 py-3">${roleLabel(u.role)}</td>
+              <td class="px-4 py-3 text-slate-600">${(u.botDates||[]).join(', ')||'<span class="text-slate-400">nema</span>'}</td>
+              <td class="px-4 py-3">${u.botStyle||'normal'}</td>
+              <td class="px-4 py-3">${db.botLogs.filter(l=>l.userId===u.id).length}</td>
+              <td class="px-4 py-3 text-right"><button data-edit-bot="${u.id}" class="btn btn-soft" style="padding:5px 10px;font-size:12px;"><i data-lucide="pencil" class="icon-sm"></i> Uredi</button></td>
+            </tr>`).join(''):'<tr><td colspan="6" class="text-center py-8 text-slate-500">Nema označenih bot korisnika. Označite korisnika kao bot u meniju Korisnici.</td></tr>'}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>`);
+  wrap.querySelector('#botDate').addEventListener('change', e=>{ view.botDate=e.target.value; render(); });
+  wrap.querySelector('#runBots').addEventListener('click', ()=>{
+    const actions=runBots(view.botDate,true);
+    alert(`Botovi su završili. Broj akcija: ${actions}`);
+    render();
+  });
+  wrap.querySelectorAll('[data-edit-bot]').forEach(b=>b.addEventListener('click', ()=>openUserModal(b.dataset.editBot)));
+  return wrap;
+}
+
 function openUserModal(id){
   const u=id?getUser(id):{ id:uid('u'), name:'', username:'', password:'', role:'student', email:'', classId:'', subjects:[] };
   const isNew=!id;
@@ -1649,6 +1777,14 @@ function openUserModal(id){
         <div><label class="text-sm font-medium">Lozinka</label><input id="f_pass" class="form-input" value="${u.password||''}"></div>
       </div>
       <div><label class="text-sm font-medium">Email</label><input id="f_email" class="form-input" value="${u.email||''}"></div>
+      <div class="border border-blue-100 bg-blue-50 rounded-xl p-3">
+        <label class="flex items-center gap-2 text-sm font-medium"><input id="f_bot" type="checkbox" ${u.isBot?'checked':''}> Bot korisnik</label>
+        <div class="grid grid-cols-2 gap-3 mt-2">
+          <div><label class="text-xs font-medium text-slate-600">Bot datumi</label><input id="f_bot_dates" class="form-input" value="${(u.botDates||[]).join(', ')}" placeholder="2026-05-04, 2026-05-05"></div>
+          <div><label class="text-xs font-medium text-slate-600">Stil</label><select id="f_bot_style" class="form-input"><option value="normal" ${u.botStyle==='normal'?'selected':''}>Normalno</option><option value="active" ${u.botStyle==='active'?'selected':''}>Aktivno</option><option value="quiet" ${u.botStyle==='quiet'?'selected':''}>Tiho</option></select></div>
+        </div>
+        <div class="text-xs text-blue-700 mt-2">Bot radi samo na upisane datume, ili ručno kroz meni Botovi.</div>
+      </div>
       <div><label class="text-sm font-medium">Uloga</label>
         <select id="f_role" class="form-input">
           <option value="student" ${u.role==='student'?'selected':''}>Učenik</option>
@@ -1663,6 +1799,9 @@ function openUserModal(id){
     u.username=m.querySelector('#f_user').value.trim();
     u.password=m.querySelector('#f_pass').value;
     u.email=m.querySelector('#f_email').value.trim();
+    u.isBot=m.querySelector('#f_bot').checked;
+    u.botDates=m.querySelector('#f_bot_dates').value.split(',').map(x=>x.trim()).filter(Boolean);
+    u.botStyle=m.querySelector('#f_bot_style').value;
     u.role=m.querySelector('#f_role').value;
     if(u.role==='student'){ u.classId=m.querySelector('#f_class')?.value||''; delete u.subjects; }
     if(u.role==='teacher'){ u.subjects=Array.from(m.querySelectorAll('.f_sub:checked')).map(c=>c.value); delete u.classId; }
@@ -4372,6 +4511,7 @@ function openModal(title, bodyHTML, onSave){
   try { const s=JSON.parse(localStorage.getItem('eskola_session')); if(s) session=s; } catch(e){}
   if(session){ const u=getUser(session.userId); if(u) view=defaultViewFor(u); else session=null; }
   initFirebaseSync();
+  runBots(todayStr(), false);
   render();
 })();
 </script>
