@@ -155,6 +155,7 @@ const DEFAULT_DB = {
   subjects: [],
   semesters: [],   // { id,name,start,end,active,closed,requiredGrades }
   schedule: [],    // { id,classId,day,period,subjectId,teacherId,room }
+  specialClasses: [], // { id,title,date,period,subjectId,teacherId,room,studentIds,description,createdBy,createdAt }
   lessons: [],
   classSessions: [], // { id,scheduleId,date,semesterId,lessonId,notes,privateNotes:{teacherId:text},conductedBy,attendance,grades }
   substitutions: [],
@@ -234,7 +235,7 @@ function debouncedSaveDB(delay=700){
 
 function normalizeDB(data){
   const d = data || JSON.parse(JSON.stringify(DEFAULT_DB));
-  ['users','classes','subjects','semesters','schedule','lessons','classSessions','substitutions','finalGrades','completions','classDuties','seatingPlans','studentProfiles','absenceRequests','classNotes','homework','assessments','materials','notebookPages','botLogs','messages'].forEach(k=>{
+  ['users','classes','subjects','semesters','schedule','specialClasses','lessons','classSessions','substitutions','finalGrades','completions','classDuties','seatingPlans','studentProfiles','absenceRequests','classNotes','homework','assessments','materials','notebookPages','botLogs','messages'].forEach(k=>{
     if(!Array.isArray(d[k])) d[k]=[];
   });
   d.users.forEach(u=>{ if(u.role==='parent' && !Array.isArray(u.childrenIds)) u.childrenIds=[]; if(typeof u.isBot!=='boolean') u.isBot=false; if(!Array.isArray(u.botDates)) u.botDates=[]; if(!u.botStyle) u.botStyle='normal'; });
@@ -243,6 +244,7 @@ function normalizeDB(data){
   d.subjects.forEach(s=>{ if(!s.gradingMode) s.gradingMode='grades'; });
   d.semesters.forEach(s=>{ if(typeof s.requiredGrades!=='number') s.requiredGrades=4; if(typeof s.closed!=='boolean') s.closed=false; });
   d.schedule.forEach(s=>{ if(typeof s.room==='undefined') s.room=''; });
+  d.specialClasses.forEach(c=>{ if(!Array.isArray(c.studentIds)) c.studentIds=[]; if(typeof c.period==='string') c.period=+c.period; if(typeof c.room==='undefined') c.room=''; if(typeof c.description==='undefined') c.description=''; });
   d.homework.forEach(h=>{
     if(!Array.isArray(h.doneBy)) h.doneBy=[];
     if(typeof h.scheduleId==='undefined') h.scheduleId='';
@@ -694,6 +696,19 @@ function materialCanImportToSlot(material, slot){
   if(material.classId && material.classId!==slot.classId) return false;
   return true;
 }
+function specialClassForStudent(studentId, date, period){
+  return db.specialClasses.find(c=>c.date===date && +c.period===+period && (c.studentIds||[]).includes(studentId));
+}
+function specialClassesForTeacher(teacherId, date, period){
+  return db.specialClasses.filter(c=>c.teacherId===teacherId && c.date===date && +c.period===+period);
+}
+function specialStudentNames(c){
+  return (c.studentIds||[]).map(id=>getUser(id)?.name).filter(Boolean).join(', ');
+}
+function specialClassSummary(c){
+  const subj=getSubject(c.subjectId), tch=getUser(c.teacherId);
+  return `${subj?.name||''} · ${tch?.name||''} · ${c.date} · ${(+c.period)+1}. čas`;
+}
 function isTypingNow(){
   const a=document.activeElement;
   return !!a && (a.tagName==='TEXTAREA' || a.tagName==='INPUT' || a.isContentEditable);
@@ -934,6 +949,7 @@ function menuFor(user){
     { view:'admin-subjects', icon:'book-open', label:'Predmeti' },
     { view:'admin-semesters', icon:'calendar-range', label:'Semestri' },
     { view:'admin-schedule', icon:'calendar-days', label:'Raspored' },
+    { view:'admin-special-classes', icon:'calendar-plus', label:'Posebni časovi' },
     { view:'admin-homework', icon:'clipboard-pen-line', label:'Pregled zadaća' },
     { view:'admin-materials', icon:'paperclip', label:'Materijali' },
     { view:'admin-assessments', icon:'file-check-2', label:'Ispitivanja' },
@@ -991,6 +1007,7 @@ function renderView(){
     case 'admin-subjects': return renderAdminSubjects();
     case 'admin-semesters': return renderAdminSemesters();
     case 'admin-schedule': return renderAdminSchedule();
+    case 'admin-special-classes': return renderAdminSpecialClasses();
     case 'admin-homework': return renderHomeworkOverview('admin');
     case 'admin-materials': return renderMaterials('admin');
     case 'admin-assessments': return renderAssessments('admin');
@@ -2329,7 +2346,7 @@ function renderAdminCloseSemester(){
 
 /* ====== SCHEDULE GRID ====== */
 function buildScheduleGrid(opts){
-  const { classId=null, teacherId=null, editable=false, dateForSubs=null, onSlotClick=null } = opts;
+  const { classId=null, teacherId=null, studentId=null, editable=false, dateForSubs=null, onSlotClick=null } = opts;
   const todayDow = (new Date().getDay()+6)%7;
   const weekStart = startOfWeek(dateForSubs || todayStr());
   function mobileEventsForDay(di){
@@ -2339,6 +2356,9 @@ function buildScheduleGrid(opts){
       let slots=[];
       if(classId) slots=db.schedule.filter(s=>s.classId===classId && s.day===di && s.period===pi);
       else if(teacherId) slots=db.schedule.filter(s=>s.teacherId===teacherId && s.day===di && s.period===pi);
+      const specialForStudent = studentId ? specialClassForStudent(studentId, cellDate, pi) : null;
+      if(specialForStudent) slots=[];
+      const teacherSpecials = teacherId ? specialClassesForTeacher(teacherId, cellDate, pi) : [];
       if(editable && classId && !slots.length){
         events.push({ empty:true, period:pi, time:`${p.s}-${p.e}`, day:di });
       }
@@ -2348,6 +2368,14 @@ function buildScheduleGrid(opts){
         const hw = db.homework.filter(h=>shouldShowHomeworkOnSlot(h, slot, cellDate));
         const ass = db.assessments.filter(a=>shouldShowAssessmentOnSlot(a, slot, cellDate) && assessmentVisibleForCurrentUser(a));
         events.push({ slot, sub, title:sub?.name||'Čas', meta:classId?(tch?.name||''):(cls?.name||''), room:slot.room, period:pi, time:`${p.s}-${p.e}`, subbed, hw, ass });
+      });
+      if(specialForStudent){
+        const subj=getSubject(specialForStudent.subjectId), tch=getUser(specialForStudent.teacherId);
+        events.push({ special:specialForStudent, sub:subj, title:specialForStudent.title||subj?.name||'Posebni čas', meta:`Posebni čas · ${tch?.name||''}`, room:specialForStudent.room, period:pi, time:`${p.s}-${p.e}`, hw:[], ass:[] });
+      }
+      teacherSpecials.forEach(sp=>{
+        const subj=getSubject(sp.subjectId);
+        events.push({ special:sp, sub:subj, title:sp.title||subj?.name||'Posebni čas', meta:`Posebni čas · ${specialStudentNames(sp)}`, room:sp.room, period:pi, time:`${p.s}-${p.e}`, hw:[], ass:[] });
       });
       if(teacherId && dateForSubs){
         db.substitutions.filter(s=>s.substituteTeacherId===teacherId && s.status==='accepted' && s.date===cellDate).forEach(s=>{
@@ -2373,7 +2401,12 @@ function buildScheduleGrid(opts){
             ${events.length?events.map(ev=>ev.empty?`<button class="mobile-event empty-slot text-left w-full hover:bg-blue-50" data-day="${ev.day}" data-period="${ev.period}" style="--event-color:#94a3b8">
               <div class="text-xs font-mono text-slate-500">${ev.period+1}. čas · ${ev.time}</div>
               <div class="font-bold text-slate-700 mt-1">+ Dodaj čas</div>
-            </button>`:`<div class="mobile-event ${onSlotClick?'cursor-pointer':''}" data-slot="${ev.slot.id}" data-date="${cellDate}" style="--event-color:${ev.sub?.color||'#64748b'}">
+            </button>`:ev.special?`<div class="mobile-event cursor-pointer" data-special="${ev.special.id}" data-date="${cellDate}" style="--event-color:${ev.sub?.color||'#64748b'}">
+              <div class="text-xs font-mono text-slate-500">${ev.period+1}. čas · ${ev.time}</div>
+              <div class="font-extrabold text-base mt-0.5">${ev.title}</div>
+              <div class="text-xs text-slate-600 mt-1">${ev.meta}${ev.room?' · '+ev.room:''}</div>
+              <span class="badge bg-blue-50 text-blue-700 mt-2">posebni čas</span>
+            </div>`:`<div class="mobile-event ${onSlotClick?'cursor-pointer':''}" data-slot="${ev.slot.id}" data-date="${cellDate}" style="--event-color:${ev.sub?.color||'#64748b'}">
               <div class="flex items-start justify-between gap-3">
                 <div>
                   <div class="text-xs font-mono text-slate-500">${ev.period+1}. čas · ${ev.time}</div>
@@ -2414,6 +2447,9 @@ function buildScheduleGrid(opts){
           let slots=[];
           if(classId) slots=db.schedule.filter(s=>s.classId===classId && s.day===di && s.period===pi);
           else if(teacherId) slots=db.schedule.filter(s=>s.teacherId===teacherId && s.day===di && s.period===pi);
+          const specialForStudent = studentId ? specialClassForStudent(studentId, cellDate, pi) : null;
+          if(specialForStudent) slots=[];
+          const teacherSpecials = teacherId ? specialClassesForTeacher(teacherId, cellDate, pi) : [];
 
           let extraSubs=[];
           if(teacherId && dateForSubs){
@@ -2423,8 +2459,18 @@ function buildScheduleGrid(opts){
             }).filter(Boolean);
           }
 
-          if(slots.length || extraSubs.length){
+          if(slots.length || extraSubs.length || specialForStudent || teacherSpecials.length){
             return `<div class="schedule-slot p-2 border-b border-r border-slate-100 min-h-[96px] space-y-2">
+              ${specialForStudent?(()=>{ const subj=getSubject(specialForStudent.subjectId), tch=getUser(specialForStudent.teacherId); return `<div class="schedule-cell lesson-event rounded-xl p-3 text-xs cursor-pointer" data-special="${specialForStudent.id}" data-date="${cellDate}" style="--event-color:${subj?.color||'#64748b'}">
+                <div class="font-extrabold text-[15px] leading-tight">${specialForStudent.title||subj?.name||'Posebni čas'}</div>
+                <div class="muted text-xs mt-1 flex items-center gap-1"><i data-lucide="star" class="icon-sm"></i> Posebni čas · ${tch?.name||''}</div>
+                ${specialForStudent.room?`<div class="muted text-xs mt-0.5 flex items-center gap-1"><i data-lucide="map-pin" class="icon-sm"></i> ${specialForStudent.room}</div>`:''}
+              </div>`; })():''}
+              ${teacherSpecials.map(sp=>{ const subj=getSubject(sp.subjectId); return `<div class="schedule-cell lesson-event rounded-xl p-3 text-xs cursor-pointer" data-special="${sp.id}" data-date="${cellDate}" style="--event-color:${subj?.color||'#64748b'}">
+                <div class="font-extrabold text-[15px] leading-tight">${sp.title||subj?.name||'Posebni čas'}</div>
+                <div class="muted text-xs mt-1 flex items-center gap-1"><i data-lucide="star" class="icon-sm"></i> Posebni čas</div>
+                <div class="muted text-xs mt-0.5 line-clamp-2">${specialStudentNames(sp)}</div>
+              </div>`; }).join('')}
               ${slots.map(slot=>{
                 const sub=getSubject(slot.subjectId), tch=getUser(slot.teacherId), cls=getClass(slot.classId);
                 const subbed = dateForSubs && db.substitutions.find(s=>s.scheduleId===slot.id && s.date===cellDate && s.status==='accepted');
@@ -2469,6 +2515,7 @@ function buildScheduleGrid(opts){
   }
   if(onSlotClick){
     tbl.querySelectorAll('[data-slot]').forEach(b=>b.addEventListener('click', ()=>onSlotClick(b.dataset.slot, b.dataset.date || dateForSubs || todayStr())));
+    tbl.querySelectorAll('[data-special]').forEach(b=>b.addEventListener('click', ()=>openSpecialClassInfoModal(b.dataset.special)));
   }
   return tbl;
 }
@@ -2501,6 +2548,39 @@ function renderAdminSchedule(){
   });
   wrap.querySelector('#schedHolder').appendChild(buildScheduleGrid({classId:view.classId, editable:true, dateForSubs:view.date}));
   return wrap;
+}
+
+function renderAdminSpecialClasses(){
+  const list=db.specialClasses.slice().sort((a,b)=>(a.date||'').localeCompare(b.date||'') || (+a.period)-(+b.period));
+  const wrap=el(`<div>
+    ${pageHeader('Posebni časovi','Časovi za odabrane učenike koji im zamjenjuju redovan čas','calendar-plus',`<button id="addSpecial" class="btn btn-primary"><i data-lucide="plus"></i> Novi posebni čas</button>`)}
+    <div class="p-8"><div class="card overflow-hidden">
+      ${list.length?`<table class="w-full text-sm"><thead class="bg-slate-50 text-xs uppercase text-slate-500 text-left"><tr><th class="px-4 py-3">Datum</th><th class="px-4 py-3">Čas</th><th class="px-4 py-3">Naziv</th><th class="px-4 py-3">Predmet</th><th class="px-4 py-3">Profesor</th><th class="px-4 py-3">Učenici</th><th class="px-4 py-3 text-right">Akcije</th></tr></thead><tbody>${list.map(c=>`<tr class="border-t border-slate-100 hover:bg-slate-50"><td class="px-4 py-3 font-mono text-xs">${c.date}</td><td class="px-4 py-3">${(+c.period)+1}. čas</td><td class="px-4 py-3 font-bold">${c.title}</td><td class="px-4 py-3"><span class="badge text-white" style="background:${getSubject(c.subjectId)?.color||'#64748b'}">${getSubject(c.subjectId)?.name||''}</span></td><td class="px-4 py-3 text-slate-600">${getUser(c.teacherId)?.name||''}</td><td class="px-4 py-3 text-slate-600 max-w-sm"><div class="line-clamp-2">${specialStudentNames(c)||'-'}</div></td><td class="px-4 py-3 text-right"><button data-edit-special="${c.id}" class="btn btn-soft" style="padding:5px 10px;font-size:12px;"><i data-lucide="pencil" class="icon-sm"></i> Uredi</button><button data-del-special="${c.id}" class="btn btn-danger" style="padding:5px 10px;font-size:12px;"><i data-lucide="trash-2" class="icon-sm"></i></button></td></tr>`).join('')}</tbody></table>`:'<div class="p-10 text-center text-slate-500">Nema posebnih časova.</div>'}
+    </div></div>
+  </div>`);
+  wrap.querySelector('#addSpecial').addEventListener('click', ()=>openSpecialClassModal());
+  wrap.querySelectorAll('[data-edit-special]').forEach(b=>b.addEventListener('click', ()=>openSpecialClassModal(b.dataset.editSpecial)));
+  wrap.querySelectorAll('[data-del-special]').forEach(b=>b.addEventListener('click', ()=>{ if(confirm('Obrisati posebni čas?')){ db.specialClasses=db.specialClasses.filter(c=>c.id!==b.dataset.delSpecial); saveDB(); render(); }}));
+  return wrap;
+}
+
+function openSpecialClassModal(id=null){
+  const c=id?db.specialClasses.find(x=>x.id===id):{ id:uid('spc'), title:'', date:todayStr(), period:0, subjectId:'', teacherId:'', room:'', description:'', studentIds:[], createdBy:session.userId, createdAt:Date.now() };
+  const m=openModal(id?'Uredi posebni čas':'Novi posebni čas', `<div class="space-y-3"><div><label class="text-sm font-medium">Naziv</label><input id="sp_title" class="form-input" value="${c.title||''}" placeholder="npr. Popravni iz matematike"></div><div class="grid grid-cols-2 gap-3"><div><label class="text-sm font-medium">Datum</label><input id="sp_date" type="date" class="form-input" value="${c.date||todayStr()}"></div><div><label class="text-sm font-medium">Čas</label><select id="sp_period" class="form-input">${PERIODS.map((p,i)=>`<option value="${i}" ${+c.period===i?'selected':''}>${i+1}. čas (${p.s})</option>`).join('')}</select></div></div><div class="grid grid-cols-2 gap-3"><div><label class="text-sm font-medium">Predmet</label><select id="sp_subject" class="form-input"><option value="">- odaberi -</option>${db.subjects.map(s=>`<option value="${s.id}" ${c.subjectId===s.id?'selected':''}>${s.name}</option>`).join('')}</select></div><div><label class="text-sm font-medium">Profesor</label><select id="sp_teacher" class="form-input"></select></div></div><div><label class="text-sm font-medium">Učionica</label><input id="sp_room" class="form-input" value="${c.room||''}" placeholder="npr. kabinet 12"></div><div><label class="text-sm font-medium">Opis</label><textarea id="sp_desc" rows="3" class="form-input">${c.description||''}</textarea></div><div><label class="text-sm font-medium">Učenici (mogu biti iz različitih razreda)</label><input id="sp_search" class="form-input" placeholder="Pretraži učenike..."><div id="sp_students" class="grid md:grid-cols-2 gap-2 mt-2 max-h-72 overflow-y-auto scrollbar-thin border border-slate-200 rounded-xl p-3"></div></div></div>`, ()=>{
+    c.title=m.querySelector('#sp_title').value.trim(); c.date=m.querySelector('#sp_date').value; c.period=+m.querySelector('#sp_period').value; c.subjectId=m.querySelector('#sp_subject').value; c.teacherId=m.querySelector('#sp_teacher').value; c.room=m.querySelector('#sp_room').value.trim(); c.description=m.querySelector('#sp_desc').value.trim(); c.studentIds=Array.from(m.querySelectorAll('.sp_student:checked')).map(x=>x.value);
+    if(!c.title||!c.date||!c.subjectId||!c.teacherId||!c.studentIds.length){ alert('Popunite naziv, datum, predmet, profesora i učenike.'); return false; }
+    if(id) Object.assign(db.specialClasses.find(x=>x.id===id), c); else db.specialClasses.push(c);
+    saveDB(); render(); return true;
+  });
+  function syncTeachers(){ const sid=m.querySelector('#sp_subject').value; const teachers=db.users.filter(u=>u.role==='teacher' && (!sid || (u.subjects||[]).includes(sid))); if(!teachers.some(t=>t.id===c.teacherId)) c.teacherId=teachers[0]?.id||''; m.querySelector('#sp_teacher').innerHTML=teachers.map(t=>`<option value="${t.id}" ${c.teacherId===t.id?'selected':''}>${t.name}</option>`).join(''); }
+  function renderStudents(){ const q=(m.querySelector('#sp_search')?.value||'').toLowerCase(); const students=db.users.filter(u=>u.role==='student').filter(u=>(u.name+' '+(getClass(u.classId)?.name||'')).toLowerCase().includes(q)); m.querySelector('#sp_students').innerHTML=students.map(s=>`<label class="flex items-center gap-2 p-2 rounded-lg hover:bg-slate-50"><input type="checkbox" class="sp_student" value="${s.id}" ${(c.studentIds||[]).includes(s.id)?'checked':''}> <span>${s.name} <span class="text-xs text-slate-500">(${getClass(s.classId)?.name||''})</span></span></label>`).join(''); }
+  m.querySelector('#sp_subject').addEventListener('change', syncTeachers); m.querySelector('#sp_search').addEventListener('input', renderStudents); syncTeachers(); renderStudents();
+}
+
+function openSpecialClassInfoModal(id){
+  const c=db.specialClasses.find(x=>x.id===id); if(!c) return;
+  const modal=openModal(c.title||'Posebni čas', `<div class="space-y-3"><div class="bg-blue-50 border border-blue-100 rounded-xl p-3 text-sm text-blue-800">Ovaj čas vide samo označeni učenici i zamjenjuje im redovan čas u istom terminu.</div><div><b>Detalji:</b> ${specialClassSummary(c)}</div><div><b>Učionica:</b> ${c.room||'-'}</div><div><b>Učenici:</b><div class="mt-2 flex flex-wrap gap-1">${(c.studentIds||[]).map(id=>`<span class="badge bg-slate-50 text-slate-700">${getUser(id)?.name||''}</span>`).join('')||'-'}</div></div>${c.description?`<div><b>Opis:</b><p class="mt-1 text-sm text-slate-700 whitespace-pre-wrap">${c.description}</p></div>`:''}</div>`, ()=>true);
+  modal.querySelector('#mSave').innerHTML='<i data-lucide="check"></i> Zatvori'; if(window.lucide) lucide.createIcons();
 }
 
 function openSlotModal(classId, day, period){
@@ -4409,6 +4489,7 @@ function renderStudentSchedule(){
   wrap.querySelector('#nextWeek').addEventListener('click', ()=>shiftScheduleWeek('student_schedule', 1));
   wrap.querySelector('.p-8').appendChild(buildScheduleGrid({
     classId: me.classId,
+    studentId: me.id,
     dateForSubs: view.date,
     onSlotClick: (slotId,date)=>openStudentClassInfoModal(slotId,date)
   }));
