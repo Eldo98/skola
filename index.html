@@ -498,6 +498,19 @@ function shortDate(dateStr){
   return d.toLocaleDateString('bs-BA',{day:'2-digit',month:'2-digit'});
 }
 function isSameDate(a,b){ return (a||'') === (b||''); }
+function scheduleDateKey(name){ return `eskola_${name}_date`; }
+function getScheduleDate(name){
+  if(!view.date) view.date=localStorage.getItem(scheduleDateKey(name))||todayStr();
+  return view.date;
+}
+function setScheduleDate(name,date){
+  view.date=date;
+  localStorage.setItem(scheduleDateKey(name), date);
+}
+function shiftScheduleWeek(name,delta){
+  setScheduleDate(name, addDays(getScheduleDate(name), delta*7));
+  render();
+}
 function firstMatchingSlotId(item, date){
   const day=(parseLocalDate(date).getDay()+6)%7;
   const slots=db.schedule
@@ -1074,6 +1087,42 @@ function renderMessages(){
   return wrap;
 }
 
+function initMessageFileUpload(modal, setAttachments, setLoading){
+  const input=modal.querySelector('#f_files');
+  if(!input) return;
+  input.addEventListener('change', e=>{
+    const files=Array.from(e.target.files||[]);
+    setAttachments([]);
+    const saveBtn=modal.querySelector('#mSave');
+    const info=modal.querySelector('#msgFileInfo');
+    const listBox=modal.querySelector('#msgAttachList');
+    if(!files.length){ if(info) info.textContent='Nema odabranih datoteka.'; if(listBox) listBox.innerHTML=''; return; }
+    const total=files.reduce((sum,f)=>sum+f.size,0);
+    if(total>250*1024*1024){ alert('Ukupna veličina datoteka je veća od 250MB. Pošaljite manje datoteka ili link.'); e.target.value=''; return; }
+    setLoading(true);
+    if(saveBtn){ saveBtn.disabled=true; saveBtn.classList.add('opacity-60','cursor-not-allowed'); }
+    if(listBox) listBox.innerHTML=files.map(f=>`<div class="text-xs border border-slate-200 rounded-lg p-2"><b>${f.name}</b><div class="text-slate-500">čeka upload...</div></div>`).join('');
+    Promise.all(files.map((file,idx)=>uploadFileForApp(file,'messages',pct=>{
+      if(info) info.textContent=`Učitavanje ${idx+1}/${files.length}: ${file.name} (${pct}%)`;
+      if(listBox){
+        const children=[...listBox.children];
+        if(children[idx]) children[idx].innerHTML=`<b>${file.name}</b><div class="text-slate-500">${pct}%</div>`;
+      }
+    }).then(payload=>({ id:uid('att'), name:file.name, mime:file.type||payload.mime, size:file.size, dataUrl:payload.dataUrl||'', url:payload.url||'', source:payload.source, storagePath:payload.storagePath||'' })))).then(list=>{
+      setAttachments(list);
+      setLoading(false);
+      if(saveBtn){ saveBtn.disabled=false; saveBtn.classList.remove('opacity-60','cursor-not-allowed'); }
+      if(info) info.textContent=`Spremno za slanje: ${list.map(a=>a.name).join(', ')}`;
+      if(listBox) listBox.innerHTML=list.map(a=>`<div class="text-xs border border-emerald-200 bg-emerald-50 rounded-lg p-2"><b>${a.name}</b><div class="text-emerald-700">učitano ${a.source==='url'?'u cloud':'lokalno'}</div></div>`).join('');
+    }).catch(err=>{
+      setLoading(false);
+      if(saveBtn){ saveBtn.disabled=false; saveBtn.classList.remove('opacity-60','cursor-not-allowed'); }
+      if(info) info.textContent='Greška pri učitavanju.';
+      alert(err.message||'Greška pri učitavanju datoteka.');
+    });
+  });
+}
+
 function openMessageModal(toId='', subject=''){
   const me=getUser(session.userId);
   const allUsers=db.users.filter(u=>u.id!==me.id);
@@ -1124,7 +1173,7 @@ function openMessageModal(toId='', subject=''){
       </div>
       <div><label class="text-sm font-medium">Naslov</label><input id="f_subj" class="form-input" value="${subject}"></div>
       <div><label class="text-sm font-medium">Poruka</label><textarea id="f_body" rows="6" class="form-input" placeholder="Napišite poruku..."></textarea></div>
-      <div><label class="text-sm font-medium">Datoteke (opcionalno)</label><input id="f_files" type="file" multiple class="form-input" accept=".pdf,.ppt,.pptx,.doc,.docx,.xls,.xlsx,.txt,.md,.csv,.json,image/*"><div id="msgFileInfo" class="text-xs text-slate-500 mt-1">Možete dodati veće slike, Word, PDF, PowerPoint ili drugi dokument. Veće datoteke se šalju preko Firebase Storage.</div></div>
+      <div><label class="text-sm font-medium">Datoteke (opcionalno)</label><input id="f_files" type="file" multiple class="form-input" accept=".pdf,.ppt,.pptx,.doc,.docx,.xls,.xlsx,.txt,.md,.csv,.json,image/*"><div id="msgFileInfo" class="text-xs text-slate-500 mt-1">Čim izaberete datoteke, one se odmah učitavaju.</div><div id="msgAttachList" class="grid gap-2 mt-2"></div></div>
     </div>`, ()=>{
     if(filesLoading){ alert('Datoteke se još učitavaju, sačekajte.'); return false; }
     const recipients=[...new Set(Array.from(m.querySelectorAll('.msg_to:checked')).map(x=>x.value).filter(id=>id!==me.id))];
@@ -1143,20 +1192,7 @@ function openMessageModal(toId='', subject=''){
   }));
   m.querySelector('#clearRecipients')?.addEventListener('click', ()=>{ m.querySelectorAll('.msg_to').forEach(c=>c.checked=false); syncRecipientCount(); });
   syncRecipientCount();
-  m.querySelector('#f_files').addEventListener('change', e=>{
-    const files=Array.from(e.target.files||[]);
-    attachments=[];
-    if(!files.length){ m.querySelector('#msgFileInfo').textContent='Nema odabranih datoteka.'; return; }
-    const total=files.reduce((sum,f)=>sum+f.size,0);
-    if(total>250*1024*1024){ alert('Ukupna veličina datoteka je veća od 250MB. Pošaljite manje datoteka ili link.'); e.target.value=''; return; }
-    filesLoading=true; m.querySelector('#msgFileInfo').textContent='Učitavanje datoteka...';
-    Promise.all(files.map((file,idx)=>uploadFileForApp(file,'messages',pct=>{
-      m.querySelector('#msgFileInfo').textContent=`Učitavanje ${idx+1}/${files.length}: ${file.name} (${pct}%)`;
-    }).then(payload=>({ id:uid('att'), name:file.name, mime:file.type||payload.mime, size:file.size, dataUrl:payload.dataUrl||'', url:payload.url||'', source:payload.source, storagePath:payload.storagePath||'' })))).then(list=>{
-      attachments=list; filesLoading=false;
-      m.querySelector('#msgFileInfo').textContent=`Dodano datoteka: ${attachments.map(a=>a.name).join(', ')}`;
-    }).catch(err=>{ filesLoading=false; alert(err.message||'Greška pri učitavanju datoteka.'); });
-  });
+  initMessageFileUpload(m, v=>attachments=v, v=>filesLoading=v);
 }
 
 function openMessageView(id){
@@ -2304,17 +2340,19 @@ function buildScheduleGrid(opts){
 /* ====== ADMIN SCHEDULE ====== */
 function renderAdminSchedule(){
   if(!view.classId) view.classId = db.classes[0]?.id;
-  if(!view.date) view.date=todayStr();
+  getScheduleDate('admin_schedule');
   const wrap=el(`<div>
     ${pageHeader('Raspored časova','Sedmični raspored po razredima','calendar-days',
       `<select id="clsSel" class="form-input" style="width:auto;">
         ${db.classes.map(c=>`<option value="${c.id}" ${c.id===view.classId?'selected':''}>${c.name}</option>`).join('')}
-      </select><input id="dateSel" type="date" class="form-input" style="width:auto;" value="${view.date}">
+      </select><button id="prevWeek" class="btn btn-soft"><i data-lucide="arrow-left"></i> Prošla sedmica</button><input id="dateSel" type="date" class="form-input" style="width:auto;" value="${view.date}"><button id="nextWeek" class="btn btn-soft">Sljedeća sedmica <i data-lucide="arrow-right"></i></button>
       <button id="clearScheduleBtn" class="btn btn-danger"><i data-lucide="trash-2"></i> Obriši cijeli raspored</button>`)}
     <div class="p-8" id="schedHolder"></div>
   </div>`);
   wrap.querySelector('#clsSel').addEventListener('change', e=>{ view.classId=e.target.value; render(); });
-  wrap.querySelector('#dateSel').addEventListener('change', e=>{ view.date=e.target.value; render(); });
+  wrap.querySelector('#dateSel').addEventListener('change', e=>{ setScheduleDate('admin_schedule', e.target.value); render(); });
+  wrap.querySelector('#prevWeek').addEventListener('click', ()=>shiftScheduleWeek('admin_schedule', -1));
+  wrap.querySelector('#nextWeek').addEventListener('click', ()=>shiftScheduleWeek('admin_schedule', 1));
   wrap.querySelector('#clearScheduleBtn').addEventListener('click', ()=>{
     if(!confirm('Obrisati CIJELI raspored za sve razrede i profesore? Ovo će ukloniti sve časove iz rasporeda svima.')) return;
     if(!confirm('Potvrdi još jednom: svi rasporedi će biti prazni. Održani časovi i ocjene ostaju, ali sedmični raspored se briše.')) return;
@@ -2416,13 +2454,13 @@ function openLessonModal(id, allowAnyTeacher){
 /* ====== TEACHER SCHEDULE ====== */
 function renderTeacherSchedule(){
   const me=getUser(session.userId);
-  if(!view.date) view.date=todayStr();
+  getScheduleDate('teacher_schedule');
   const wrap=el(`<div>
     ${pageHeader('Moj raspored','Kliknite na čas za radni prostor','calendar-days',
-      `<div class="flex items-center gap-2 bg-white border border-slate-200 rounded-lg px-3 py-2">
+      `<button id="prevWeek" class="btn btn-soft"><i data-lucide="arrow-left"></i> Prošla sedmica</button><div class="flex items-center gap-2 bg-white border border-slate-200 rounded-lg px-3 py-2">
         <i data-lucide="calendar" class="text-slate-500"></i>
         <input id="dateSel" type="date" value="${view.date}" class="outline-none text-sm">
-      </div>`)}
+      </div><button id="nextWeek" class="btn btn-soft">Sljedeća sedmica <i data-lucide="arrow-right"></i></button>`)}
     <div class="p-8 space-y-5">
       <div class="card p-4 flex items-center gap-4 flex-wrap text-sm">
         <div class="flex items-center gap-2"><div class="w-4 h-4 rounded" style="background:var(--primary)"></div> Vaš čas</div>
@@ -2433,7 +2471,9 @@ function renderTeacherSchedule(){
       <div id="grid"></div>
     </div>
   </div>`);
-  wrap.querySelector('#dateSel').addEventListener('change', e=>{ view.date=e.target.value; render(); });
+  wrap.querySelector('#dateSel').addEventListener('change', e=>{ setScheduleDate('teacher_schedule', e.target.value); render(); });
+  wrap.querySelector('#prevWeek').addEventListener('click', ()=>shiftScheduleWeek('teacher_schedule', -1));
+  wrap.querySelector('#nextWeek').addEventListener('click', ()=>shiftScheduleWeek('teacher_schedule', 1));
   wrap.querySelector('#grid').appendChild(buildScheduleGrid({
     teacherId: me.id, dateForSubs: view.date,
     onSlotClick: (slotId,date)=>{ view={ name:'class-session', scheduleId:slotId, date }; render(); }
@@ -2963,34 +3003,42 @@ function renderTeacherGrades(){
   if(!view.semesterId) view.semesterId = activeSemester()?.id;
   const myScheds=db.schedule.filter(s=>s.teacherId===me.id);
   const classIds=[...new Set(myScheds.map(s=>s.classId))];
+  if(!view.gradeClassId) view.gradeClassId=localStorage.getItem('eskola_teacher_grade_class') || classIds[0];
+  if(view.gradeClassId && !classIds.includes(view.gradeClassId)) view.gradeClassId=classIds[0];
+  const selectedClass=getClass(view.gradeClassId);
+  const students=selectedClass?studentsOfClass(selectedClass.id):[];
+  const subjects=[...new Set(myScheds.filter(s=>s.classId===view.gradeClassId && !subjectUsesCompletion(s.subjectId)).map(s=>s.subjectId))];
   const wrap=el(`<div>
-    ${pageHeader('Ocjene','Pregled ocjena po razredima i semestrima','star',
-      `<select id="semSel" class="form-input" style="width:auto;">
+    ${pageHeader('Ocjene','Pregled ocjena po polugodištu i jednom razredu','star',
+      `<select id="classSel" class="form-input" style="width:auto;">
+        ${classIds.map(cid=>`<option value="${cid}" ${cid===view.gradeClassId?'selected':''}>${getClass(cid)?.name||''}</option>`).join('')}
+      </select>
+      <select id="semSel" class="form-input" style="width:auto;">
         ${db.semesters.map(s=>`<option value="${s.id}" ${s.id===view.semesterId?'selected':''}>${s.name}</option>`).join('')}
       </select>`)}
-    <div class="p-8 space-y-6">
-      ${classIds.map(cid=>{
-        const cls=getClass(cid); const sts=studentsOfClass(cid);
-        const subs=[...new Set(myScheds.filter(s=>s.classId===cid && !subjectUsesCompletion(s.subjectId)).map(s=>s.subjectId))];
-        return `<div class="card overflow-hidden">
-          <div class="p-4 bg-slate-50 border-b border-slate-100 font-bold flex items-center gap-2"><i data-lucide="school"></i> Razred ${cls?.name||''}</div>
-          <table class="w-full text-sm">
-            <thead class="text-xs uppercase text-slate-500"><tr><th class="px-4 py-2 text-left">Učenik</th>${subs.map(sid=>`<th class="px-4 py-2 text-left">${getSubject(sid)?.name||''}</th>`).join('')}</tr></thead>
+    <div class="p-8">
+      ${selectedClass?`<div class="card overflow-hidden">
+          <div class="p-4 bg-slate-50 border-b border-slate-100 flex items-center justify-between gap-3 flex-wrap">
+            <div class="font-bold flex items-center gap-2"><i data-lucide="school"></i> Razred ${selectedClass.name}</div>
+            <div class="text-xs text-slate-500">Široki dnevnik: jedan razred po prikazu</div>
+          </div>
+          <table class="w-full text-sm" style="min-width:${Math.max(900, 220 + subjects.length*260)}px">
+            <thead class="text-xs uppercase text-slate-500"><tr><th class="px-4 py-3 text-left bg-slate-50 sticky left-0 z-10">Učenik</th>${subjects.map(sid=>`<th class="px-4 py-3 text-left bg-slate-50">${getSubject(sid)?.name||''}</th>`).join('')}</tr></thead>
             <tbody>
-              ${sts.map(s=>`<tr class="border-t border-slate-100">
-                <td class="px-4 py-2 font-medium">${s.name}</td>
-                ${subs.map(sid=>{
+              ${students.map(s=>`<tr class="border-t border-slate-100 hover:bg-slate-50">
+                <td class="px-4 py-3 font-medium bg-white sticky left-0 z-10">${s.name}</td>
+                ${subjects.map(sid=>{
                   const grades=collectGradesFor(s.id, sid, me.id, view.semesterId);
                   const avg=grades.length?(grades.reduce((a,b)=>a+b.value,0)/grades.length).toFixed(2):'-';
-                  return `<td class="px-4 py-2"><div class="flex items-center gap-1 flex-wrap">${grades.map(g=>`<span class="inline-flex items-center gap-0.5"><button class="grade-pill ${gradeClass(g.value)}" data-improve-regular="${g.sessionId}|${g.id}" title="Klik za popravljanje - ${(GRADE_TYPES.find(t=>t.v===g.type)?.label)||''}: ${g.note||''}">${g.value}${g.improved?'*':''}</button><button data-delete-regular="${g.sessionId}|${g.id}" class="text-red-500 hover:bg-red-50 rounded px-1" title="Obriši ocjenu"><i data-lucide="trash-2" class="icon-sm"></i></button></span>`).join('')}<button data-quick-grade="${s.id}|${cid}|${sid}" class="btn btn-soft" style="padding:4px 8px;font-size:11px;"><i data-lucide="plus" class="icon-sm"></i> Ocjena</button><span class="ml-1 text-xs text-slate-500">⌀ ${avg}</span></div></td>`;
+                  return `<td class="px-4 py-3 align-top"><div class="flex items-center gap-1 flex-wrap mb-2">${grades.map(g=>`<span class="inline-flex items-center gap-0.5"><button class="grade-pill ${gradeClass(g.value)}" data-improve-regular="${g.sessionId}|${g.id}" title="Klik za popravljanje - ${(GRADE_TYPES.find(t=>t.v===g.type)?.label)||''}: ${g.note||''}">${g.value}${g.improved?'*':''}</button><button data-delete-regular="${g.sessionId}|${g.id}" class="text-red-500 hover:bg-red-50 rounded px-1" title="Obriši ocjenu"><i data-lucide="trash-2" class="icon-sm"></i></button></span>`).join('')||'<span class="text-xs text-slate-400">nema</span>'}</div><div class="flex items-center gap-2"><button data-quick-grade="${s.id}|${selectedClass.id}|${sid}" class="btn btn-soft" style="padding:5px 9px;font-size:12px;"><i data-lucide="plus" class="icon-sm"></i> Dodaj</button><span class="text-xs text-slate-500">Prosjek ${avg}</span></div></td>`;
                 }).join('')}
               </tr>`).join('')}
             </tbody>
           </table>
-        </div>`;
-      }).join('') || '<div class="text-center text-slate-500 py-12">Nemate dodijeljenih razreda.</div>'}
+        </div>`:'<div class="text-center text-slate-500 py-12">Nemate dodijeljenih razreda.</div>'}
     </div>
   </div>`);
+  wrap.querySelector('#classSel')?.addEventListener('change', e=>{ view.gradeClassId=e.target.value; localStorage.setItem('eskola_teacher_grade_class', view.gradeClassId); render(); });
   wrap.querySelector('#semSel').addEventListener('change', e=>{ view.semesterId=e.target.value; render(); });
   wrap.querySelectorAll('[data-improve-regular]').forEach(b=>b.addEventListener('click', ()=>{
     const [sessionId, gradeId]=b.dataset.improveRegular.split('|');
@@ -4214,13 +4262,15 @@ function renderStudentDashboard(){
 /* student schedule - cells klikabilne za info modal */
 function renderStudentSchedule(){
   const me=getUser(session.userId);
-  if(!view.date) view.date=todayStr();
+  getScheduleDate('student_schedule');
   const wrap=el(`<div>
     ${pageHeader('Raspored', `Razred ${getClass(me.classId)?.name||''}`,'calendar-days',
-      `<input id="dateSel" type="date" class="form-input" style="width:auto;" value="${view.date}">`)}
+      `<button id="prevWeek" class="btn btn-soft"><i data-lucide="arrow-left"></i> Prošla sedmica</button><input id="dateSel" type="date" class="form-input" style="width:auto;" value="${view.date}"><button id="nextWeek" class="btn btn-soft">Sljedeća sedmica <i data-lucide="arrow-right"></i></button>`)}
     <div class="p-8"></div>
   </div>`);
-  wrap.querySelector('#dateSel').addEventListener('change', e=>{ view.date=e.target.value; render(); });
+  wrap.querySelector('#dateSel').addEventListener('change', e=>{ setScheduleDate('student_schedule', e.target.value); render(); });
+  wrap.querySelector('#prevWeek').addEventListener('click', ()=>shiftScheduleWeek('student_schedule', -1));
+  wrap.querySelector('#nextWeek').addEventListener('click', ()=>shiftScheduleWeek('student_schedule', 1));
   wrap.querySelector('.p-8').appendChild(buildScheduleGrid({
     classId: me.classId,
     dateForSubs: view.date,
