@@ -92,6 +92,15 @@
   .seat-actions{ display:flex; gap:4px; margin-top:6px; }
   .seat-actions button{ font-size:10px; padding:2px 6px; border-radius:999px; }
   .seat-grade{ display:inline-flex; align-items:center; justify-content:center; min-width:30px; height:30px; padding:0 8px; border-radius:8px; background:#f1f5f9; color:#0f172a; font-weight:900; font-size:16px; border:1px solid #dbe3ef; }
+  .rich-toolbar{ display:flex; flex-wrap:wrap; gap:6px; padding:8px; border:1px solid var(--border); border-bottom:0; border-radius:14px 14px 0 0; background:#f8fafc; }
+  .rich-toolbar button,.rich-toolbar select{ border:1px solid var(--border); background:white; border-radius:9px; padding:6px 9px; font-size:13px; color:#0f172a; }
+  .rich-editor{ min-height:170px; padding:14px 16px; border:1px solid var(--border); border-radius:0 0 14px 14px; background:white; outline:none; line-height:1.6; }
+  .rich-editor:empty:before{ content:attr(data-placeholder); color:#94a3b8; }
+  .notebook-shell{ perspective:1400px; }
+  .notebook-page{ background:#fffdf7; border:1px solid #eadfc8; border-radius:18px; box-shadow:0 20px 45px rgba(88,64,32,.12); min-height:620px; transform-origin:left center; transition:transform .45s ease, box-shadow .45s ease; position:relative; overflow:hidden; }
+  .notebook-page.flip{ transform:rotateY(-8deg); box-shadow:0 26px 60px rgba(88,64,32,.18); }
+  .notebook-page::before{ content:""; position:absolute; left:52px; top:0; bottom:0; width:2px; background:#f2c7c7; opacity:.8; }
+  .notebook-lines{ background-image:linear-gradient(to bottom, transparent 31px, rgba(59,130,246,.12) 32px); background-size:100% 32px; }
   body.high-contrast{ --bg:#f7f9fc; --primary:#0f4c81; --primary-50:#e8f2ff; }
   .app-main > div > .bg-white.border-b.border-slate-200{ border:1px solid var(--border)!important; border-radius:20px; box-shadow:var(--shadow); }
   @media (max-width: 980px){ .app-frame{ width:calc(100vw - 24px); padding-top:20px; } .workspace{ grid-template-columns:1fr; } .sidebar-card{ position:static; } }
@@ -159,6 +168,7 @@ const DEFAULT_DB = {
   homework: [],    // { id,classId,subjectId,teacherId,scheduleId,title,description,assignedDate,dueDate,doneBy,marks:{studentId:'+'|'-'|'o'} }
   assessments: [], // { id,classId,subjectId,teacherId,scheduleId,type,title,description,date,createdBy,studentIds:[] }
   materials: [],   // { id,title,description,source:'url|local',url,dataUrl,mime,fileName,classId,subjectId,scheduleId,scheduleIds:[],createdBy,createdAt }
+  notebookPages: [], // { id,teacherId,title,content,createdAt,updatedAt }
   botLogs: [],     // { id,userId,date,kind,ts }
   messages: []     // { id,fromId,toId,subject,body,ts,readAt,attachments:[] }
 };
@@ -224,7 +234,7 @@ function debouncedSaveDB(delay=700){
 
 function normalizeDB(data){
   const d = data || JSON.parse(JSON.stringify(DEFAULT_DB));
-  ['users','classes','subjects','semesters','schedule','lessons','classSessions','substitutions','finalGrades','completions','classDuties','seatingPlans','studentProfiles','absenceRequests','classNotes','homework','assessments','materials','botLogs','messages'].forEach(k=>{
+  ['users','classes','subjects','semesters','schedule','lessons','classSessions','substitutions','finalGrades','completions','classDuties','seatingPlans','studentProfiles','absenceRequests','classNotes','homework','assessments','materials','notebookPages','botLogs','messages'].forEach(k=>{
     if(!Array.isArray(d[k])) d[k]=[];
   });
   d.users.forEach(u=>{ if(u.role==='parent' && !Array.isArray(u.childrenIds)) u.childrenIds=[]; if(typeof u.isBot!=='boolean') u.isBot=false; if(!Array.isArray(u.botDates)) u.botDates=[]; if(!u.botStyle) u.botStyle='normal'; });
@@ -771,10 +781,19 @@ async function uploadFileForApp(file, folder='files', onProgress=()=>{}){
     const path=`eskola/${folder}/${Date.now()}_${uid('file')}_${safeStorageName(file.name)}`;
     const task=firebase.storage(app).ref(path).put(file, { contentType:file.type||'application/octet-stream' });
     await new Promise((resolve,reject)=>{
+      let lastProgressAt=Date.now();
+      const watchdog=setInterval(()=>{
+        if(Date.now()-lastProgressAt>25000){
+          clearInterval(watchdog);
+          try { task.cancel(); } catch(e) {}
+          reject(new Error('Upload je zapeo na 0%. Provjerite Firebase Storage rules/CORS ili pošaljite materijal kao internet link.'));
+        }
+      }, 3000);
       task.on('state_changed', snap=>{
+        lastProgressAt=Date.now();
         const pct=snap.totalBytes?Math.round((snap.bytesTransferred/snap.totalBytes)*100):0;
         onProgress(pct);
-      }, reject, resolve);
+      }, err=>{ clearInterval(watchdog); reject(err); }, ()=>{ clearInterval(watchdog); resolve(); });
     });
     const url=await task.snapshot.ref.getDownloadURL();
     return { source:'url', url, dataUrl:'', mime:file.type||'application/octet-stream', fileName:file.name, size:file.size, storagePath:path };
@@ -929,6 +948,7 @@ function menuFor(user){
     const m = [
       { view:'teacher-schedule', icon:'calendar-days', label:'Moj raspored' },
       { view:'teacher-messages', icon:'message-square', label:'Poruke', badge: unreadMessagesFor(user.id)||null },
+      { view:'teacher-notebook', icon:'notebook-tabs', label:'eSveska' },
       { view:'teacher-lessons',  icon:'library',       label:'Moje lekcije' },
       { view:'teacher-materials', icon:'paperclip',     label:'Materijali' },
       { view:'teacher-assessments', icon:'file-check-2', label:'Ispitivanja' },
@@ -982,6 +1002,7 @@ function renderView(){
     case 'admin-sessions': return renderSessionsList(db.classSessions,'Svi održani časovi','Pregled svih unesenih časova');
     case 'teacher-schedule': return renderTeacherSchedule();
     case 'teacher-messages': return renderMessages();
+    case 'teacher-notebook': return renderTeacherNotebook();
     case 'teacher-lessons':  return renderLessonsLibrary(false);
     case 'teacher-materials': return renderMaterials('teacher');
     case 'teacher-assessments': return renderAssessments('teacher');
@@ -1023,6 +1044,45 @@ function pageHeader(title, subtitle, icon, actions=''){
     </div>
     <div class="flex items-center gap-2 flex-wrap">${actions}</div>
   </div>`;
+}
+
+function richTextEditorHTML(id, content='', placeholder='Pišite ovdje...'){
+  return `<div class="rich-wrap" data-editor-wrap="${id}">
+    <div class="rich-toolbar">
+      <button type="button" data-cmd="bold"><b>B</b></button>
+      <button type="button" data-cmd="italic"><i>I</i></button>
+      <button type="button" data-cmd="underline"><u>U</u></button>
+      <button type="button" data-cmd="insertUnorderedList">Lista</button>
+      <button type="button" data-cmd="insertOrderedList">1. Lista</button>
+      <button type="button" data-cmd="justifyLeft">Lijevo</button>
+      <button type="button" data-cmd="justifyCenter">Centar</button>
+      <button type="button" data-cmd="justifyRight">Desno</button>
+      <select data-format="formatBlock"><option value="p">Tekst</option><option value="h2">Naslov</option><option value="h3">Podnaslov</option><option value="blockquote">Citat</option></select>
+      <button type="button" data-cmd="removeFormat">Očisti</button>
+    </div>
+    <div id="${id}" class="rich-editor" contenteditable="true" data-placeholder="${placeholder}">${content||''}</div>
+  </div>`;
+}
+
+function setupRichText(root=document){
+  root.querySelectorAll('.rich-wrap').forEach(wrap=>{
+    if(wrap.dataset.ready) return;
+    wrap.dataset.ready='1';
+    const editor=wrap.querySelector('.rich-editor');
+    wrap.querySelectorAll('[data-cmd]').forEach(btn=>btn.addEventListener('click', e=>{
+      e.preventDefault(); editor.focus(); document.execCommand(btn.dataset.cmd,false,null);
+    }));
+    wrap.querySelectorAll('[data-format]').forEach(sel=>sel.addEventListener('change', e=>{
+      editor.focus(); document.execCommand(sel.dataset.format,false,e.target.value); e.target.selectedIndex=0;
+    }));
+  });
+}
+
+function richTextValue(root, id){
+  return root.querySelector('#'+id)?.innerHTML.trim() || '';
+}
+function richTextPlain(root, id){
+  return root.querySelector('#'+id)?.innerText.trim() || '';
 }
 
 /* ====== MESSAGES ====== */
@@ -1087,6 +1147,74 @@ function renderMessages(){
   return wrap;
 }
 
+/* ====== TEACHER NOTEBOOK ====== */
+function renderTeacherNotebook(){
+  const me=getUser(session.userId);
+  let pages=db.notebookPages.filter(p=>p.teacherId===me.id).sort((a,b)=>(a.createdAt||0)-(b.createdAt||0));
+  if(!pages.length){
+    const p={id:uid('page'),teacherId:me.id,title:'Nova stranica',content:'',createdAt:Date.now(),updatedAt:Date.now()};
+    db.notebookPages.push(p); pages=[p]; saveDB();
+  }
+  if(!view.pageId || !pages.some(p=>p.id===view.pageId)) view.pageId=pages[0].id;
+  const page=pages.find(p=>p.id===view.pageId)||pages[0];
+  const index=pages.findIndex(p=>p.id===page.id);
+  const wrap=el(`<div>
+    ${pageHeader('eSveska','Privatna profesorska bilježnica sa stranicama','notebook-tabs',
+      `<button id="prevPage" class="btn btn-soft"><i data-lucide="arrow-left"></i> Prethodna</button>
+       <span class="badge bg-slate-50 text-slate-700">Stranica ${index+1}/${pages.length}</span>
+       <button id="nextPage" class="btn btn-soft">Sljedeća <i data-lucide="arrow-right"></i></button>
+       <button id="newPage" class="btn btn-primary"><i data-lucide="plus"></i> Nova stranica</button>`)}
+    <div class="p-8 grid lg:grid-cols-[260px_1fr] gap-4">
+      <div class="card p-3 max-h-[720px] overflow-y-auto scrollbar-thin">
+        <div class="font-bold px-2 py-2 flex items-center gap-2"><i data-lucide="list"></i> Stranice</div>
+        <div class="space-y-1">
+          ${pages.map((p,i)=>`<button data-page="${p.id}" class="w-full text-left px-3 py-2 rounded-xl ${p.id===page.id?'bg-blue-50 text-blue-700':'hover:bg-slate-50'}"><div class="font-semibold text-sm truncate">${i+1}. ${p.title||'Bez naslova'}</div><div class="text-xs text-slate-500">${p.updatedAt?new Date(p.updatedAt).toLocaleDateString('bs-BA'):''}</div></button>`).join('')}
+        </div>
+      </div>
+      <div class="notebook-shell">
+        <div id="notebookPage" class="notebook-page notebook-lines p-8 pl-20">
+          <input id="pageTitle" class="w-full bg-transparent text-3xl font-black outline-none mb-5" value="${page.title||''}" placeholder="Naslov stranice">
+          ${richTextEditorHTML('pageEditor', page.content||'', 'Pišite bilješke kao u svesci...')}
+          <div class="flex items-center justify-between mt-4 gap-2 flex-wrap">
+            <div class="text-xs text-slate-500">Automatsko čuvanje. Zadnja izmjena: ${page.updatedAt?new Date(page.updatedAt).toLocaleString('bs-BA'):'-'}</div>
+            <button id="deletePage" class="btn btn-danger"><i data-lucide="trash-2"></i> Obriši stranicu</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>`);
+  function savePage(){
+    page.title=wrap.querySelector('#pageTitle').value.trim()||'Bez naslova';
+    page.content=richTextValue(wrap,'pageEditor');
+    page.updatedAt=Date.now();
+    debouncedSaveDB(700);
+  }
+  function turnTo(pageId){
+    const nb=wrap.querySelector('#notebookPage');
+    nb.classList.add('flip');
+    setTimeout(()=>{ view.pageId=pageId; render(); }, 220);
+  }
+  wrap.querySelectorAll('[data-page]').forEach(b=>b.addEventListener('click', ()=>{ savePage(); turnTo(b.dataset.page); }));
+  wrap.querySelector('#prevPage').addEventListener('click', ()=>{ savePage(); turnTo(pages[Math.max(0,index-1)].id); });
+  wrap.querySelector('#nextPage').addEventListener('click', ()=>{ savePage(); turnTo(pages[Math.min(pages.length-1,index+1)].id); });
+  wrap.querySelector('#newPage').addEventListener('click', ()=>{
+    savePage();
+    const p={id:uid('page'),teacherId:me.id,title:`Stranica ${pages.length+1}`,content:'',createdAt:Date.now(),updatedAt:Date.now()};
+    db.notebookPages.push(p); saveDB(); turnTo(p.id);
+  });
+  wrap.querySelector('#deletePage').addEventListener('click', ()=>{
+    if(pages.length<=1){ alert('Mora ostati barem jedna stranica.'); return; }
+    if(confirm('Obrisati ovu stranicu iz eSveske?')){
+      db.notebookPages=db.notebookPages.filter(p=>p.id!==page.id);
+      saveDB(); view.pageId=(pages[index-1]||pages[index+1])?.id; render();
+    }
+  });
+  wrap.querySelector('#pageTitle').addEventListener('input', savePage);
+  wrap.querySelector('#pageEditor').addEventListener('input', savePage);
+  setupRichText(wrap);
+  return wrap;
+}
+
 function initMessageFileUpload(modal, setAttachments, setLoading){
   const input=modal.querySelector('#f_files');
   if(!input) return;
@@ -1117,7 +1245,8 @@ function initMessageFileUpload(modal, setAttachments, setLoading){
     }).catch(err=>{
       setLoading(false);
       if(saveBtn){ saveBtn.disabled=false; saveBtn.classList.remove('opacity-60','cursor-not-allowed'); }
-      if(info) info.textContent='Greška pri učitavanju.';
+      if(info) info.textContent='Greška pri učitavanju. Provjerite Firebase Storage ili pošaljite kao link.';
+      if(listBox) listBox.innerHTML=`<div class="text-xs border border-red-200 bg-red-50 text-red-700 rounded-lg p-2">${err.message||'Upload nije uspio.'}</div>`;
       alert(err.message||'Greška pri učitavanju datoteka.');
     });
   });
@@ -1166,21 +1295,23 @@ function openMessageModal(toId='', subject=''){
           ${groups.filter(g=>g.ids.length).map((g,i)=>`<button type="button" data-select-group="${i}" class="btn btn-soft" style="padding:5px 10px;font-size:12px;">${g.label}</button>`).join('')}
           <button type="button" id="clearRecipients" class="btn btn-danger" style="padding:5px 10px;font-size:12px;">Poništi</button>
         </div>`:''}
-        <div class="border border-slate-200 rounded-xl p-3 mt-2 max-h-56 overflow-y-auto scrollbar-thin grid md:grid-cols-2 gap-2">
-          ${recipientOptions.map(u=>`<label class="flex items-center gap-2 text-sm p-2 rounded-lg hover:bg-slate-50"><input type="checkbox" class="msg_to" value="${u.id}" ${preselected.has(u.id)?'checked':''}> <span>${u.name} <span class="text-xs text-slate-500">(${roleLabel(u.role)})</span></span></label>`).join('') || '<div class="text-sm text-slate-500">Nema dostupnih primalaca.</div>'}
+        <input id="recipientSearch" class="form-input mt-2" placeholder="Pretraži primaoce po imenu, ulozi ili razredu...">
+        <div class="border border-slate-200 rounded-xl p-3 mt-2 max-h-56 overflow-y-auto scrollbar-thin grid md:grid-cols-2 gap-2" id="recipientList">
+          ${recipientOptions.map(u=>`<label data-recipient-row="${(u.name+' '+roleLabel(u.role)+' '+(getClass(u.classId)?.name||'')).toLowerCase()}" class="flex items-center gap-2 text-sm p-2 rounded-lg hover:bg-slate-50"><input type="checkbox" class="msg_to" value="${u.id}" ${preselected.has(u.id)?'checked':''}> <span>${u.name} <span class="text-xs text-slate-500">(${roleLabel(u.role)}${u.classId?' · '+(getClass(u.classId)?.name||''):''})</span></span></label>`).join('') || '<div class="text-sm text-slate-500">Nema dostupnih primalaca.</div>'}
         </div>
         <div id="recipientCount" class="text-xs text-slate-500 mt-1">Odabrano: ${preselected.size}</div>
       </div>
       <div><label class="text-sm font-medium">Naslov</label><input id="f_subj" class="form-input" value="${subject}"></div>
-      <div><label class="text-sm font-medium">Poruka</label><textarea id="f_body" rows="6" class="form-input" placeholder="Napišite poruku..."></textarea></div>
+      <div><label class="text-sm font-medium">Poruka</label>${richTextEditorHTML('f_body_editor','', 'Napišite poruku...')}</div>
       <div><label class="text-sm font-medium">Datoteke (opcionalno)</label><input id="f_files" type="file" multiple class="form-input" accept=".pdf,.ppt,.pptx,.doc,.docx,.xls,.xlsx,.txt,.md,.csv,.json,image/*"><div id="msgFileInfo" class="text-xs text-slate-500 mt-1">Čim izaberete datoteke, one se odmah učitavaju.</div><div id="msgAttachList" class="grid gap-2 mt-2"></div></div>
     </div>`, ()=>{
     if(filesLoading){ alert('Datoteke se još učitavaju, sačekajte.'); return false; }
     const recipients=[...new Set(Array.from(m.querySelectorAll('.msg_to:checked')).map(x=>x.value).filter(id=>id!==me.id))];
-    const body=m.querySelector('#f_body').value.trim();
+    const body=richTextPlain(m,'f_body_editor');
     if(!recipients.length||(!body && !attachments.length)){ alert('Odaberite barem jednog primaoca i unesite poruku ili dodajte datoteku.'); return false; }
     const subjectValue=m.querySelector('#f_subj').value.trim();
-    recipients.forEach(toId=>db.messages.push({ id:uid('msg'), fromId:me.id, toId, subject:subjectValue, body, ts:Date.now(), readAt:null, broadcast:recipients.length>1?'multi':null, attachments:attachments.map(a=>({...a})) }));
+    const bodyHtml=richTextValue(m,'f_body_editor');
+    recipients.forEach(toId=>db.messages.push({ id:uid('msg'), fromId:me.id, toId, subject:subjectValue, body, bodyHtml, ts:Date.now(), readAt:null, broadcast:recipients.length>1?'multi':null, attachments:attachments.map(a=>({...a})) }));
     saveDB(); render(); return true;
   });
   function syncRecipientCount(){ m.querySelector('#recipientCount').textContent='Odabrano: '+m.querySelectorAll('.msg_to:checked').length; }
@@ -1191,7 +1322,12 @@ function openMessageModal(toId='', subject=''){
     syncRecipientCount();
   }));
   m.querySelector('#clearRecipients')?.addEventListener('click', ()=>{ m.querySelectorAll('.msg_to').forEach(c=>c.checked=false); syncRecipientCount(); });
+  m.querySelector('#recipientSearch')?.addEventListener('input', e=>{
+    const q=e.target.value.toLowerCase().trim();
+    m.querySelectorAll('[data-recipient-row]').forEach(row=>row.classList.toggle('hidden', q && !row.dataset.recipientRow.includes(q)));
+  });
   syncRecipientCount();
+  setupRichText(m);
   initMessageFileUpload(m, v=>attachments=v, v=>filesLoading=v);
 }
 
@@ -1207,7 +1343,7 @@ function openMessageView(id){
         <div class="bg-slate-50 rounded-xl p-3"><div class="text-xs text-slate-500">Prima</div><b>${to?.name||''}</b></div>
       </div>
       <div class="text-xs text-slate-500">${new Date(msg.ts).toLocaleString('bs-BA')}</div>
-      <div class="border border-slate-200 rounded-xl p-4 whitespace-pre-wrap text-sm leading-6">${msg.body}</div>
+      <div class="border border-slate-200 rounded-xl p-4 text-sm leading-6">${msg.bodyHtml||`<div class="whitespace-pre-wrap">${msg.body||''}</div>`}</div>
       ${(msg.attachments||[]).length?`<div class="space-y-2"><div class="font-semibold text-sm">Datoteke</div>${msg.attachments.map(a=>`<div class="flex items-center justify-between gap-3 border border-slate-200 rounded-xl p-3"><div class="min-w-0"><div class="font-medium truncate">${a.name}</div><div class="text-xs text-slate-500">${a.mime||'datoteka'} · ${Math.round((a.size||0)/1024)} KB ${a.source==='url'?'· cloud':''}</div></div><button data-open-attachment="${a.id}" class="btn btn-soft" style="padding:5px 10px;font-size:12px;"><i data-lucide="download" class="icon-sm"></i> Otvori</button></div>`).join('')}</div>`:''}
     </div>`, ()=>true);
   modal.querySelector('#mSave').innerHTML='<i data-lucide="check"></i> Zatvori';
