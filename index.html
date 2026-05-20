@@ -2845,7 +2845,7 @@ function renderClassSession(scheduleId, date){
             <div class="w-9 h-9 rounded-full text-white flex items-center justify-center font-bold text-xs" style="background:linear-gradient(135deg,#3b82f6,#6366f1)">${s.name.split(' ').map(x=>x[0]).slice(0,2).join('')}</div>
             <div class="flex-1 min-w-0">
               <div class="font-medium text-sm truncate">${s.name}</div>
-              <div class="text-xs text-slate-500">${st==='present'?'Prisutan/na':st==='absent'?'ODSUTAN/NA':'Kasni'}${att?.status==='absent'?(att.excused?' · opravdano':' · neopravdano'):''}</div>
+              <div class="text-xs text-slate-500">${st==='present'?'Prisutan/na':st==='absent'?'ODSUTAN/NA':'Kasni'}${att?.status==='absent'?(att.excused===true?' · opravdano':att.excused===false?' · neopravdano':' · čeka pravdanje'):''}</div>
             </div>
             <div class="${iconColor}"><i data-lucide="${icon}"></i></div>
             <div class="flex gap-1">
@@ -3998,6 +3998,7 @@ function renderTeacherHomeroom(){
       <button data-tab="duties" class="tab-btn ${view.hrTab==='duties'?'active':''}"><i data-lucide="clipboard-check" class="icon-sm inline"></i> Redari</button>
       <button data-tab="completion" class="tab-btn ${view.hrTab==='completion'?'active':''}"><i data-lucide="badge-check" class="icon-sm inline"></i> Odradio</button>
       <button data-tab="homework" class="tab-btn ${view.hrTab==='homework'?'active':''}"><i data-lucide="clipboard-pen-line" class="icon-sm inline"></i> Zadaće</button>
+      <button data-tab="dossier" class="tab-btn ${view.hrTab==='dossier'?'active':''}"><i data-lucide="folder-search" class="icon-sm inline"></i> Dosije</button>
       <button data-tab="overview" class="tab-btn ${view.hrTab==='overview'?'active':''}"><i data-lucide="users" class="icon-sm inline"></i> Pregled</button>
       <button data-tab="timeline" class="tab-btn ${view.hrTab==='timeline'?'active':''}"><i data-lucide="list-checks" class="icon-sm inline"></i> Sve</button>
     </div>
@@ -4015,6 +4016,7 @@ function renderTeacherHomeroom(){
   else if(view.hrTab==='duties') body.appendChild(renderHRDuties(cls, sts));
   else if(view.hrTab==='completion') body.appendChild(renderHRCompletions(cls, sts));
   else if(view.hrTab==='homework') body.appendChild(renderHRHomework(cls, sts));
+  else if(view.hrTab==='dossier') body.appendChild(renderHRDossier(cls, sts));
   else if(view.hrTab==='timeline') body.appendChild(renderHRTimeline(cls, sts));
   else body.appendChild(renderHROverview(cls, sts));
   return wrap;
@@ -4027,24 +4029,25 @@ function renderHRAbsences(cls, sts){
     const sc=db.schedule.find(s=>s.id===cs.scheduleId); if(!sc||sc.classId!==cls.id) return;
     if(semId){ const sid=cs.semesterId||semesterForDate(cs.date)?.id; if(sid!==semId) return; }
     (cs.attendance||[]).filter(a=>a.status!=='present').forEach(a=>{
-      rows.push({ date:cs.date, subject:getSubject(sc.subjectId), studentId:a.studentId, status:a.status, excused:a.excused===true });
+      rows.push({ date:cs.date, subject:getSubject(sc.subjectId), studentId:a.studentId, status:a.status, excused:a.excused===true, resolved:typeof a.excused==='boolean' });
     });
   });
-  const byStud={}; sts.forEach(s=>byStud[s.id]={absent:0, late:0, excused:0, unexcused:0, items:[]});
-  rows.forEach(r=>{ const b=byStud[r.studentId]; if(!b) return; b.items.push(r); if(r.status==='absent'){ b.absent++; if(r.excused) b.excused++; else b.unexcused++; } else b.late++; });
+  const byStud={}; sts.forEach(s=>byStud[s.id]={absent:0, late:0, excused:0, unexcused:0, pending:0, items:[]});
+  rows.forEach(r=>{ const b=byStud[r.studentId]; if(!b) return; b.items.push(r); if(r.status==='absent'){ b.absent++; if(!r.resolved) b.pending++; else if(r.excused) b.excused++; else b.unexcused++; } else b.late++; });
 
   return el(`<div class="space-y-4">
-    <div class="grid md:grid-cols-4 gap-3">
+    <div class="grid md:grid-cols-5 gap-3">
       <div class="card p-5"><div class="text-sm text-slate-500">Ukupno odsustva</div><div class="text-3xl font-bold text-red-600">${rows.filter(r=>r.status==='absent').length}</div></div>
       <div class="card p-5"><div class="text-sm text-slate-500">Ukupno kašnjenja</div><div class="text-3xl font-bold text-amber-600">${rows.filter(r=>r.status==='late').length}</div></div>
       <div class="card p-5"><div class="text-sm text-slate-500">Opravdani</div><div class="text-3xl font-bold text-emerald-600">${rows.filter(r=>r.status==='absent'&&r.excused).length}</div></div>
-      <div class="card p-5"><div class="text-sm text-slate-500">Neopravdani</div><div class="text-3xl font-bold text-red-700">${rows.filter(r=>r.status==='absent'&&!r.excused).length}</div></div>
+      <div class="card p-5"><div class="text-sm text-slate-500">Neopravdani</div><div class="text-3xl font-bold text-red-700">${rows.filter(r=>r.status==='absent'&&r.resolved&&!r.excused).length}</div></div>
+      <div class="card p-5"><div class="text-sm text-slate-500">Čeka pravdanje</div><div class="text-3xl font-bold text-amber-600">${rows.filter(r=>r.status==='absent'&&!r.resolved).length}</div></div>
     </div>
     <div class="card overflow-hidden">
       <div class="p-4 border-b border-slate-100 font-bold flex items-center gap-2"><i data-lucide="user-x"></i> Po učeniku</div>
       <table class="w-full text-sm">
         <thead class="bg-slate-50 text-xs uppercase text-slate-500 text-left">
-          <tr><th class="px-4 py-3">Učenik</th><th class="px-4 py-3">Odsustva</th><th class="px-4 py-3">Opravdani</th><th class="px-4 py-3">Neopravdani</th><th class="px-4 py-3">Kašnjenja</th><th class="px-4 py-3">Detalji</th></tr>
+          <tr><th class="px-4 py-3">Učenik</th><th class="px-4 py-3">Odsustva</th><th class="px-4 py-3">Opravdani</th><th class="px-4 py-3">Neopravdani</th><th class="px-4 py-3">Čeka</th><th class="px-4 py-3">Kašnjenja</th><th class="px-4 py-3">Detalji</th></tr>
         </thead>
         <tbody>
           ${sts.map(s=>{ const b=byStud[s.id]; return `<tr class="border-t border-slate-100">
@@ -4052,8 +4055,9 @@ function renderHRAbsences(cls, sts){
             <td class="px-4 py-3"><span class="badge bg-red-50 text-red-700">${b.absent}</span></td>
             <td class="px-4 py-3"><span class="badge bg-emerald-50 text-emerald-700">${b.excused}</span></td>
             <td class="px-4 py-3"><span class="badge bg-red-50 text-red-700">${b.unexcused}</span></td>
+            <td class="px-4 py-3"><span class="badge bg-amber-50 text-amber-700">${b.pending}</span></td>
             <td class="px-4 py-3"><span class="badge bg-amber-50 text-amber-700">${b.late}</span></td>
-            <td class="px-4 py-3"><div class="flex flex-wrap gap-1">${b.items.slice(0,12).map(it=>`<span class="text-[10px] ${it.status==='absent'?(it.excused?'bg-emerald-50 text-emerald-700':'bg-red-50 text-red-700'):'bg-amber-50 text-amber-700'} px-1.5 py-0.5 rounded" title="${it.subject?.name}">${it.date} · ${it.subject?.name||''}${it.status==='absent'?(it.excused?' · O':' · N'):''}</span>`).join('')||'<span class="text-slate-400 text-xs">-</span>'}${b.items.length>12?`<span class="text-xs text-slate-400">+${b.items.length-12}</span>`:''}</div></td>
+            <td class="px-4 py-3"><div class="flex flex-wrap gap-1">${b.items.slice(0,12).map(it=>`<span class="text-[10px] ${it.status==='absent'?(!it.resolved?'bg-amber-50 text-amber-700':it.excused?'bg-emerald-50 text-emerald-700':'bg-red-50 text-red-700'):'bg-amber-50 text-amber-700'} px-1.5 py-0.5 rounded" title="${it.subject?.name}">${it.date} · ${it.subject?.name||''}${it.status==='absent'?(!it.resolved?' · ?':it.excused?' · O':' · N'):''}</span>`).join('')||'<span class="text-slate-400 text-xs">-</span>'}${b.items.length>12?`<span class="text-xs text-slate-400">+${b.items.length-12}</span>`:''}</div></td>
           </tr>`; }).join('')}
         </tbody>
       </table>
@@ -4128,7 +4132,31 @@ function renderHRProfiles(cls, sts){
 
 function renderHRAbsenceRequests(cls, sts){
   const list=db.absenceRequests.filter(r=>r.classId===cls.id).sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
-  const w=el(`<div class="card overflow-hidden">
+  const teacherItems=[];
+  db.classSessions.forEach(cs=>{
+    const sc=db.schedule.find(s=>s.id===cs.scheduleId); if(!sc||sc.classId!==cls.id) return;
+    (cs.attendance||[]).filter(a=>a.status!=='present').forEach(a=>teacherItems.push({cs,sc,att:a,student:getUser(a.studentId),teacher:getUser(cs.conductedBy||sc.teacherId)}));
+  });
+  teacherItems.sort((a,b)=>(b.cs.date||'').localeCompare(a.cs.date||'') || a.sc.period-b.sc.period);
+  const w=el(`<div class="space-y-5">
+  <div class="card overflow-hidden">
+    <div class="p-4 border-b border-slate-100 font-bold flex items-center gap-2"><i data-lucide="users"></i> Izostanci koje su upisali profesori</div>
+    ${teacherItems.length?`<table class="w-full text-sm">
+      <thead class="bg-slate-50 text-xs uppercase text-slate-500 text-left"><tr><th class="px-4 py-3">Datum</th><th class="px-4 py-3">Učenik</th><th class="px-4 py-3">Čas</th><th class="px-4 py-3">Profesor</th><th class="px-4 py-3">Status</th><th class="px-4 py-3 text-right">Pravdanje</th></tr></thead>
+      <tbody>
+        ${teacherItems.map(item=>`<tr class="border-t border-slate-100 hover:bg-slate-50">
+          <td class="px-4 py-3 font-mono text-xs">${item.cs.date}</td>
+          <td class="px-4 py-3 font-medium">${item.student?.name||''}</td>
+          <td class="px-4 py-3"><span class="badge text-white" style="background:${getSubject(item.sc.subjectId)?.color||'#64748b'}">${getSubject(item.sc.subjectId)?.name||''}</span> <span class="text-xs text-slate-500">${item.sc.period+1}. čas</span></td>
+          <td class="px-4 py-3 text-slate-600">${item.teacher?.name||''}</td>
+          <td class="px-4 py-3">${item.att.status==='late'?'<span class="badge bg-amber-50 text-amber-700">kasni</span>':item.att.excused===true?'<span class="badge bg-emerald-50 text-emerald-700">opravdano</span>':item.att.excused===false?'<span class="badge bg-red-50 text-red-700">neopravdano</span>':'<span class="badge bg-amber-50 text-amber-700">čeka</span>'}</td>
+          <td class="px-4 py-3 text-right"><button data-teacher-abs="${item.cs.id}|${item.att.studentId}|approved_excused" class="btn btn-soft" style="padding:5px 10px;font-size:12px;">Opravdaj</button><button data-teacher-abs="${item.cs.id}|${item.att.studentId}|rejected_unexcused" class="btn btn-danger" style="padding:5px 10px;font-size:12px;">Neopravdano</button></td>
+        </tr>`).join('')}
+      </tbody>
+    </table>`:'<div class="p-10 text-center text-slate-500">Nema izostanaka koje su profesori upisali.</div>'}
+  </div>
+  <div class="card overflow-hidden">
+    <div class="p-4 border-b border-slate-100 font-bold flex items-center gap-2"><i data-lucide="file-check-2"></i> Zahtjevi roditelja</div>
     ${list.length?`<table class="w-full text-sm">
       <thead class="bg-slate-50 text-xs uppercase text-slate-500 text-left"><tr><th class="px-4 py-3">Datum</th><th class="px-4 py-3">Učenik</th><th class="px-4 py-3">Čas</th><th class="px-4 py-3">Roditelj</th><th class="px-4 py-3">Razlog</th><th class="px-4 py-3">Status</th><th class="px-4 py-3 text-right">Akcije</th></tr></thead>
       <tbody>
@@ -4146,7 +4174,18 @@ function renderHRAbsenceRequests(cls, sts){
         </tr>`; }).join('')}
       </tbody>
     </table>`:'<div class="p-10 text-center text-slate-500">Nema zahtjeva roditelja.</div>'}
+  </div>
   </div>`);
+  w.querySelectorAll('[data-teacher-abs]').forEach(b=>b.addEventListener('click', ()=>{
+    const [csId, studentId, status]=b.dataset.teacherAbs.split('|');
+    const cs=db.classSessions.find(x=>x.id===csId); if(!cs) return;
+    const att=(cs.attendance||[]).find(a=>a.studentId===studentId); if(!att) return;
+    att.status='absent';
+    att.excused=status==='approved_excused';
+    att.decidedBy=session.userId;
+    att.decidedAt=Date.now();
+    saveDB(); render();
+  }));
   w.querySelectorAll('[data-abs-act]').forEach(b=>b.addEventListener('click', ()=>{
     const [id,status]=b.dataset.absAct.split('|'); const req=db.absenceRequests.find(r=>r.id===id); if(!req) return;
     req.status=status; req.decidedBy=session.userId; req.decidedAt=Date.now();
@@ -4236,10 +4275,10 @@ function openDutyModal(classId, dutyId=null){
 
 function renderHROverview(cls, sts){
   const semId=view.semesterId;
-  return el(`<div class="card overflow-hidden">
+  const w=el(`<div class="card overflow-hidden">
     <table class="w-full text-sm">
       <thead class="bg-slate-50 text-xs uppercase text-slate-500 text-left">
-        <tr><th class="px-4 py-3">Učenik</th><th class="px-4 py-3">Prosjek</th><th class="px-4 py-3">Odsustva</th><th class="px-4 py-3">Pohvale</th><th class="px-4 py-3">Opomene</th><th class="px-4 py-3">Status</th></tr>
+        <tr><th class="px-4 py-3">Učenik</th><th class="px-4 py-3">Prosjek</th><th class="px-4 py-3">Odsustva</th><th class="px-4 py-3">Pohvale</th><th class="px-4 py-3">Opomene</th><th class="px-4 py-3">Status</th><th class="px-4 py-3 text-right">Detaljno</th></tr>
       </thead>
       <tbody>
         ${sts.map(s=>{
@@ -4256,11 +4295,132 @@ function renderHROverview(cls, sts){
             <td class="px-4 py-3"><span class="badge bg-emerald-50 text-emerald-700">${poh}</span></td>
             <td class="px-4 py-3"><span class="badge bg-amber-50 text-amber-700">${opo}</span></td>
             <td class="px-4 py-3">${failing?`<span class="badge bg-red-50 text-red-700">${failing} popravni</span>`:'<span class="badge bg-emerald-50 text-emerald-700">OK</span>'}</td>
+            <td class="px-4 py-3 text-right"><button data-open-dossier="${s.id}" class="btn btn-soft" style="padding:5px 10px;font-size:12px;"><i data-lucide="folder-search" class="icon-sm"></i> Ocjene i sve</button></td>
           </tr>`;
         }).join('')}
       </tbody>
     </table>
   </div>`);
+  w.querySelectorAll('[data-open-dossier]').forEach(b=>b.addEventListener('click', ()=>openHomeroomDossierModal(cls.id, [b.dataset.openDossier])));
+  return w;
+}
+
+function renderHRDossier(cls, sts){
+  const w=el(`<div class="space-y-4">
+    <div class="card p-5 flex items-center justify-between gap-3 flex-wrap">
+      <div>
+        <h2 class="font-bold flex items-center gap-2"><i data-lucide="folder-search"></i> Detaljni dosije učenika</h2>
+        <p class="text-sm text-slate-500 mt-1">Izaberite jednog ili više učenika i pogledajte sve: ocjene, zaključne, zadaće, izostanke po časovima, pohvale i opomene.</p>
+      </div>
+      <button id="openDossier" class="btn btn-primary"><i data-lucide="eye"></i> Otvori prozor</button>
+    </div>
+    <div class="card p-4">
+      <div class="grid md:grid-cols-2 lg:grid-cols-3 gap-2">
+        ${sts.map(s=>`<label class="flex items-center gap-2 p-2 border border-slate-200 rounded-xl hover:bg-slate-50"><input type="checkbox" class="dossier_student" value="${s.id}"> <span>${s.name}</span></label>`).join('')}
+      </div>
+    </div>
+  </div>`);
+  w.querySelector('#openDossier').addEventListener('click', ()=>{
+    let ids=Array.from(w.querySelectorAll('.dossier_student:checked')).map(x=>x.value);
+    if(!ids.length) ids=sts.map(s=>s.id);
+    openHomeroomDossierModal(cls.id, ids);
+  });
+  return w;
+}
+
+function studentSubjectsForClass(classId){
+  return [...new Set(db.schedule.filter(s=>s.classId===classId).map(s=>s.subjectId))].map(getSubject).filter(Boolean);
+}
+
+function dossierGradesHTML(studentId, classId, semId){
+  const subjects=studentSubjectsForClass(classId);
+  return `<div class="grid lg:grid-cols-[260px_1fr] gap-4">
+    <div class="border border-slate-200 rounded-xl overflow-hidden bg-slate-50">
+      ${subjects.map((sub,i)=>`<button data-dossier-subject="${sub.id}" class="dossier-subject-row w-full text-left px-4 py-3 border-b border-slate-200 last:border-0 hover:bg-white ${i===0?'bg-white':''}"><div class="font-bold">${sub.name}</div><div class="text-xs text-slate-500">${subjectUsesCompletion(sub.id)?'status odradio':'ocjene i zaključne'}</div></button>`).join('') || '<div class="p-4 text-sm text-slate-500">Nema predmeta.</div>'}
+    </div>
+    <div class="space-y-3" id="dossierSubjectDetails">
+    ${subjects.map(sub=>{
+      if(subjectUsesCompletion(sub.id)){
+        const c=semId?getCompletion(studentId, sub.id, semId):db.completions.find(x=>x.studentId===studentId&&x.subjectId===sub.id);
+        return `<div data-dossier-detail="${sub.id}" class="border border-slate-200 rounded-xl p-4"><div class="font-bold flex items-center gap-2"><span class="badge text-white" style="background:${sub.color}">${sub.name}</span>${completionBadge(c?.status)}</div><div class="text-xs text-slate-500 mt-2">${c?.note||'Nema napomene.'}</div></div>`;
+      }
+      const grades=collectGradesFor(studentId, sub.id, null, semId);
+      const finals=db.finalGrades.filter(f=>f.studentId===studentId && f.subjectId===sub.id && (!semId||f.semesterId===semId));
+      const avg=grades.length?(grades.reduce((a,b)=>a+b.value,0)/grades.length).toFixed(2):'-';
+      return `<div data-dossier-detail="${sub.id}" class="border border-slate-200 rounded-xl p-4">
+        <div class="flex items-center justify-between gap-2 flex-wrap"><div class="font-bold flex items-center gap-2"><span class="badge text-white" style="background:${sub.color}">${sub.name}</span><span class="text-xs text-slate-500">Prosjek ${avg}</span></div>${finals.length?`<div class="flex gap-1 flex-wrap">${finals.map(f=>`<span class="badge ${f.value===1?'bg-red-50 text-red-700':'bg-emerald-50 text-emerald-700'}">Zaključna ${f.value}${f.status==='passed'?' (popravni prošao)':f.status==='failed'?' (pao)':''}</span>`).join('')}</div>`:''}</div>
+        <div class="flex flex-wrap gap-2 mt-3">${grades.length?grades.map(g=>`<div class="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2"><span class="grade-pill ${gradeClass(g.value)}">${g.value}</span><span class="text-xs text-slate-600 ml-2">${g.date} · ${(GRADE_TYPES.find(t=>t.v===g.type)?.label)||'ocjena'}${g.note?' · '+g.note:''}</span></div>`).join(''):'<span class="text-sm text-slate-400">Nema ocjena.</span>'}</div>
+      </div>`;
+    }).join('') || '<div class="text-sm text-slate-500">Nema predmeta.</div>'}
+    </div>
+  </div>`;
+}
+
+function dossierHomeworkHTML(studentId, classId){
+  const list=db.homework.filter(h=>h.classId===classId).sort((a,b)=>(b.dueDate||'').localeCompare(a.dueDate||''));
+  return `<div class="space-y-2">${list.length?list.map(h=>`<div class="border border-slate-200 rounded-xl p-3 flex items-start justify-between gap-3"><div><div class="font-bold">${h.title}</div><div class="text-xs text-slate-500">${getSubject(h.subjectId)?.name||''} · zadana ${h.assignedDate||'-'} · rok ${h.dueDate||'-'} · profesor ${getUser(h.teacherId)?.name||''}</div>${h.description?`<div class="text-sm text-slate-700 mt-1">${h.description}</div>`:''}</div>${homeworkMarkBadge(homeworkMark(h,studentId))}</div>`).join(''):'<div class="text-sm text-slate-500">Nema zadaća.</div>'}</div>`;
+}
+
+function dossierAbsencesHTML(studentId, classId, semId){
+  const rows=[];
+  db.classSessions.forEach(cs=>{
+    const sc=db.schedule.find(s=>s.id===cs.scheduleId); if(!sc||sc.classId!==classId) return;
+    if(semId){ const sid=cs.semesterId||semesterForDate(cs.date)?.id; if(sid!==semId) return; }
+    (cs.attendance||[]).filter(a=>a.studentId===studentId&&a.status!=='present').forEach(a=>rows.push({date:cs.date,subject:getSubject(sc.subjectId),period:sc.period,status:a.status,excused:a.excused===true,teacher:getUser(cs.conductedBy||sc.teacherId)}));
+  });
+  rows.sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  return `<div class="space-y-2">${rows.length?rows.map(r=>`<div class="border border-slate-200 rounded-xl p-3"><div class="flex items-center gap-2 flex-wrap"><b>${r.date}</b><span class="badge text-white" style="background:${r.subject?.color||'#64748b'}">${r.subject?.name||''}</span><span class="badge bg-slate-50 text-slate-700">${r.period+1}. čas</span><span class="badge ${r.status==='late'?'bg-amber-50 text-amber-700':r.excused?'bg-emerald-50 text-emerald-700':'bg-red-50 text-red-700'}">${r.status==='late'?'kasni':r.excused?'opravdano':'neopravdano'}</span></div><div class="text-xs text-slate-500 mt-1">Profesor: ${r.teacher?.name||''}</div></div>`).join(''):'<div class="text-sm text-slate-500">Nema izostanaka.</div>'}</div>`;
+}
+
+function dossierNotesHTML(studentId){
+  const list=db.classNotes.filter(n=>n.studentId===studentId).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+  return `<div class="space-y-2">${list.length?list.map(n=>`<div class="border border-slate-200 rounded-xl p-3"><div class="flex items-center gap-2"><span class="badge ${n.type==='pohvala'?'bg-emerald-50 text-emerald-700':'bg-red-50 text-red-700'}">${n.type==='pohvala'?'Pohvala':'Opomena'}</span><span class="text-xs text-slate-500">${n.date} · ${getUser(n.byTeacherId)?.name||''}</span></div><div class="text-sm mt-2">${n.text}</div></div>`).join(''):'<div class="text-sm text-slate-500">Nema pohvala/opomena.</div>'}</div>`;
+}
+
+function dossierStudentHTML(studentId, classId, semId){
+  const s=getUser(studentId); if(!s) return '';
+  const profile=profileForStudent(studentId);
+  return `<div class="card p-5 space-y-6" data-dossier-student-card="${studentId}">
+    <div class="flex items-start justify-between gap-3 flex-wrap bg-slate-50 border border-slate-200 rounded-2xl p-4"><div><div class="text-xs uppercase tracking-wide text-slate-500">Učenik</div><h2 class="text-2xl font-black">${s.name}</h2><div class="text-sm text-slate-500">${getClass(classId)?.name||''}</div></div><button data-print-dossier="${studentId}" class="btn btn-soft"><i data-lucide="printer"></i> Print</button></div>
+    <section><h3 class="font-bold mb-3 flex items-center gap-2"><i data-lucide="star"></i> Ocjene i zaključne</h3>${dossierGradesHTML(studentId,classId,semId)}</section>
+    <div class="grid lg:grid-cols-2 gap-5">
+      <section><h3 class="font-bold mb-3 flex items-center gap-2"><i data-lucide="clipboard-pen-line"></i> Zadaće</h3>${dossierHomeworkHTML(studentId,classId)}</section>
+      <section><h3 class="font-bold mb-3 flex items-center gap-2"><i data-lucide="user-x"></i> Izostanci i propušteni časovi</h3>${dossierAbsencesHTML(studentId,classId,semId)}</section>
+      <section><h3 class="font-bold mb-3 flex items-center gap-2"><i data-lucide="megaphone"></i> Pohvale i opomene</h3>${dossierNotesHTML(studentId)}</section>
+      <section><h3 class="font-bold mb-3 flex items-center gap-2"><i data-lucide="id-card"></i> CV napomene</h3><div class="text-sm text-slate-700 space-y-2 border border-slate-200 rounded-xl p-3"><div><b>Opis:</b> ${profile.about||'-'}</div><div><b>Zdravlje:</b> ${profile.health||'-'}</div><div><b>Talenti:</b> ${profile.talents||'-'}</div><div><b>Podrška:</b> ${profile.support||'-'}</div></div></section>
+    </div>
+  </div>`;
+}
+
+function openHomeroomDossierModal(classId, selectedIds=[]){
+  const cls=getClass(classId);
+  const sts=studentsOfClass(classId);
+  const semId=view.semesterId||'';
+  const initial=new Set(selectedIds.length?selectedIds:sts.map(s=>s.id));
+  const modal=openModal(`Dosije razreda ${cls?.name||''}`, `<div class="space-y-4">
+    <div class="bg-slate-50 border border-slate-200 rounded-xl p-3"><div class="font-semibold mb-2">Izaberite učenike</div><div class="grid md:grid-cols-2 gap-2 max-h-44 overflow-y-auto scrollbar-thin">${sts.map(s=>`<label class="flex items-center gap-2 text-sm"><input type="checkbox" class="modal_dossier_student" value="${s.id}" ${initial.has(s.id)?'checked':''}> ${s.name}</label>`).join('')}</div><button id="refreshDossier" class="btn btn-soft mt-3"><i data-lucide="refresh-cw"></i> Prikaži izabrane</button></div>
+    <div id="dossierContent" class="space-y-4"></div>
+  </div>`, ()=>true);
+  modal.querySelector('#mSave').innerHTML='<i data-lucide="check"></i> Zatvori';
+  function refresh(){
+    const ids=Array.from(modal.querySelectorAll('.modal_dossier_student:checked')).map(x=>x.value);
+    modal.querySelector('#dossierContent').innerHTML=ids.length?ids.map(id=>dossierStudentHTML(id,classId,semId)).join(''):'<div class="text-center text-slate-500 py-8">Odaberite barem jednog učenika.</div>';
+    if(window.lucide) lucide.createIcons();
+    modal.querySelectorAll('[data-dossier-student-card]').forEach(card=>{
+      const details=[...card.querySelectorAll('[data-dossier-detail]')];
+      const rows=[...card.querySelectorAll('[data-dossier-subject]')];
+      function show(subjectId){
+        details.forEach(d=>d.classList.toggle('hidden', d.dataset.dossierDetail!==subjectId));
+        rows.forEach(r=>r.classList.toggle('bg-white', r.dataset.dossierSubject===subjectId));
+      }
+      if(details[0]) show(details[0].dataset.dossierDetail);
+      rows.forEach(r=>r.addEventListener('click', ()=>show(r.dataset.dossierSubject)));
+    });
+    modal.querySelectorAll('[data-print-dossier]').forEach(b=>b.addEventListener('click', ()=>window.print()));
+  }
+  modal.querySelector('#refreshDossier').addEventListener('click', refresh);
+  modal.querySelectorAll('.modal_dossier_student').forEach(c=>c.addEventListener('change', refresh));
+  refresh();
 }
 
 function renderHRHomework(cls, sts){
@@ -4752,7 +4912,7 @@ function openParentAbsenceRequestModal(){
 /* MODAL */
 function openModal(title, bodyHTML, onSave){
   const back=el(`<div class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4 fadeIn">
-    <div class="bg-white rounded-2xl w-full max-w-lg shadow-2xl">
+    <div class="bg-white rounded-2xl w-full max-w-5xl shadow-2xl">
       <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
         <h2 class="font-bold text-lg">${title}</h2>
         <button id="mClose" class="btn-ghost"><i data-lucide="x"></i></button>
