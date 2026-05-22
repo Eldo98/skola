@@ -2,6 +2,7 @@
 <html lang="bs">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>eŠkola - Školska Aplikacija</title>
 <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
 <script src="https://unpkg.com/lucide@latest"></script>
@@ -105,9 +106,11 @@
   .app-main > div > .bg-white.border-b.border-slate-200{ border:1px solid var(--border)!important; border-radius:20px; box-shadow:var(--shadow); }
   @media (max-width: 980px){ .app-frame{ width:calc(100vw - 24px); padding-top:20px; } .workspace{ grid-template-columns:1fr; } .sidebar-card{ position:static; } }
   @media (max-width: 700px){
+    body{ font-size:15px; }
     .app-shell{ background:linear-gradient(180deg,var(--navy) 0 10px,var(--bg) 10px 100%); }
     .app-frame{ width:calc(100vw - 16px); padding:14px 0 22px; }
-    .top-card{ border-radius:18px; padding:12px; align-items:flex-start; }
+    .top-card{ border-radius:18px; padding:12px; align-items:flex-start; flex-direction:column; }
+    .top-card > div{ width:100%; }
     .top-card .status-chip{ height:28px; padding:0 9px; font-size:12px; }
     .top-card .status-chip:nth-of-type(3){ display:none; }
     .workspace{ gap:10px; margin-top:10px; }
@@ -117,6 +120,9 @@
     .menu-item{ flex:0 0 auto; padding:10px 12px; font-size:13px; white-space:nowrap; border-radius:12px; }
     .menu-item span.flex-1{ flex:0 0 auto; }
     .page-toolbar{ border-radius:16px; padding:14px; gap:10px; }
+    .page-toolbar > div:last-child{ width:100%; justify-content:flex-start; }
+    .page-toolbar .form-input{ min-width:0; max-width:100%; }
+    .page-toolbar .btn{ flex:1 1 auto; justify-content:center; }
     .page-title{ font-size:18px; }
     .page-subtitle{ white-space:normal; }
     .app-main > div{ gap:10px; }
@@ -129,12 +135,16 @@
     .classroom-title{ top:4%; left:6%; font-size:20px; }
     .classroom-subtitle{ top:18%; left:6%; font-size:18px; }
     .seat-token{ min-width:140px; }
-    .card.overflow-hidden{ overflow-x:auto; }
-    .card table{ min-width:720px; }
+    .card{ border-radius:14px; }
+    .card.overflow-hidden{ overflow-x:auto; -webkit-overflow-scrolling:touch; }
+    .card table{ min-width:620px; }
+    .card.p-5,.card.p-6{ padding:14px!important; }
     #csTabs, .px-8.pt-4.border-b.border-slate-200.flex{ overflow-x:auto; padding-left:12px!important; padding-right:12px!important; }
     .tab-btn{ flex:0 0 auto; }
     .p-8{ padding:12px!important; }
     .grid.lg\:grid-cols-3, .grid.md\:grid-cols-4, .grid.md\:grid-cols-3, .grid.md\:grid-cols-2{ grid-template-columns:1fr!important; }
+    .fixed.inset-0{ align-items:flex-start; overflow-y:auto; }
+    .fixed.inset-0 > .bg-white{ margin-top:8px; max-width:calc(100vw - 16px)!important; }
   }
 </style>
 </head>
@@ -3991,6 +4001,7 @@ function renderTeacherHomeroom(){
       </select>`)}
     <div class="px-8 pt-4 border-b border-slate-200 flex gap-2 flex-wrap">
       <button data-tab="absences" class="tab-btn ${view.hrTab==='absences'?'active':''}"><i data-lucide="user-x" class="icon-sm inline"></i> Izostanci</button>
+      <button data-tab="grades" class="tab-btn ${view.hrTab==='grades'?'active':''}"><i data-lucide="star" class="icon-sm inline"></i> Ocjene</button>
       <button data-tab="commendations" class="tab-btn ${view.hrTab==='commendations'?'active':''}"><i data-lucide="thumbs-up" class="icon-sm inline"></i> Pohvale</button>
       <button data-tab="warnings" class="tab-btn ${view.hrTab==='warnings'?'active':''}"><i data-lucide="alert-triangle" class="icon-sm inline"></i> Opomene</button>
       <button data-tab="profiles" class="tab-btn ${view.hrTab==='profiles'?'active':''}"><i data-lucide="id-card" class="icon-sm inline"></i> CV</button>
@@ -4009,6 +4020,7 @@ function renderTeacherHomeroom(){
 
   const body=wrap.querySelector('#hrBody');
   if(view.hrTab==='absences') body.appendChild(renderHRAbsences(cls, sts));
+  else if(view.hrTab==='grades') body.appendChild(renderHRGrades(cls, sts));
   else if(view.hrTab==='commendations') body.appendChild(renderHRNotes(cls, sts, 'pohvala'));
   else if(view.hrTab==='warnings') body.appendChild(renderHRNotes(cls, sts, 'opomena'));
   else if(view.hrTab==='profiles') body.appendChild(renderHRProfiles(cls, sts));
@@ -4063,6 +4075,46 @@ function renderHRAbsences(cls, sts){
       </table>
     </div>
   </div>`);
+}
+
+function renderHRGrades(cls, sts){
+  const semId=view.semesterId;
+  const subjects=studentSubjectsForClass(cls.id);
+  const w=el(`<div class="space-y-4">
+    <div class="card p-5 flex items-center justify-between gap-3 flex-wrap">
+      <div>
+        <h2 class="font-bold flex items-center gap-2"><i data-lucide="star"></i> Ocjene razreda ${cls.name}</h2>
+        <p class="text-sm text-slate-500 mt-1">Pregled svih predmeta, ocjena svih profesora i zaključnih ocjena za odabrano polugodište.</p>
+      </div>
+      <button id="openAllDossier" class="btn btn-primary"><i data-lucide="folder-search"></i> Detaljni dosije</button>
+    </div>
+    <div class="card overflow-hidden">
+      <table class="w-full text-sm" style="min-width:${Math.max(860, 220+subjects.length*230)}px">
+        <thead class="bg-slate-50 text-xs uppercase text-slate-500 text-left">
+          <tr><th class="px-4 py-3 sticky left-0 bg-slate-50 z-10">Učenik</th>${subjects.map(sub=>`<th class="px-4 py-3">${sub.name}</th>`).join('')}<th class="px-4 py-3 text-right">Detaljno</th></tr>
+        </thead>
+        <tbody>
+          ${sts.map(s=>`<tr class="border-t border-slate-100 hover:bg-slate-50">
+            <td class="px-4 py-3 font-medium sticky left-0 bg-white z-10">${s.name}</td>
+            ${subjects.map(sub=>{
+              if(subjectUsesCompletion(sub.id)){
+                const c=semId?getCompletion(s.id, sub.id, semId):db.completions.find(x=>x.studentId===s.id&&x.subjectId===sub.id);
+                return `<td class="px-4 py-3">${completionBadge(c?.status)}</td>`;
+              }
+              const grades=collectGradesFor(s.id, sub.id, null, semId);
+              const finals=db.finalGrades.filter(f=>f.studentId===s.id && f.subjectId===sub.id && (!semId||f.semesterId===semId));
+              const avg=grades.length?(grades.reduce((a,b)=>a+b.value,0)/grades.length).toFixed(2):'-';
+              return `<td class="px-4 py-3 align-top"><div class="flex gap-1 flex-wrap">${grades.length?grades.map(g=>`<span class="grade-pill ${gradeClass(g.value)}" title="${g.date} · ${g.note||''}">${g.value}</span>`).join(''):'<span class="text-xs text-slate-400">nema</span>'}</div><div class="text-xs text-slate-500 mt-1">Prosjek ${avg}</div>${finals.length?`<div class="mt-1 flex gap-1 flex-wrap">${finals.map(f=>`<span class="badge ${f.value===1?'bg-red-50 text-red-700':'bg-emerald-50 text-emerald-700'}">Zaklj. ${f.value}</span>`).join('')}</div>`:''}</td>`;
+            }).join('')}
+            <td class="px-4 py-3 text-right"><button data-hr-grade-dossier="${s.id}" class="btn btn-soft" style="padding:5px 10px;font-size:12px;"><i data-lucide="folder-search" class="icon-sm"></i> Sve</button></td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>
+  </div>`);
+  w.querySelector('#openAllDossier').addEventListener('click', ()=>openHomeroomDossierModal(cls.id, sts.map(s=>s.id)));
+  w.querySelectorAll('[data-hr-grade-dossier]').forEach(b=>b.addEventListener('click', ()=>openHomeroomDossierModal(cls.id, [b.dataset.hrGradeDossier])));
+  return w;
 }
 
 function renderHRNotes(cls, sts, type){
