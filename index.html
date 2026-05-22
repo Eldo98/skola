@@ -1637,7 +1637,7 @@ function openMaterialViewer(id){
     <div class="text-sm text-slate-600">${mat.description||''}</div>
     ${viewer}
     <div class="flex gap-2"><button id="matOpenNew" class="btn btn-primary"><i data-lucide="external-link"></i> Otvori u novom tabu</button><button id="matDownload" class="btn btn-soft"><i data-lucide="download"></i> Preuzmi/Otvori</button></div>
-  </div>`, ()=>true);
+  </div>`, ()=>true, 'max-w-5xl');
   modal.querySelector('#mSave').innerHTML='<i data-lucide="check"></i> Zatvori';
   modal.querySelector('#matOpenNew').addEventListener('click', ()=>window.open(url,'_blank'));
   modal.querySelector('#matDownload').addEventListener('click', ()=>downloadMaterial(id));
@@ -4400,7 +4400,7 @@ function openHomeroomDossierModal(classId, selectedIds=[]){
   const modal=openModal(`Dosije razreda ${cls?.name||''}`, `<div class="space-y-4">
     <div class="bg-slate-50 border border-slate-200 rounded-xl p-3"><div class="font-semibold mb-2">Izaberite učenike</div><div class="grid md:grid-cols-2 gap-2 max-h-44 overflow-y-auto scrollbar-thin">${sts.map(s=>`<label class="flex items-center gap-2 text-sm"><input type="checkbox" class="modal_dossier_student" value="${s.id}" ${initial.has(s.id)?'checked':''}> ${s.name}</label>`).join('')}</div><button id="refreshDossier" class="btn btn-soft mt-3"><i data-lucide="refresh-cw"></i> Prikaži izabrane</button></div>
     <div id="dossierContent" class="space-y-4"></div>
-  </div>`, ()=>true);
+  </div>`, ()=>true, 'max-w-5xl');
   modal.querySelector('#mSave').innerHTML='<i data-lucide="check"></i> Zatvori';
   function refresh(){
     const ids=Array.from(modal.querySelectorAll('.modal_dossier_student:checked')).map(x=>x.value);
@@ -4910,9 +4910,9 @@ function openParentAbsenceRequestModal(){
 }
 
 /* MODAL */
-function openModal(title, bodyHTML, onSave){
+function openModal(title, bodyHTML, onSave, sizeClass='max-w-lg'){
   const back=el(`<div class="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4 fadeIn">
-    <div class="bg-white rounded-2xl w-full max-w-5xl shadow-2xl">
+    <div class="bg-white rounded-2xl w-full ${sizeClass} shadow-2xl">
       <div class="px-6 py-4 border-b border-slate-200 flex items-center justify-between">
         <h2 class="font-bold text-lg">${title}</h2>
         <button id="mClose" class="btn-ghost"><i data-lucide="x"></i></button>
