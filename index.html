@@ -938,7 +938,8 @@ function renderShell(){
   `);
   const nav=wrap.querySelector('nav');
   menu.forEach(m=>{
-    const item = el(`<div class="menu-item ${view.name===m.view?'active':''}">
+    const active = view.name===m.view || (m.view==='teacher-grades' && view.name==='teacher-finalize');
+    const item = el(`<div class="menu-item ${active?'active':''}">
       <i data-lucide="${m.icon}"></i><span class="flex-1">${m.label}</span>
       ${m.badge?`<span style="background:#ef4444;color:white;font-size:10px;padding:1px 6px;border-radius:9999px;font-weight:700;">${m.badge}</span>`:''}
     </div>`);
@@ -988,7 +989,6 @@ function menuFor(user){
       { view:'teacher-sessions', icon:'clipboard-list',label:'Moji časovi' },
       { view:'teacher-grades',   icon:'star',          label:'Ocjene' },
       { view:'teacher-conduct',  icon:'megaphone',     label:'Pohvale/Opomene' },
-      { view:'teacher-finalize', icon:'check-circle-2',label:'Zaključivanje' },
       { view:'teacher-substitutions', icon:'replace', label:'Zamjene', badge: pendingSubsForMe(user.id)||null }
     ];
     if(isHomeroom(user.id)) m.push({ view:'teacher-homeroom', icon:'award', label:'Razredna evidencija' });
@@ -3242,7 +3242,9 @@ function renderTeacherGrades(){
   const subjects=[...new Set(myScheds.filter(s=>s.classId===view.gradeClassId && !subjectUsesCompletion(s.subjectId)).map(s=>s.subjectId))];
   const wrap=el(`<div>
     ${pageHeader('Ocjene','Pregled ocjena po polugodištu i jednom razredu','star',
-      `<select id="classSel" class="form-input" style="width:auto;">
+      `<button id="gradesOverviewTab" class="btn btn-primary"><i data-lucide="star"></i> Pregled ocjena</button>
+      <button id="gradesFinalizeTab" class="btn btn-soft"><i data-lucide="check-circle-2"></i> Zaključivanje</button>
+      <select id="classSel" class="form-input" style="width:auto;">
         ${classIds.map(cid=>`<option value="${cid}" ${cid===view.gradeClassId?'selected':''}>${getClass(cid)?.name||''}</option>`).join('')}
       </select>
       <select id="semSel" class="form-input" style="width:auto;">
@@ -3270,6 +3272,7 @@ function renderTeacherGrades(){
         </div>`:'<div class="text-center text-slate-500 py-12">Nemate dodijeljenih razreda.</div>'}
     </div>
   </div>`);
+  wrap.querySelector('#gradesFinalizeTab').addEventListener('click', ()=>{ view.name='teacher-finalize'; render(); });
   wrap.querySelector('#classSel')?.addEventListener('change', e=>{ view.gradeClassId=e.target.value; localStorage.setItem('eskola_teacher_grade_class', view.gradeClassId); render(); });
   wrap.querySelector('#semSel').addEventListener('change', e=>{ view.semesterId=e.target.value; render(); });
   wrap.querySelectorAll('[data-improve-regular]').forEach(b=>b.addEventListener('click', ()=>{
@@ -3459,7 +3462,9 @@ function renderTeacherFinalize(){
 
   const wrap=el(`<div>
     ${pageHeader('Zaključivanje','Finalne ocjene i status odradio za predmete bez ocjene','check-circle-2',
-      `<select id="clsSel" class="form-input" style="width:auto;">
+      `<button id="gradesOverviewTab" class="btn btn-soft"><i data-lucide="star"></i> Pregled ocjena</button>
+      <button id="gradesFinalizeTab" class="btn btn-primary"><i data-lucide="check-circle-2"></i> Zaključivanje</button>
+      <select id="clsSel" class="form-input" style="width:auto;">
         ${mySchedClasses.map(cid=>`<option value="${cid}" ${cid===view.classId?'selected':''}>${getClass(cid)?.name}</option>`).join('')}
       </select>
       <select id="subSel" class="form-input" style="width:auto;">
@@ -3519,6 +3524,7 @@ function renderTeacherFinalize(){
       </div>`}
     </div>
   </div>`);
+  wrap.querySelector('#gradesOverviewTab').addEventListener('click', ()=>{ view.name='teacher-grades'; render(); });
   wrap.querySelector('#clsSel')?.addEventListener('change', e=>{
     view.classId=e.target.value;
     const subs=[...new Set([
