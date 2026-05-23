@@ -50,6 +50,7 @@
   .schedule-cell:hover { transform: translateY(-1px); box-shadow: 0 8px 22px rgba(15,23,42,.09); }
   .grade-pill { display:inline-flex; align-items:center; justify-content:center; min-width:24px; height:24px; padding:0 6px; border-radius:6px; font-weight:700; font-size:12px; color:white; }
   .grade-1{background:#ef4444}.grade-2{background:#f97316}.grade-3{background:#eab308}.grade-4{background:#22c55e}.grade-5{background:#10b981}
+  .grade-neo{background:#64748b;color:white;min-width:38px;}
   .app-shell{ min-height:100vh; background:linear-gradient(180deg,var(--navy) 0 14px,var(--bg) 14px 100%); }
   .app-frame{ width:min(1640px,calc(100vw - 64px)); margin:0 auto; padding:32px 0 40px; }
   .top-card{ background:rgba(255,255,255,.96); border:1px solid var(--border); border-radius:22px; box-shadow:var(--shadow); padding:16px 18px; display:flex; align-items:center; justify-content:space-between; gap:18px; }
@@ -195,6 +196,7 @@ const GRADE_TYPES = [
   { v:'oral', label:'Usmeno' }, { v:'written', label:'Pismeno' },
   { v:'test', label:'Kontrolni' }, { v:'activity', label:'Aktivnost' }, { v:'homework', label:'Zadaća' }
 ];
+const GRADE_VALUES = [1,2,3,4,5,'NEO'];
 const ASSESSMENT_TYPES = [
   { v:'test', label:'Test' }, { v:'oral', label:'Usmeno ispitivanje' },
   { v:'quiz', label:'Kviz/Kontrolni' }, { v:'project', label:'Projekat' }
@@ -492,7 +494,11 @@ function effectiveTeacherFor(scheduleId, date){
   if(!sc) return null;
   return sub ? sub.substituteTeacherId : sc.teacherId;
 }
-function gradeClass(v){ return 'grade-'+Math.max(1,Math.min(5, Math.round(v))); }
+function isNeoGrade(v){ return String(v).toUpperCase()==='NEO'; }
+function gradeClass(v){ return isNeoGrade(v)?'grade-neo':'grade-'+Math.max(1,Math.min(5, Math.round(+v||1))); }
+function gradeValueLabel(v){ return isNeoGrade(v)?'NEO':v; }
+function numericGrades(grades){ return (grades||[]).filter(g=>!isNeoGrade(g.value)); }
+function gradeAvg(grades){ const nums=numericGrades(grades); return nums.length?(nums.reduce((a,b)=>a+(+b.value||0),0)/nums.length).toFixed(2):'-'; }
 function parseLocalDate(dateStr){
   const [y,m,d]=(dateStr||todayStr()).split('-').map(Number);
   return new Date(y, (m||1)-1, d||1);
@@ -2863,7 +2869,7 @@ function renderClassSession(scheduleId, date){
               <button data-note-student="${s.id}" data-note-type="pohvala" class="px-2 py-1 rounded bg-emerald-50 text-emerald-700 text-xs font-bold hover:bg-emerald-100" title="Dodaj pohvalu">P</button>
               <button data-note-student="${s.id}" data-note-type="opomena" class="px-2 py-1 rounded bg-red-50 text-red-700 text-xs font-bold hover:bg-red-100" title="Dodaj opomenu">O</button>
             </div>
-            ${myGrades.length?`<div class="flex gap-1 flex-wrap">${myGrades.map(g=>`<span class="inline-flex items-center gap-0.5"><span class="seat-grade" title="${g.note||''}">${g.value}${g.improved?'*':''}</span><button data-del-grade="${g.id}" class="text-red-500 hover:bg-red-50 rounded px-1" title="Obriši ocjenu"><i data-lucide="trash-2" class="icon-sm"></i></button></span>`).join('')}</div>`:''}
+            ${myGrades.length?`<div class="flex gap-1 flex-wrap">${myGrades.map(g=>`<span class="inline-flex items-center gap-0.5"><span class="seat-grade" title="${g.note||''}">${gradeValueLabel(g.value)}${g.improved?'*':''}</span><button data-del-grade="${g.id}" class="text-red-500 hover:bg-red-50 rounded px-1" title="Obriši ocjenu"><i data-lucide="trash-2" class="icon-sm"></i></button></span>`).join('')}</div>`:''}
           </div>
         </div>`;
       }).join('') || '<div class="text-center text-slate-500 py-8">U razredu nema učenika.</div>';
@@ -2943,7 +2949,7 @@ function renderClassSession(scheduleId, date){
             <div class="seat-card ${st}">
               <div class="font-bold text-sm truncate">${s.name}</div>
               <div class="text-xs text-slate-500 mt-0.5">${statusLabel}</div>
-              ${grades.length?`<div class="flex flex-wrap gap-1 mt-2">${grades.map(g=>`<span class="seat-grade" title="${g.note||''}">${g.value}</span>`).join('')}</div>`:''}
+              ${grades.length?`<div class="flex flex-wrap gap-1 mt-2">${grades.map(g=>`<span class="seat-grade" title="${g.note||''}">${gradeValueLabel(g.value)}</span>`).join('')}</div>`:''}
               <div class="seat-actions">
                 <button data-seat-att="${s.id}" class="bg-slate-100 hover:bg-slate-200">pris.</button>
                 <button data-seat-note="${s.id}|pohvala" class="bg-emerald-50 text-emerald-700 hover:bg-emerald-100">P</button>
@@ -3205,7 +3211,7 @@ function openGradeModal(s_, studentId, onDone){
     <div class="space-y-3">
       <div><label class="text-sm font-medium">Ocjena</label>
         <div class="flex gap-2 mt-2">
-          ${[1,2,3,4,5].map(n=>`<button data-g="${n}" class="grade-pick flex-1 py-3 border-2 border-slate-200 rounded-lg font-bold text-xl hover:bg-yellow-50 hover:border-yellow-400">${n}</button>`).join('')}
+          ${GRADE_VALUES.map(n=>`<button data-g="${n}" class="grade-pick flex-1 py-3 border-2 border-slate-200 rounded-lg font-bold text-xl hover:bg-yellow-50 hover:border-yellow-400">${n}</button>`).join('')}
         </div>
       </div>
       <div><label class="text-sm font-medium">Tip ocjene</label>
@@ -3217,7 +3223,7 @@ function openGradeModal(s_, studentId, onDone){
     saveDB(); if(onDone) onDone(); else render(); return true;
   });
   m.querySelectorAll('.grade-pick').forEach(b=>b.addEventListener('click', ()=>{
-    selectedG=+b.dataset.g;
+    selectedG=b.dataset.g==='NEO'?'NEO':+b.dataset.g;
     m.querySelectorAll('.grade-pick').forEach(x=>x.classList.remove('bg-yellow-400','text-white','border-yellow-400'));
     b.classList.add('bg-yellow-400','text-white','border-yellow-400');
   }));
@@ -3255,8 +3261,8 @@ function renderTeacherGrades(){
                 <td class="px-4 py-3 font-medium bg-white sticky left-0 z-10">${s.name}</td>
                 ${subjects.map(sid=>{
                   const grades=collectGradesFor(s.id, sid, me.id, view.semesterId);
-                  const avg=grades.length?(grades.reduce((a,b)=>a+b.value,0)/grades.length).toFixed(2):'-';
-                  return `<td class="px-4 py-3 align-top"><div class="flex items-center gap-1 flex-wrap mb-2">${grades.map(g=>`<span class="inline-flex items-center gap-0.5"><button class="grade-pill ${gradeClass(g.value)}" data-improve-regular="${g.sessionId}|${g.id}" title="Klik za popravljanje - ${(GRADE_TYPES.find(t=>t.v===g.type)?.label)||''}: ${g.note||''}">${g.value}${g.improved?'*':''}</button><button data-delete-regular="${g.sessionId}|${g.id}" class="text-red-500 hover:bg-red-50 rounded px-1" title="Obriši ocjenu"><i data-lucide="trash-2" class="icon-sm"></i></button></span>`).join('')||'<span class="text-xs text-slate-400">nema</span>'}</div><div class="flex items-center gap-2"><button data-quick-grade="${s.id}|${selectedClass.id}|${sid}" class="btn btn-soft" style="padding:5px 9px;font-size:12px;"><i data-lucide="plus" class="icon-sm"></i> Dodaj</button><span class="text-xs text-slate-500">Prosjek ${avg}</span></div></td>`;
+                  const avg=gradeAvg(grades);
+                  return `<td class="px-4 py-3 align-top"><div class="flex items-center gap-1 flex-wrap mb-2">${grades.map(g=>`<span class="inline-flex items-center gap-0.5"><button class="grade-pill ${gradeClass(g.value)}" data-improve-regular="${g.sessionId}|${g.id}" title="Klik za popravljanje - ${(GRADE_TYPES.find(t=>t.v===g.type)?.label)||''}: ${g.note||''}">${gradeValueLabel(g.value)}${g.improved?'*':''}</button><button data-delete-regular="${g.sessionId}|${g.id}" class="text-red-500 hover:bg-red-50 rounded px-1" title="Obriši ocjenu"><i data-lucide="trash-2" class="icon-sm"></i></button></span>`).join('')||'<span class="text-xs text-slate-400">nema</span>'}</div><div class="flex items-center gap-2"><button data-quick-grade="${s.id}|${selectedClass.id}|${sid}" class="btn btn-soft" style="padding:5px 9px;font-size:12px;"><i data-lucide="plus" class="icon-sm"></i> Dodaj</button><span class="text-xs text-slate-500">Prosjek ${avg}</span></div></td>`;
                 }).join('')}
               </tr>`).join('')}
             </tbody>
@@ -3303,16 +3309,17 @@ function openRegularGradeImproveModal(sessionId, gradeId){
   const m=openModal(`Popravljanje ocjene · ${student?.name||''}`, `
     <div class="space-y-3">
       <div class="bg-blue-50 border border-blue-100 rounded-lg p-3 text-sm">
-        Trenutna ocjena: <span class="grade-pill ${gradeClass(grade.value)}" style="display:inline-flex;">${grade.value}</span>. Odaberite novu, veću ocjenu.
+        Trenutna ocjena: <span class="grade-pill ${gradeClass(grade.value)}" style="display:inline-flex;">${gradeValueLabel(grade.value)}</span>. Odaberite novu ocjenu.
       </div>
       <div><label class="text-sm font-medium">Nova ocjena</label>
         <div class="flex gap-2 mt-2">
-          ${[1,2,3,4,5].map(n=>`<button data-g="${n}" class="grade-pick flex-1 py-3 border-2 border-slate-200 rounded-lg font-bold text-xl hover:bg-blue-50 hover:border-blue-400 ${n<=grade.value?'opacity-40':''}" ${n<=grade.value?'disabled':''}>${n}</button>`).join('')}
+          ${GRADE_VALUES.map(n=>`<button data-g="${n}" class="grade-pick flex-1 py-3 border-2 border-slate-200 rounded-lg font-bold text-xl hover:bg-blue-50 hover:border-blue-400">${n}</button>`).join('')}
         </div>
+        <div class="text-xs text-slate-500 mt-1">NEO znači neocijenjen i ne ulazi u prosjek.</div>
       </div>
       <div><label class="text-sm font-medium">Napomena</label><input id="f_note" class="form-input" placeholder="npr. popravni odgovor, dodatni zadatak"></div>
     </div>`, ()=>{
-    if(!selected){ alert('Odaberite veću ocjenu.'); return false; }
+    if(!selected){ alert('Odaberite ocjenu.'); return false; }
     grade.previousValue=grade.value;
     grade.value=selected;
     grade.improved=true;
@@ -3320,8 +3327,8 @@ function openRegularGradeImproveModal(sessionId, gradeId){
     grade.improveNote=m.querySelector('#f_note').value.trim();
     saveDB(); render(); return true;
   });
-  m.querySelectorAll('.grade-pick:not([disabled])').forEach(b=>b.addEventListener('click', ()=>{
-    selected=+b.dataset.g;
+  m.querySelectorAll('.grade-pick').forEach(b=>b.addEventListener('click', ()=>{
+    selected=b.dataset.g==='NEO'?'NEO':+b.dataset.g;
     m.querySelectorAll('.grade-pick').forEach(x=>x.classList.remove('bg-blue-500','text-white','border-blue-500'));
     b.classList.add('bg-blue-500','text-white','border-blue-500');
   }));
@@ -3343,7 +3350,7 @@ function openQuickGradeModal(studentId, classId, subjectId){
       <div><label class="text-sm font-medium">Datum</label><input id="q_date" type="date" class="form-input" value="${todayStr()}"></div>
       <div><label class="text-sm font-medium">Ocjena</label>
         <div class="grid grid-cols-5 gap-2 mt-2">
-          ${[1,2,3,4,5].map(n=>`<button data-g="${n}" class="grade-pick py-3 border-2 border-slate-200 rounded-lg font-bold text-xl hover:bg-yellow-50 hover:border-yellow-400">${n}</button>`).join('')}
+          ${GRADE_VALUES.map(n=>`<button data-g="${n}" class="grade-pick py-3 border-2 border-slate-200 rounded-lg font-bold text-xl hover:bg-yellow-50 hover:border-yellow-400">${n}</button>`).join('')}
         </div>
       </div>
       <div><label class="text-sm font-medium">Tip</label><select id="q_type" class="form-input">${GRADE_TYPES.map(t=>`<option value="${t.v}">${t.label}</option>`).join('')}</select></div>
@@ -3363,7 +3370,7 @@ function openQuickGradeModal(studentId, classId, subjectId){
     saveDB(); render(); return true;
   });
   m.querySelectorAll('.grade-pick').forEach(b=>b.addEventListener('click', ()=>{
-    selectedG=+b.dataset.g;
+    selectedG=b.dataset.g==='NEO'?'NEO':+b.dataset.g;
     m.querySelectorAll('.grade-pick').forEach(x=>x.classList.remove('bg-yellow-400','text-white','border-yellow-400'));
     b.classList.add('bg-yellow-400','text-white','border-yellow-400');
   }));
@@ -3485,23 +3492,23 @@ function renderTeacherFinalize(){
           <tbody>
             ${sts.map(s=>{
               const grades=collectGradesFor(s.id, sub.id, me.id, sem.id);
-              const avg=grades.length?(grades.reduce((a,b)=>a+b.value,0)/grades.length):0;
+              const avg=gradeAvg(grades);
               const final=db.finalGrades.find(f=>f.studentId===s.id && f.subjectId===sub.id && f.semesterId===sem.id);
               const hasEnough = grades.length>=reqGrades;
               return `<tr class="border-t border-slate-100 ${!hasEnough?'bg-amber-50/40':''}">
                 <td class="px-4 py-3 font-medium flex items-center gap-2">${s.name}
                   ${!hasEnough?`<span class="badge bg-amber-100 text-amber-700" title="Manje od ${reqGrades} ocjena">${grades.length}/${reqGrades}</span>`:''}
                 </td>
-                <td class="px-4 py-3"><div class="flex flex-wrap gap-1">${grades.map(g=>`<span class="grade-pill ${gradeClass(g.value)}" title="${g.note||''}">${g.value}</span>`).join('')||'<span class="text-slate-400 text-xs">nema</span>'}</div></td>
-                <td class="px-4 py-3">${grades.length?`<b>${avg.toFixed(2)}</b> <span class="text-xs text-slate-500">(≈ ${Math.round(avg)})</span>`:'-'}</td>
-                <td class="px-4 py-3">${final?`<span class="grade-pill ${gradeClass(final.value)}" style="height:28px; min-width:36px; font-size:14px;">${final.value}</span>${final.improved?'<span class="badge bg-blue-100 text-blue-700 ml-2">popravljeno</span>':''}${final.status==='popravni'?'<span class="badge bg-amber-100 text-amber-700 ml-2">popravni</span>':''}${final.status==='passed'?'<span class="badge bg-emerald-100 text-emerald-700 ml-2">prošao</span>':''}${final.status==='failed'?'<span class="badge bg-red-100 text-red-700 ml-2">pao</span>':''}`:'<span class="text-slate-400 text-xs">nije zaključeno</span>'}</td>
-                <td class="px-4 py-3 text-sm">${final && final.popravniValue?`<span class="grade-pill ${gradeClass(final.popravniValue)}">${final.popravniValue}</span> <span class="text-xs text-slate-500">${final.popravniDate||''}</span>`:final && final.status==='popravni'?'<span class="text-amber-600 text-xs">čeka termin</span>':'-'}</td>
+                <td class="px-4 py-3"><div class="flex flex-wrap gap-1">${grades.map(g=>`<span class="grade-pill ${gradeClass(g.value)}" title="${g.note||''}">${gradeValueLabel(g.value)}</span>`).join('')||'<span class="text-slate-400 text-xs">nema</span>'}</div></td>
+                <td class="px-4 py-3">${avg!=='-'?`<b>${avg}</b> <span class="text-xs text-slate-500">(≈ ${Math.round(+avg)})</span>`:'-'}</td>
+                <td class="px-4 py-3">${final?`<span class="grade-pill ${gradeClass(final.value)}" style="height:28px; min-width:36px; font-size:14px;">${gradeValueLabel(final.value)}</span>${final.improved?'<span class="badge bg-blue-100 text-blue-700 ml-2">popravljeno</span>':''}${final.status==='popravni'?'<span class="badge bg-amber-100 text-amber-700 ml-2">popravni</span>':''}${final.status==='passed'?'<span class="badge bg-emerald-100 text-emerald-700 ml-2">prošao</span>':''}${final.status==='failed'?'<span class="badge bg-red-100 text-red-700 ml-2">pao</span>':''}`:'<span class="text-slate-400 text-xs">nije zaključeno</span>'}</td>
+                <td class="px-4 py-3 text-sm">${final && final.popravniValue?`<span class="grade-pill ${gradeClass(final.popravniValue)}">${gradeValueLabel(final.popravniValue)}</span> <span class="text-xs text-slate-500">${final.popravniDate||''}</span>`:final && final.status==='popravni'?'<span class="text-amber-600 text-xs">čeka termin</span>':'-'}</td>
                 <td class="px-4 py-3 text-right">
                   ${semClosed?'<span class="text-xs text-slate-400">zaključano</span>':`
                     ${!final?`<button data-close="${s.id}" data-avg="${avg.toFixed(2)}" class="btn btn-primary" style="padding:4px 8px; font-size:11px;" ${!hasEnough?'title="Manje od minimuma ocjena"':''}><i data-lucide="check" class="icon-sm"></i> Zaključi</button>`:''}
-                    ${final && final.status==='closed' && final.value===1?`<button data-pop="${s.id}" class="btn" style="padding:4px 8px; font-size:11px; background:#f59e0b; color:white;"><i data-lucide="alert-circle" class="icon-sm"></i> Popravni</button>`:''}
+                    ${final && final.status==='closed' && +final.value===1?`<button data-pop="${s.id}" class="btn" style="padding:4px 8px; font-size:11px; background:#f59e0b; color:white;"><i data-lucide="alert-circle" class="icon-sm"></i> Popravni</button>`:''}
                     ${final && final.status==='popravni'?`<button data-popgrade="${s.id}" class="btn" style="padding:4px 8px; font-size:11px; background:#10b981; color:white;"><i data-lucide="check-square" class="icon-sm"></i> Unesi popravni</button>`:''}
-                    ${final && (final.status==='closed'||final.status==='passed') && final.value>1?`<button data-improve="${s.id}" class="btn btn-soft" style="padding:4px 8px; font-size:11px;"><i data-lucide="trending-up" class="icon-sm"></i> Popravi</button>`:''}
+                    ${final && (final.status==='closed'||final.status==='passed') && !isNeoGrade(final.value) && +final.value>1?`<button data-improve="${s.id}" class="btn btn-soft" style="padding:4px 8px; font-size:11px;"><i data-lucide="trending-up" class="icon-sm"></i> Popravi</button>`:''}
                     ${final?`<button data-unlock="${s.id}" class="btn-ghost" title="Otključaj"><i data-lucide="unlock" class="icon-sm"></i></button>`:''}
                   `}
                 </td>
@@ -3601,7 +3608,7 @@ function openCloseGradeModal(studentId, subjectId, semesterId, suggestedAvg, req
       </div>
       <div><label class="text-sm font-medium">Zaključna ocjena (1=nedovoljan)</label>
         <div class="flex gap-2 mt-2">
-          ${[1,2,3,4,5].map(n=>`<button data-g="${n}" class="grade-pick flex-1 py-3 border-2 ${n===selectedG?'bg-indigo-600 text-white border-indigo-600':'border-slate-200'} rounded-lg font-bold text-xl">${n}</button>`).join('')}
+          ${GRADE_VALUES.map(n=>`<button data-g="${n}" class="grade-pick flex-1 py-3 border-2 ${n===selectedG?'bg-indigo-600 text-white border-indigo-600':'border-slate-200'} rounded-lg font-bold text-xl">${n}</button>`).join('')}
         </div>
       </div>
       <div><label class="text-sm font-medium">Napomena</label><input id="f_note" class="form-input" placeholder="opcionalno"></div>
@@ -3610,7 +3617,7 @@ function openCloseGradeModal(studentId, subjectId, semesterId, suggestedAvg, req
     saveDB(); render(); return true;
   });
   m.querySelectorAll('.grade-pick').forEach(b=>b.addEventListener('click', ()=>{
-    selectedG=+b.dataset.g;
+    selectedG=b.dataset.g==='NEO'?'NEO':+b.dataset.g;
     m.querySelectorAll('.grade-pick').forEach(x=>{ x.classList.remove('bg-indigo-600','text-white','border-indigo-600'); x.classList.add('border-slate-200'); });
     b.classList.add('bg-indigo-600','text-white','border-indigo-600');
   }));
@@ -3623,13 +3630,13 @@ function openImproveModal(studentId, subjectId, semesterId){
   const m=openModal(`Popravljanje ocjene · ${stud.name}`, `
     <div class="space-y-3">
       <div class="bg-blue-50 border border-blue-100 rounded-lg p-3 text-sm">
-        <i data-lucide="info" class="inline icon-sm text-blue-600"></i> Trenutna ocjena: <span class="grade-pill ${gradeClass(f.value)}" style="display:inline-flex;">${f.value}</span> · Možete je zamijeniti većom.
+        <i data-lucide="info" class="inline icon-sm text-blue-600"></i> Trenutna ocjena: <span class="grade-pill ${gradeClass(f.value)}" style="display:inline-flex;">${gradeValueLabel(f.value)}</span> · Možete je zamijeniti drugom ocjenom.
       </div>
       <div><label class="text-sm font-medium">Nova ocjena</label>
         <div class="flex gap-2 mt-2">
-          ${[1,2,3,4,5].map(n=>`<button data-g="${n}" class="grade-pick flex-1 py-3 border-2 border-slate-200 rounded-lg font-bold text-xl hover:bg-blue-50 hover:border-blue-400 ${n<=f.value?'opacity-40':''}" ${n<=f.value?'disabled':''}>${n}</button>`).join('')}
+          ${GRADE_VALUES.map(n=>`<button data-g="${n}" class="grade-pick flex-1 py-3 border-2 border-slate-200 rounded-lg font-bold text-xl hover:bg-blue-50 hover:border-blue-400">${n}</button>`).join('')}
         </div>
-        <div class="text-xs text-slate-500 mt-1">Možete odabrati samo veću od trenutne.</div>
+        <div class="text-xs text-slate-500 mt-1">NEO znači neocijenjen i ne ulazi u prosjek.</div>
       </div>
       <div><label class="text-sm font-medium">Razlog/napomena</label><input id="f_note" class="form-input" placeholder="npr. Dodatno ispitivanje, popravak"></div>
     </div>`, ()=>{
@@ -3642,7 +3649,7 @@ function openImproveModal(studentId, subjectId, semesterId){
     saveDB(); render(); return true;
   });
   m.querySelectorAll('.grade-pick:not([disabled])').forEach(b=>b.addEventListener('click', ()=>{
-    selectedG=+b.dataset.g;
+    selectedG=b.dataset.g==='NEO'?'NEO':+b.dataset.g;
     m.querySelectorAll('.grade-pick').forEach(x=>x.classList.remove('bg-blue-500','text-white','border-blue-500'));
     b.classList.add('bg-blue-500','text-white','border-blue-500');
   }));
@@ -3660,18 +3667,18 @@ function openPopravniModal(studentId, subjectId, semesterId){
       <div><label class="text-sm font-medium">Datum popravnog</label><input id="f_date" type="date" class="form-input" value="${todayStr()}"></div>
       <div><label class="text-sm font-medium">Ocjena popravnog</label>
         <div class="flex gap-2 mt-2">
-          ${[1,2,3,4,5].map(n=>`<button data-g="${n}" class="grade-pick flex-1 py-3 border-2 border-slate-200 rounded-lg font-bold text-xl hover:bg-amber-50 hover:border-amber-400">${n}</button>`).join('')}
+          ${GRADE_VALUES.map(n=>`<button data-g="${n}" class="grade-pick flex-1 py-3 border-2 border-slate-200 rounded-lg font-bold text-xl hover:bg-amber-50 hover:border-amber-400">${n}</button>`).join('')}
         </div>
       </div>
     </div>`, ()=>{
     if(!selectedG){ alert('Odaberite ocjenu'); return false; }
     f.popravniValue=selectedG; f.popravniDate=m.querySelector('#f_date').value;
-    f.status= selectedG>=2 ? 'passed' : 'failed';
-    if(selectedG>=2) f.value = selectedG;
+    f.status= (!isNeoGrade(selectedG) && selectedG>=2) ? 'passed' : 'failed';
+    if(!isNeoGrade(selectedG) && selectedG>=2) f.value = selectedG;
     saveDB(); render(); return true;
   });
   m.querySelectorAll('.grade-pick').forEach(b=>b.addEventListener('click', ()=>{
-    selectedG=+b.dataset.g;
+    selectedG=b.dataset.g==='NEO'?'NEO':+b.dataset.g;
     m.querySelectorAll('.grade-pick').forEach(x=>x.classList.remove('bg-amber-400','text-white','border-amber-400'));
     b.classList.add('bg-amber-400','text-white','border-amber-400');
   }));
@@ -4103,8 +4110,8 @@ function renderHRGrades(cls, sts){
               }
               const grades=collectGradesFor(s.id, sub.id, null, semId);
               const finals=db.finalGrades.filter(f=>f.studentId===s.id && f.subjectId===sub.id && (!semId||f.semesterId===semId));
-              const avg=grades.length?(grades.reduce((a,b)=>a+b.value,0)/grades.length).toFixed(2):'-';
-              return `<td class="px-4 py-3 align-top"><div class="flex gap-1 flex-wrap">${grades.length?grades.map(g=>`<span class="grade-pill ${gradeClass(g.value)}" title="${g.date} · ${g.note||''}">${g.value}</span>`).join(''):'<span class="text-xs text-slate-400">nema</span>'}</div><div class="text-xs text-slate-500 mt-1">Prosjek ${avg}</div>${finals.length?`<div class="mt-1 flex gap-1 flex-wrap">${finals.map(f=>`<span class="badge ${f.value===1?'bg-red-50 text-red-700':'bg-emerald-50 text-emerald-700'}">Zaklj. ${f.value}</span>`).join('')}</div>`:''}</td>`;
+              const avg=gradeAvg(grades);
+              return `<td class="px-4 py-3 align-top"><div class="flex gap-1 flex-wrap">${grades.length?grades.map(g=>`<span class="grade-pill ${gradeClass(g.value)}" title="${g.date} · ${g.note||''}">${gradeValueLabel(g.value)}</span>`).join(''):'<span class="text-xs text-slate-400">nema</span>'}</div><div class="text-xs text-slate-500 mt-1">Prosjek ${avg}</div>${finals.length?`<div class="mt-1 flex gap-1 flex-wrap">${finals.map(f=>`<span class="badge ${+f.value===1?'bg-red-50 text-red-700':'bg-emerald-50 text-emerald-700'}">Zaklj. ${gradeValueLabel(f.value)}</span>`).join('')}</div>`:''}</td>`;
             }).join('')}
             <td class="px-4 py-3 text-right"><button data-hr-grade-dossier="${s.id}" class="btn btn-soft" style="padding:5px 10px;font-size:12px;"><i data-lucide="folder-search" class="icon-sm"></i> Sve</button></td>
           </tr>`).join('')}
@@ -4398,10 +4405,10 @@ function dossierGradesHTML(studentId, classId, semId){
       }
       const grades=collectGradesFor(studentId, sub.id, null, semId);
       const finals=db.finalGrades.filter(f=>f.studentId===studentId && f.subjectId===sub.id && (!semId||f.semesterId===semId));
-      const avg=grades.length?(grades.reduce((a,b)=>a+b.value,0)/grades.length).toFixed(2):'-';
+      const avg=gradeAvg(grades);
       return `<div data-dossier-detail="${sub.id}" class="border border-slate-200 rounded-xl p-4">
-        <div class="flex items-center justify-between gap-2 flex-wrap"><div class="font-bold flex items-center gap-2"><span class="badge text-white" style="background:${sub.color}">${sub.name}</span><span class="text-xs text-slate-500">Prosjek ${avg}</span></div>${finals.length?`<div class="flex gap-1 flex-wrap">${finals.map(f=>`<span class="badge ${f.value===1?'bg-red-50 text-red-700':'bg-emerald-50 text-emerald-700'}">Zaključna ${f.value}${f.status==='passed'?' (popravni prošao)':f.status==='failed'?' (pao)':''}</span>`).join('')}</div>`:''}</div>
-        <div class="flex flex-wrap gap-2 mt-3">${grades.length?grades.map(g=>`<div class="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2"><span class="grade-pill ${gradeClass(g.value)}">${g.value}</span><span class="text-xs text-slate-600 ml-2">${g.date} · ${(GRADE_TYPES.find(t=>t.v===g.type)?.label)||'ocjena'}${g.note?' · '+g.note:''}</span></div>`).join(''):'<span class="text-sm text-slate-400">Nema ocjena.</span>'}</div>
+        <div class="flex items-center justify-between gap-2 flex-wrap"><div class="font-bold flex items-center gap-2"><span class="badge text-white" style="background:${sub.color}">${sub.name}</span><span class="text-xs text-slate-500">Prosjek ${avg}</span></div>${finals.length?`<div class="flex gap-1 flex-wrap">${finals.map(f=>`<span class="badge ${+f.value===1?'bg-red-50 text-red-700':'bg-emerald-50 text-emerald-700'}">Zaključna ${gradeValueLabel(f.value)}${f.status==='passed'?' (popravni prošao)':f.status==='failed'?' (pao)':''}</span>`).join('')}</div>`:''}</div>
+        <div class="flex flex-wrap gap-2 mt-3">${grades.length?grades.map(g=>`<div class="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2"><span class="grade-pill ${gradeClass(g.value)}">${gradeValueLabel(g.value)}</span><span class="text-xs text-slate-600 ml-2">${g.date} · ${(GRADE_TYPES.find(t=>t.v===g.type)?.label)||'ocjena'}${g.note?' · '+g.note:''}</span></div>`).join(''):'<span class="text-sm text-slate-400">Nema ocjena.</span>'}</div>
       </div>`;
     }).join('') || '<div class="text-sm text-slate-500">Nema predmeta.</div>'}
     </div>
@@ -4557,12 +4564,12 @@ function renderHRTimeline(cls, sts){
     const sc=db.schedule.find(s=>s.id===cs.scheduleId); if(!sc||sc.classId!==cls.id) return;
     if(semId){ const sid=cs.semesterId||semesterForDate(cs.date)?.id; if(sid!==semId) return; }
     (cs.attendance||[]).filter(a=>studentIds.includes(a.studentId)&&a.status!=='present').forEach(a=>rows.push({date:cs.date,type:a.status==='absent'?'odsustvo':'kašnjenje',studentId:a.studentId,by:cs.conductedBy||sc.teacherId,text:`${getSubject(sc.subjectId)?.name||''} - ${a.status==='absent'?'odsutan':'kasni'}`,icon:a.status==='absent'?'user-x':'clock'}));
-    (cs.grades||[]).filter(g=>studentIds.includes(g.studentId)).forEach(g=>rows.push({date:cs.date,type:'ocjena',studentId:g.studentId,by:cs.conductedBy||sc.teacherId,text:`${getSubject(sc.subjectId)?.name||''}: ocjena ${g.value}${g.note?' - '+g.note:''}`,icon:'star'}));
+    (cs.grades||[]).filter(g=>studentIds.includes(g.studentId)).forEach(g=>rows.push({date:cs.date,type:'ocjena',studentId:g.studentId,by:cs.conductedBy||sc.teacherId,text:`${getSubject(sc.subjectId)?.name||''}: ocjena ${gradeValueLabel(g.value)}${g.note?' - '+g.note:''}`,icon:'star'}));
   });
   db.homework.filter(h=>h.classId===cls.id).forEach(h=>rows.push({date:h.dueDate||h.assignedDate,type:'zadaća',studentId:null,by:h.teacherId,text:`${getSubject(h.subjectId)?.name||''}: ${h.title}`,icon:'clipboard-pen-line'}));
   db.assessments.filter(a=>a.classId===cls.id).forEach(a=>rows.push({date:a.date,type:'ispitivanje',studentId:null,by:a.teacherId,text:`${getSubject(a.subjectId)?.name||''}: ${assessmentLabel(a.type)} - ${a.title}`,icon:'file-check-2'}));
   db.completions.filter(c=>studentIds.includes(c.studentId) && (!semId||c.semesterId===semId)).forEach(c=>rows.push({date:new Date(c.ts||Date.now()).toISOString().slice(0,10),type:'odradio',studentId:c.studentId,by:c.byTeacherId,text:`${getSubject(c.subjectId)?.name||''}: ${c.status==='completed'?'odradio':c.status==='not_completed'?'nije odradio':'čeka'}${c.note?' - '+c.note:''}`,icon:'badge-check'}));
-  db.finalGrades.filter(f=>studentIds.includes(f.studentId) && (!semId||f.semesterId===semId)).forEach(f=>rows.push({date:new Date(f.ts||Date.now()).toISOString().slice(0,10),type:'zaključna',studentId:f.studentId,by:f.teacherId,text:`${getSubject(f.subjectId)?.name||''}: zaključna ${f.value}`,icon:'check-circle-2'}));
+  db.finalGrades.filter(f=>studentIds.includes(f.studentId) && (!semId||f.semesterId===semId)).forEach(f=>rows.push({date:new Date(f.ts||Date.now()).toISOString().slice(0,10),type:'zaključna',studentId:f.studentId,by:f.teacherId,text:`${getSubject(f.subjectId)?.name||''}: zaključna ${gradeValueLabel(f.value)}`,icon:'check-circle-2'}));
   rows.sort((a,b)=>(b.date||'').localeCompare(a.date||''));
   return el(`<div class="card overflow-hidden">
     <div class="p-4 border-b border-slate-100 font-bold flex items-center gap-2"><i data-lucide="list-checks"></i> Kompletna evidencija razreda ${cls.name}</div>
@@ -4629,8 +4636,8 @@ function renderAdminFinals(){
               <td class="px-4 py-3">${getClass(s?.classId)?.name||''}</td>
               <td class="px-4 py-3">${getSubject(f.subjectId)?.name||''}</td>
               <td class="px-4 py-3 text-slate-600">${getUser(f.teacherId)?.name||''}</td>
-              <td class="px-4 py-3"><span class="grade-pill ${gradeClass(f.value)}">${f.value}</span>${f.improved?`<span class="badge bg-blue-50 text-blue-700 ml-1">popr. sa ${f.previousValue}</span>`:''}</td>
-              <td class="px-4 py-3">${f.popravniValue?`<span class="grade-pill ${gradeClass(f.popravniValue)}">${f.popravniValue}</span> ${f.popravniDate||''}`:'-'}</td>
+              <td class="px-4 py-3"><span class="grade-pill ${gradeClass(f.value)}">${gradeValueLabel(f.value)}</span>${f.improved?`<span class="badge bg-blue-50 text-blue-700 ml-1">popr. sa ${gradeValueLabel(f.previousValue)}</span>`:''}</td>
+              <td class="px-4 py-3">${f.popravniValue?`<span class="grade-pill ${gradeClass(f.popravniValue)}">${gradeValueLabel(f.popravniValue)}</span> ${f.popravniDate||''}`:'-'}</td>
               <td class="px-4 py-3"><span class="badge ${f.status==='closed'?'bg-slate-100 text-slate-700':f.status==='passed'?'bg-emerald-50 text-emerald-700':f.status==='failed'?'bg-red-50 text-red-700':'bg-amber-50 text-amber-700'}">${f.status}</span></td>
             </tr>`; }).join('') || '<tr><td colspan="7" class="text-center py-8 text-slate-500">Nema zaključenih ocjena.</td></tr>'}
           </tbody>
@@ -4648,6 +4655,7 @@ function renderStudentDashboard(){
   const cls=getClass(me.classId);
   const todaySched=(()=>{ const dow=(new Date().getDay()+6)%7; return db.schedule.filter(s=>s.classId===me.classId && s.day===dow).sort((a,b)=>a.period-b.period); })();
   const allMyGrades=db.classSessions.flatMap(cs=>{ const sc=db.schedule.find(s=>s.id===cs.scheduleId); return (cs.grades||[]).filter(g=>g.studentId===me.id).map(g=>({...g, subjectId:sc?.subjectId, date:cs.date})); });
+  const allMyNumericGrades=numericGrades(allMyGrades);
   const absences=db.classSessions.flatMap(cs=>{ const sc=db.schedule.find(s=>s.id===cs.scheduleId); return (cs.attendance||[]).filter(a=>a.studentId===me.id && a.status!=='present').map(a=>({...a, date:cs.date, subjectId:sc?.subjectId})); });
   const myFinals=db.finalGrades.filter(f=>f.studentId===me.id);
   const myHomework=db.homework.filter(h=>h.classId===me.classId && (h.dueDate||'')>=todayStr());
@@ -4661,7 +4669,7 @@ function renderStudentDashboard(){
       </div>
       <div class="card p-5">
         <div class="w-11 h-11 rounded-xl text-white flex items-center justify-center mb-3" style="background:#10b981"><i data-lucide="star"></i></div>
-        <div class="text-2xl font-bold">${allMyGrades.length?(allMyGrades.reduce((a,b)=>a+b.value,0)/allMyGrades.length).toFixed(2):'-'}</div>
+        <div class="text-2xl font-bold">${allMyNumericGrades.length?(allMyNumericGrades.reduce((a,b)=>a+(+b.value||0),0)/allMyNumericGrades.length).toFixed(2):'-'}</div>
         <div class="text-sm text-slate-500">Prosjek (${allMyGrades.length} ocj.)</div>
       </div>
       <div class="card p-5">
@@ -4767,7 +4775,7 @@ function renderStudentGrades(){
       ${db.subjects.map(sub=>{
         const grades=collectGradesFor(me.id, sub.id, null, view.semesterId);
         if(!grades.length) return '';
-        const avg=(grades.reduce((a,b)=>a+b.value,0)/grades.length).toFixed(2);
+        const avg=gradeAvg(grades);
         return `<div class="card p-5">
           <div class="flex items-center justify-between mb-3 flex-wrap gap-2">
             <div class="flex items-center gap-3">
@@ -4777,7 +4785,7 @@ function renderStudentGrades(){
             <div class="text-right"><div class="text-2xl font-bold">${avg}</div><div class="text-xs text-slate-500">prosjek</div></div>
           </div>
           <div class="flex flex-wrap gap-2">
-            ${grades.map(g=>`<div class="flex items-center gap-2 bg-slate-50 px-3 py-1.5 rounded-lg"><span class="grade-pill ${gradeClass(g.value)}">${g.value}</span><span class="text-xs text-slate-600">${(GRADE_TYPES.find(t=>t.v===g.type)?.label)||'ocjena'}${g.note?' · '+g.note:''}</span></div>`).join('')}
+            ${grades.map(g=>`<div class="flex items-center gap-2 bg-slate-50 px-3 py-1.5 rounded-lg"><span class="grade-pill ${gradeClass(g.value)}">${gradeValueLabel(g.value)}</span><span class="text-xs text-slate-600">${(GRADE_TYPES.find(t=>t.v===g.type)?.label)||'ocjena'}${g.note?' · '+g.note:''}</span></div>`).join('')}
           </div>
         </div>`;
       }).join('') || '<div class="card p-8 text-center text-slate-500">Nemate ocjena u izabranom semestru.</div>'}
@@ -4792,7 +4800,7 @@ function renderStudentFinals(){
   return el(`<div>
     ${pageHeader('Zaključene ocjene','Završne ocjene po polugodištima','check-circle-2')}
     <div class="p-8 space-y-4">
-      ${db.semesters.map(sem=>{ const fs=db.finalGrades.filter(f=>f.studentId===me.id && f.semesterId===sem.id); if(!fs.length) return ''; const avg=fs.reduce((a,b)=>a+b.value,0)/fs.length;
+      ${db.semesters.map(sem=>{ const fs=db.finalGrades.filter(f=>f.studentId===me.id && f.semesterId===sem.id); if(!fs.length) return ''; const nums=numericGrades(fs); const avg=nums.length?nums.reduce((a,b)=>a+(+b.value||0),0)/nums.length:0;
         return `<div class="card overflow-hidden">
           <div class="p-4 bg-slate-50 border-b border-slate-100 flex items-center justify-between flex-wrap gap-2">
             <div class="font-bold flex items-center gap-2"><i data-lucide="calendar"></i> ${sem.name} ${sem.closed?'<span class="badge bg-red-50 text-red-700">zatvoren</span>':''}</div>
@@ -4803,8 +4811,8 @@ function renderStudentFinals(){
             <tbody>${fs.map(f=>`<tr class="border-t border-slate-100">
               <td class="px-4 py-2 font-medium">${getSubject(f.subjectId)?.name||''}</td>
               <td class="px-4 py-2 text-slate-600">${getUser(f.teacherId)?.name||''}</td>
-              <td class="px-4 py-2"><span class="grade-pill ${gradeClass(f.value)}">${f.value}</span>${f.improved?`<span class="badge bg-blue-50 text-blue-700 ml-1" title="${f.improveNote||''}">popr. sa ${f.previousValue}</span>`:''}</td>
-              <td class="px-4 py-2">${f.popravniValue?`<span class="grade-pill ${gradeClass(f.popravniValue)}">${f.popravniValue}</span> <span class="text-xs text-slate-500">${f.popravniDate||''}</span>`:f.status==='popravni'?'<span class="text-amber-600 text-xs">u toku</span>':'-'}</td>
+              <td class="px-4 py-2"><span class="grade-pill ${gradeClass(f.value)}">${gradeValueLabel(f.value)}</span>${f.improved?`<span class="badge bg-blue-50 text-blue-700 ml-1" title="${f.improveNote||''}">popr. sa ${gradeValueLabel(f.previousValue)}</span>`:''}</td>
+              <td class="px-4 py-2">${f.popravniValue?`<span class="grade-pill ${gradeClass(f.popravniValue)}">${gradeValueLabel(f.popravniValue)}</span> <span class="text-xs text-slate-500">${f.popravniDate||''}</span>`:f.status==='popravni'?'<span class="text-amber-600 text-xs">u toku</span>':'-'}</td>
               <td class="px-4 py-2"><span class="badge ${f.status==='closed'?'bg-slate-100 text-slate-700':f.status==='passed'?'bg-emerald-50 text-emerald-700':f.status==='failed'?'bg-red-50 text-red-700':'bg-amber-50 text-amber-700'}">${f.status}</span></td>
             </tr>`).join('')}</tbody>
           </table>
