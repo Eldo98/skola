@@ -105,6 +105,17 @@
   .notebook-lines{ background-image:linear-gradient(to bottom, transparent 31px, rgba(59,130,246,.12) 32px); background-size:100% 32px; }
   body.high-contrast{ --bg:#f7f9fc; --primary:#0f4c81; --primary-50:#e8f2ff; }
   .app-main > div > .bg-white.border-b.border-slate-200{ border:1px solid var(--border)!important; border-radius:20px; box-shadow:var(--shadow); }
+  @media (min-width: 981px){
+    body{ overflow:hidden; }
+    .app-shell{ height:100vh; overflow:hidden; }
+    .app-frame{ height:100vh; box-sizing:border-box; display:flex; flex-direction:column; }
+    .top-card{ flex:0 0 auto; }
+    .workspace{ flex:1; min-height:0; align-items:stretch; }
+    .sidebar-card{ position:relative; top:auto; height:100%; display:flex; flex-direction:column; overflow:hidden; }
+    .sidebar-card nav{ flex:1; overflow-y:auto; min-height:0; padding-right:4px; }
+    .app-main{ height:100%; overflow-y:auto; padding-right:4px; }
+    .app-main .page-toolbar{ position:sticky; top:0; z-index:40; }
+  }
   @media (max-width: 980px){ .app-frame{ width:calc(100vw - 24px); padding-top:20px; } .workspace{ grid-template-columns:1fr; } .sidebar-card{ position:static; } }
   @media (max-width: 700px){
     body{ font-size:15px; }
@@ -724,6 +735,38 @@ function specialStudentNames(c){
 function specialClassSummary(c){
   const subj=getSubject(c.subjectId), tch=getUser(c.teacherId);
   return `${subj?.name||''} · ${tch?.name||''} · ${c.date} · ${(+c.period)+1}. čas`;
+}
+function lessonUsages(lessonId){
+  return db.classSessions
+    .filter(cs=>cs.lessonId===lessonId)
+    .map(cs=>{
+      const sc=db.schedule.find(s=>s.id===cs.scheduleId);
+      return { cs, sc, cls:getClass(sc?.classId), subject:getSubject(sc?.subjectId), teacher:getUser(sc?.teacherId) };
+    })
+    .filter(x=>x.sc)
+    .sort((a,b)=>(b.cs.date||'').localeCompare(a.cs.date||''));
+}
+function lessonLastUsed(lessonId){ return lessonUsages(lessonId)[0] || null; }
+function lessonUsageSummary(lessonId, limit=3){
+  const uses=lessonUsages(lessonId);
+  if(!uses.length) return '<span class="text-xs text-slate-400">Još nije korištena.</span>';
+  return `<div class="flex flex-wrap gap-1 mt-2">${uses.slice(0,limit).map(u=>`<span class="badge bg-slate-50 text-slate-700" title="${u.subject?.name||''}">${u.cs.date} · ${u.cls?.name||''}</span>`).join('')}${uses.length>limit?`<span class="badge bg-blue-50 text-blue-700">+${uses.length-limit}</span>`:''}</div>`;
+}
+function lessonUsageForClassSummary(lessonId, classId, currentDate=''){
+  const uses=lessonUsages(lessonId).filter(u=>u.sc.classId===classId);
+  const today=uses.filter(u=>u.cs.date===currentDate);
+  if(!uses.length) return '<div class="text-xs text-slate-400 mt-2">Nije korištena u ovom razredu.</div>';
+  return `<div class="text-xs mt-2 space-y-1">${today.length?`<div class="text-blue-700 font-semibold">Korištena danas u ovom razredu.</div>`:''}<div class="text-slate-500">U ovom razredu: ${uses.slice(0,4).map(u=>u.cs.date).join(', ')}${uses.length>4?'...':''}</div></div>`;
+}
+function sortLessonsList(list, sortKey){
+  const arr=list.slice();
+  if(sortKey==='title') arr.sort((a,b)=>(a.title||'').localeCompare(b.title||''));
+  else if(sortKey==='subject') arr.sort((a,b)=>(getSubject(a.subjectId)?.name||'').localeCompare(getSubject(b.subjectId)?.name||'') || (a.title||'').localeCompare(b.title||''));
+  else if(sortKey==='oldest') arr.sort((a,b)=>(a.createdAt||0)-(b.createdAt||0));
+  else if(sortKey==='used') arr.sort((a,b)=>lessonUsages(b.id).length-lessonUsages(a.id).length || (a.title||'').localeCompare(b.title||''));
+  else if(sortKey==='lastUsed') arr.sort((a,b)=>((lessonLastUsed(b.id)?.cs.date)||'').localeCompare((lessonLastUsed(a.id)?.cs.date)||''));
+  else arr.sort((a,b)=>(b.createdAt||0)-(a.createdAt||0));
+  return arr;
 }
 function isTypingNow(){
   const a=document.activeElement;
@@ -2626,20 +2669,38 @@ function openSlotModal(classId, day, period){
 /* ====== LESSONS ====== */
 function renderLessonsLibrary(isAdmin){
   const me=getUser(session.userId);
-  const list=isAdmin?db.lessons:db.lessons.filter(l=>l.teacherId===me.id);
+  if(!view.lessonSort) view.lessonSort='newest';
+  if(typeof view.lessonSubject==='undefined') view.lessonSubject='';
+  if(typeof view.lessonClass==='undefined') view.lessonClass='';
+  const baseList=isAdmin?db.lessons:db.lessons.filter(l=>l.teacherId===me.id);
+  const classIds=isAdmin?db.classes.map(c=>c.id):teacherClassIds(me.id);
+  const filtered=baseList.filter(l=>(!view.lessonSubject||l.subjectId===view.lessonSubject) && (!view.lessonClass||lessonUsages(l.id).some(u=>u.sc.classId===view.lessonClass)));
+  const list=sortLessonsList(filtered, view.lessonSort);
   const wrap=el(`<div>
     ${pageHeader('Lekcije', isAdmin?'Sve lekcije svih profesora':'Vaša biblioteka lekcija','library',
-      `<button id="addBtn" class="btn btn-primary"><i data-lucide="plus"></i> Nova lekcija</button>`)}
+      `<select id="lessonSort" class="form-input" style="width:auto;"><option value="newest" ${view.lessonSort==='newest'?'selected':''}>Najnovije</option><option value="title" ${view.lessonSort==='title'?'selected':''}>Naziv A-Z</option><option value="subject" ${view.lessonSort==='subject'?'selected':''}>Predmet</option><option value="lastUsed" ${view.lessonSort==='lastUsed'?'selected':''}>Zadnje korištene</option><option value="used" ${view.lessonSort==='used'?'selected':''}>Najviše korištene</option><option value="oldest" ${view.lessonSort==='oldest'?'selected':''}>Najstarije</option></select>
+      <select id="lessonSubject" class="form-input" style="width:auto;"><option value="">Svi predmeti</option>${db.subjects.map(s=>`<option value="${s.id}" ${view.lessonSubject===s.id?'selected':''}>${s.name}</option>`).join('')}</select>
+      <select id="lessonClass" class="form-input" style="width:auto;"><option value="">Svi razredi</option>${classIds.map(cid=>`<option value="${cid}" ${view.lessonClass===cid?'selected':''}>${getClass(cid)?.name||''}</option>`).join('')}</select>
+      <button id="addBtn" class="btn btn-primary"><i data-lucide="plus"></i> Nova lekcija</button>`)}
     <div class="p-8">
+      <div class="card p-4 mb-4 flex items-center gap-3 flex-wrap text-sm text-slate-600">
+        <i data-lucide="info" class="text-blue-600"></i>
+        <span>Sortiranje prikazuje i kada je lekcija korištena u časovima, po datumu i razredu.</span>
+      </div>
       <div class="grid md:grid-cols-3 gap-4">
         ${list.map(l=>{
           const sub=getSubject(l.subjectId), tch=getUser(l.teacherId);
+          const uses=lessonUsages(l.id);
+          const last=uses[0];
           return `<div class="card p-5">
             <div class="flex items-center gap-2 mb-3">
               <span class="badge text-white" style="background:${sub?.color||'#64748b'}">${sub?.name||'?'}</span>
+              <span class="badge bg-slate-50 text-slate-700">${uses.length} korištenja</span>
             </div>
             <h3 class="font-bold">${l.title}</h3>
             <p class="text-sm text-slate-600 mt-1 line-clamp-3">${l.content}</p>
+            <div class="mt-3 text-xs text-slate-500">${last?`Zadnje korištena: <b>${last.cs.date}</b> · ${last.cls?.name||''} · ${last.sc.period+1}. čas`:'Nije još korištena u času.'}</div>
+            ${lessonUsageSummary(l.id)}
             <div class="flex items-center justify-between mt-3 pt-3 border-t border-slate-100">
               <span class="text-xs text-slate-500 flex items-center gap-1"><i data-lucide="user" class="icon-sm"></i> ${tch?.name||''}</span>
               <div class="flex gap-1">
@@ -2653,6 +2714,9 @@ function renderLessonsLibrary(isAdmin){
     </div>
   </div>`);
   wrap.querySelector('#addBtn').addEventListener('click', ()=>openLessonModal(null,isAdmin));
+  wrap.querySelector('#lessonSort').addEventListener('change', e=>{ view.lessonSort=e.target.value; render(); });
+  wrap.querySelector('#lessonSubject').addEventListener('change', e=>{ view.lessonSubject=e.target.value; render(); });
+  wrap.querySelector('#lessonClass').addEventListener('change', e=>{ view.lessonClass=e.target.value; render(); });
   wrap.querySelectorAll('[data-edit]').forEach(b=>b.addEventListener('click', ()=>openLessonModal(b.dataset.edit,isAdmin)));
   wrap.querySelectorAll('[data-del]').forEach(b=>b.addEventListener('click', ()=>{
     if(confirm('Obrisati lekciju?')){ db.lessons=db.lessons.filter(l=>l.id!==b.dataset.del); saveDB(); render(); }
@@ -2835,9 +2899,10 @@ function renderClassSession(scheduleId, date){
         </div>
         <p class="text-xs text-slate-500 mb-3">Prevucite lekciju ili kliknite "Koristi". Iste lekcije se mogu koristiti više puta.</p>
         <div class="space-y-2 max-h-[500px] overflow-y-auto scrollbar-thin pr-2">
-          ${myLessons.map(l=>`<div class="lesson-card border border-slate-200 rounded-lg p-3 hover:border-indigo-300 hover:shadow-sm transition" draggable="true" data-lesson="${l.id}">
+          ${sortLessonsList(myLessons,'lastUsed').map(l=>`<div class="lesson-card border border-slate-200 rounded-lg p-3 hover:border-indigo-300 hover:shadow-sm transition" draggable="true" data-lesson="${l.id}">
             <div class="font-semibold text-sm">${l.title}</div>
             <p class="text-xs text-slate-600 mt-1 line-clamp-2">${l.content}</p>
+            ${lessonUsageForClassSummary(l.id, sc.classId, date)}
             <div class="flex justify-between items-center mt-2">
               <span class="text-xs text-slate-400 flex items-center gap-1"><i data-lucide="grip-vertical" class="icon-sm"></i> Prevuci</span>
               <button data-use="${l.id}" class="btn btn-soft" style="padding:4px 8px; font-size:11px;"><i data-lucide="copy" class="icon-sm"></i> Koristi</button>
@@ -3016,6 +3081,7 @@ function renderClassSession(scheduleId, date){
             <button id="clearLesson" class="btn-ghost"><i data-lucide="x"></i></button>
           </div>
           <p class="text-sm text-slate-700 mt-2 whitespace-pre-wrap">${ul.content}</p>
+          ${lessonUsageForClassSummary(ul.id, sc.classId, date)}
         </div>`;
         cur.querySelector('#clearLesson').addEventListener('click', ()=>{ s_.lessonId=null; saveDB(); renderCurrent(w); });
       } else {
