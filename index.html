@@ -4822,6 +4822,7 @@ function renderStudentDashboard(){
   const me=getUser(session.userId);
   const cls=getClass(me.classId);
   const todaySched=(()=>{ const dow=(new Date().getDay()+6)%7; return db.schedule.filter(s=>s.classId===me.classId && s.day===dow).sort((a,b)=>a.period-b.period); })();
+  const today = todayStr();
   const allMyGrades=db.classSessions.flatMap(cs=>{ const sc=db.schedule.find(s=>s.id===cs.scheduleId); return (cs.grades||[]).filter(g=>g.studentId===me.id).map(g=>({...g, subjectId:sc?.subjectId, date:cs.date})); });
   const allMyNumericGrades=numericGrades(allMyGrades);
   const absences=db.classSessions.flatMap(cs=>{ const sc=db.schedule.find(s=>s.id===cs.scheduleId); return (cs.attendance||[]).filter(a=>a.studentId===me.id && a.status!=='present').map(a=>({...a, date:cs.date, subjectId:sc?.subjectId})); });
@@ -4852,10 +4853,10 @@ function renderStudentDashboard(){
       </div>
       <div class="md:col-span-4 card p-6">
         <h2 class="font-bold mb-4 flex items-center gap-2"><i data-lucide="calendar-days"></i> Današnji raspored</h2>
-        ${todaySched.length?todaySched.map(s=>{ const sub=getSubject(s.subjectId), tch=getUser(s.teacherId); return `<div class="flex items-center gap-4 py-2.5 border-b border-slate-100 last:border-0">
+        ${todaySched.length?todaySched.map(s=>{ const sub=getSubject(s.subjectId), tch=getUser(s.teacherId), cancelled=cancellationForSlot(s.id,today); return `<div class="flex items-center gap-4 py-2.5 border-b border-slate-100 last:border-0 ${cancelled?'bg-red-50 px-2 rounded-lg':''}">
           <div class="text-sm text-slate-500 w-32">${PERIODS[s.period].s} - ${PERIODS[s.period].e}</div>
-          <span class="badge text-white" style="background:${sub?.color}">${sub?.name}</span>
-          <div class="text-sm text-slate-600 flex-1">${tch?.name||''}</div>
+          <span class="badge ${cancelled?'bg-red-100 text-red-700':'text-white'}" style="${cancelled?'':'background:'+sub?.color}">${cancelled?'O - otpao':sub?.name}</span>
+          <div class="text-sm ${cancelled?'text-red-700':'text-slate-600'} flex-1">${cancelled?(cancelled.reason||'Otpao čas'):(tch?.name||'')}</div>
           ${s.room?`<span class="text-xs text-slate-500 flex items-center gap-1"><i data-lucide="map-pin" class="icon-sm"></i> ${s.room}</span>`:''}
         </div>`; }).join(''):'<div class="text-slate-500 text-sm">Danas nema časova.</div>'}
       </div>
