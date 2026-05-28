@@ -69,6 +69,13 @@
   .app-main > div{ display:flex; flex-direction:column; gap:16px; }
   .app-main > div:has(> .page-toolbar) > .p-8{ padding:0 !important; }
   .page-toolbar{ background:rgba(255,255,255,.96); border:1px solid var(--border); border-radius:20px; box-shadow:var(--shadow); padding:18px 20px; display:flex; align-items:center; justify-content:space-between; gap:18px; flex-wrap:wrap; }
+  .finalize-toolbar{ flex-wrap:nowrap; align-items:center; }
+  .finalize-toolbar .page-title-wrap{ min-width:280px; flex:1 1 auto; }
+  .finalize-actions{ display:flex; align-items:center; justify-content:flex-end; gap:10px; flex:0 0 auto; white-space:nowrap; }
+  .finalize-actions .btn{ height:50px; padding:0 18px; flex:0 0 auto; }
+  .finalize-actions .form-input{ height:50px; margin-top:0; width:auto; min-width:92px; flex:0 0 auto; }
+  .finalize-actions #subSel{ min-width:150px; }
+  .finalize-actions #semSel{ min-width:190px; }
   .page-title-icon{ width:34px; height:34px; border-radius:10px; background:#eaf2ff; color:var(--primary); display:flex; align-items:center; justify-content:center; }
   .page-title{ font-size:20px; font-weight:800; letter-spacing:-.02em; }
   .page-subtitle{ font-size:13px; color:var(--muted); }
@@ -132,6 +139,10 @@
     .menu-item{ flex:0 0 auto; padding:10px 12px; font-size:13px; white-space:nowrap; border-radius:12px; }
     .menu-item span.flex-1{ flex:0 0 auto; }
     .page-toolbar{ border-radius:16px; padding:14px; gap:10px; }
+    .finalize-toolbar{ flex-wrap:wrap; }
+    .finalize-toolbar .page-title-wrap{ min-width:0; width:100%; }
+    .finalize-actions{ width:100%; overflow-x:auto; justify-content:flex-start; padding-bottom:3px; }
+    .finalize-actions .btn,.finalize-actions .form-input{ height:44px; flex:0 0 auto; }
     .page-toolbar > div:last-child{ width:100%; justify-content:flex-start; }
     .page-toolbar .form-input{ min-width:0; max-width:100%; }
     .page-toolbar .btn{ flex:1 1 auto; justify-content:center; }
@@ -3527,18 +3538,28 @@ function renderTeacherFinalize(){
   const sts=cls?studentsOfClass(cls.id):[];
 
   const wrap=el(`<div>
-    ${pageHeader('Zaključivanje','Finalne ocjene i status odradio za predmete bez ocjene','check-circle-2',
-      `<button id="gradesOverviewTab" class="btn btn-soft"><i data-lucide="star"></i> Pregled ocjena</button>
-      <button id="gradesFinalizeTab" class="btn btn-primary"><i data-lucide="check-circle-2"></i> Zaključivanje</button>
-      <select id="clsSel" class="form-input" style="width:auto;">
+    <div class="page-toolbar finalize-toolbar">
+      <div class="flex items-center gap-3 min-w-0 page-title-wrap">
+        <div class="page-title-icon icon-lg"><i data-lucide="check-circle-2"></i></div>
+        <div class="min-w-0">
+          <h1 class="page-title truncate">Zaključivanje</h1>
+          <p class="page-subtitle truncate">Finalne ocjene i status odradio za predmete bez ocjene</p>
+        </div>
+      </div>
+      <div class="finalize-actions">
+        <button id="gradesOverviewTab" class="btn btn-soft"><i data-lucide="star"></i> Pregled ocjena</button>
+        <button id="gradesFinalizeTab" class="btn btn-primary"><i data-lucide="check-circle-2"></i> Zaključivanje</button>
+        <select id="clsSel" class="form-input">
         ${mySchedClasses.map(cid=>`<option value="${cid}" ${cid===view.classId?'selected':''}>${getClass(cid)?.name}</option>`).join('')}
-      </select>
-      <select id="subSel" class="form-input" style="width:auto;">
+        </select>
+        <select id="subSel" class="form-input">
         ${mySubjectsInClass.map(sid=>`<option value="${sid}" ${sid===view.subjectId?'selected':''}>${getSubject(sid)?.name}${subjectUsesCompletion(sid)?' (odradio)':''}</option>`).join('')}
-      </select>
-      <select id="semSel" class="form-input" style="width:auto;">
+        </select>
+        <select id="semSel" class="form-input">
         ${db.semesters.map(s=>`<option value="${s.id}" ${s.id===view.semesterId?'selected':''}>${s.name}${s.closed?' (zatvoren)':''}</option>`).join('')}
-      </select>`)}
+        </select>
+      </div>
+    </div>
     <div class="p-8">
       ${semClosed?`<div class="card p-4 mb-4 bg-red-50 border-red-200 text-red-800 flex items-center gap-2"><i data-lucide="lock"></i> Semestar je zatvoren - nije moguće dodavati niti mijenjati ocjene.</div>`:''}
       ${(!cls||!sub||!sem)?'<div class="text-center text-slate-500 py-12">Odaberite razred, predmet i semestar.</div>':isCompletionSubject?renderFinalizeCompletionMarkup(cls, sub, sem, sts, semClosed):`
