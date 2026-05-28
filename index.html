@@ -89,6 +89,9 @@
   .lesson-event{ background:white; color:#020617; border:1px solid #d8e2ef; border-left:4px solid var(--event-color,#2563eb); }
   .lesson-event .muted{ color:#52627a; }
   .lesson-event.subbed{ opacity:.58; }
+  .lesson-event.cancelled{ background:#fff1f2; border-color:#fecdd3; border-left-color:#e11d48; color:#7f1d1d; }
+  .lesson-event.cancelled .muted{ color:#991b1b; }
+  .lesson-event.selected-slot{ outline:3px solid #2563eb; outline-offset:2px; }
   .lesson-event.substitute-stripe{ background-image:linear-gradient(135deg,#fff 0%,#fff 48%,#f8fafc 48%,#f8fafc 52%,#fff 52%,#fff 100%); background-size:14px 14px; }
   .classroom-board{ position:relative; min-height:620px; background:#fff; border:1px solid #d8e2ef; border-radius:18px; box-shadow:var(--shadow); overflow:hidden; }
   .classroom-board::before{ content:""; position:absolute; inset:0; background:radial-gradient(circle at 22% 18%,rgba(37,99,235,.045),transparent 24%),linear-gradient(#fff,#fff); pointer-events:none; }
@@ -188,6 +191,7 @@ const DEFAULT_DB = {
   subjects: [],
   semesters: [],   // { id,name,start,end,active,closed,requiredGrades }
   schedule: [],    // { id,classId,day,period,subjectId,teacherId,room }
+  cancelledClasses: [], // { id,scheduleId,date,reason,createdBy,ts }
   specialClasses: [], // { id,title,date,period,subjectId,teacherId,room,studentIds,description,createdBy,createdAt }
   lessons: [],
   classSessions: [], // { id,scheduleId,date,semesterId,lessonId,notes,privateNotes:{teacherId:text},conductedBy,attendance,grades }
@@ -269,9 +273,10 @@ function debouncedSaveDB(delay=700){
 
 function normalizeDB(data){
   const d = data || JSON.parse(JSON.stringify(DEFAULT_DB));
-  ['users','classes','subjects','semesters','schedule','specialClasses','lessons','classSessions','substitutions','finalGrades','completions','classDuties','seatingPlans','studentProfiles','absenceRequests','classNotes','homework','assessments','materials','notebookPages','botLogs','messages'].forEach(k=>{
+  ['users','classes','subjects','semesters','schedule','cancelledClasses','specialClasses','lessons','classSessions','substitutions','finalGrades','completions','classDuties','seatingPlans','studentProfiles','absenceRequests','classNotes','homework','assessments','materials','notebookPages','botLogs','messages'].forEach(k=>{
     if(!Array.isArray(d[k])) d[k]=[];
   });
+  d.cancelledClasses.forEach(c=>{ if(typeof c.reason==='undefined') c.reason=''; });
   d.users.forEach(u=>{ if(u.role==='parent' && !Array.isArray(u.childrenIds)) u.childrenIds=[]; if(typeof u.isBot!=='boolean') u.isBot=false; if(!Array.isArray(u.botDates)) u.botDates=[]; if(!u.botStyle) u.botStyle='normal'; });
   d.absenceRequests.forEach(r=>{ if(!r.status) r.status='pending'; if(!r.type) r.type='planned'; if(typeof r.scheduleId==='undefined') r.scheduleId=''; });
   d.seatingPlans.forEach(p=>{ if(!p.seats || typeof p.seats!=='object' || Array.isArray(p.seats)) p.seats={}; });
@@ -576,6 +581,15 @@ function shouldShowAssessmentOnSlot(a, slot, date){
   if(!isSameDate(a.date, date)) return false;
   return a.scheduleId ? a.scheduleId===slot.id : firstMatchingSlotId(a, date)===slot.id;
 }
+function slotKey(scheduleId,date){ return `${scheduleId}|${date}`; }
+function parseSlotKey(key){ const [scheduleId,date]=key.split('|'); return {scheduleId,date}; }
+function cancellationForSlot(scheduleId,date){ return db.cancelledClasses.find(c=>c.scheduleId===scheduleId && c.date===date); }
+function isSlotCancelled(scheduleId,date){ return !!cancellationForSlot(scheduleId,date); }
+function cancelSlot(scheduleId,date,reason=''){
+  if(isSlotCancelled(scheduleId,date)) return;
+  db.cancelledClasses.push({ id:uid('cancel'), scheduleId, date, reason, createdBy:session?.userId||null, ts:Date.now() });
+}
+function restoreSlot(scheduleId,date){ db.cancelledClasses=db.cancelledClasses.filter(c=>!(c.scheduleId===scheduleId && c.date===date)); }
 function assessmentAppliesToStudent(a, studentId){ return !Array.isArray(a.studentIds) || !a.studentIds.length || a.studentIds.includes(studentId); }
 function assessmentVisibleForCurrentUser(a){
   const u=session?getUser(session.userId):null;
@@ -2416,9 +2430,10 @@ function renderAdminCloseSemester(){
 
 /* ====== SCHEDULE GRID ====== */
 function buildScheduleGrid(opts){
-  const { classId=null, teacherId=null, studentId=null, editable=false, dateForSubs=null, onSlotClick=null } = opts;
+  const { classId=null, teacherId=null, studentId=null, editable=false, selectable=false, dateForSubs=null, onSlotClick=null } = opts;
   const todayDow = (new Date().getDay()+6)%7;
   const weekStart = startOfWeek(dateForSubs || todayStr());
+  if(!Array.isArray(view.selectedSlotKeys)) view.selectedSlotKeys=[];
   function mobileEventsForDay(di){
     const cellDate=addDays(weekStart, di);
     const events=[];
@@ -2435,9 +2450,10 @@ function buildScheduleGrid(opts){
       slots.forEach(slot=>{
         const sub=getSubject(slot.subjectId), tch=getUser(slot.teacherId), cls=getClass(slot.classId);
         const subbed = dateForSubs && db.substitutions.find(s=>s.scheduleId===slot.id && s.date===cellDate && s.status==='accepted');
+        const cancelled = cancellationForSlot(slot.id, cellDate);
         const hw = db.homework.filter(h=>shouldShowHomeworkOnSlot(h, slot, cellDate));
         const ass = db.assessments.filter(a=>shouldShowAssessmentOnSlot(a, slot, cellDate) && assessmentVisibleForCurrentUser(a));
-        events.push({ slot, sub, title:sub?.name||'Čas', meta:classId?(tch?.name||''):(cls?.name||''), room:slot.room, period:pi, time:`${p.s}-${p.e}`, subbed, hw, ass });
+        events.push({ slot, sub, title:cancelled?'O - otpao čas':(sub?.name||'Čas'), meta:classId?(tch?.name||''):(cls?.name||''), room:slot.room, period:pi, time:`${p.s}-${p.e}`, subbed, cancelled, hw, ass });
       });
       if(specialForStudent){
         const subj=getSubject(specialForStudent.subjectId), tch=getUser(specialForStudent.teacherId);
@@ -2476,14 +2492,14 @@ function buildScheduleGrid(opts){
               <div class="font-extrabold text-base mt-0.5">${ev.title}</div>
               <div class="text-xs text-slate-600 mt-1">${ev.meta}${ev.room?' · '+ev.room:''}</div>
               <span class="badge bg-blue-50 text-blue-700 mt-2">posebni čas</span>
-            </div>`:`<div class="mobile-event ${onSlotClick?'cursor-pointer':''}" data-slot="${ev.slot.id}" data-date="${cellDate}" style="--event-color:${ev.sub?.color||'#64748b'}">
+            </div>`:`<div class="mobile-event ${onSlotClick||selectable?'cursor-pointer':''} ${ev.cancelled?'cancelled':''}" data-slot="${ev.slot.id}" data-date="${cellDate}" data-slot-key="${slotKey(ev.slot.id,cellDate)}" data-cancelled="${ev.cancelled?'1':'0'}" style="--event-color:${ev.cancelled?'#e11d48':(ev.sub?.color||'#64748b')}">
               <div class="flex items-start justify-between gap-3">
                 <div>
                   <div class="text-xs font-mono text-slate-500">${ev.period+1}. čas · ${ev.time}</div>
                   <div class="font-extrabold text-base mt-0.5">${ev.title}</div>
                   <div class="text-xs text-slate-600 mt-1">${ev.meta}${ev.room?' · '+ev.room:''}</div>
                 </div>
-                ${ev.substitute?'<span class="badge bg-emerald-50 text-emerald-700">zamjena</span>':''}
+                ${ev.cancelled?'<span class="badge bg-red-50 text-red-700">O</span>':ev.substitute?'<span class="badge bg-emerald-50 text-emerald-700">zamjena</span>':''}
               </div>
               ${ev.hw.length||ev.ass.length?`<div class="mt-2 flex flex-wrap gap-1">
                 ${ev.hw.map(h=>`<span class="badge bg-amber-50 text-amber-700" title="${h.title}">Zadaća</span>`).join('')}
@@ -2544,14 +2560,18 @@ function buildScheduleGrid(opts){
               ${slots.map(slot=>{
                 const sub=getSubject(slot.subjectId), tch=getUser(slot.teacherId), cls=getClass(slot.classId);
                 const subbed = dateForSubs && db.substitutions.find(s=>s.scheduleId===slot.id && s.date===cellDate && s.status==='accepted');
+                const cancelled = cancellationForSlot(slot.id, cellDate);
+                const key = slotKey(slot.id, cellDate);
+                const selected = view.selectedSlotKeys.includes(key);
                 const hw = db.homework.filter(h=>shouldShowHomeworkOnSlot(h, slot, cellDate));
                 const ass = db.assessments.filter(a=>shouldShowAssessmentOnSlot(a, slot, cellDate) && assessmentVisibleForCurrentUser(a));
-                return `<div class="schedule-cell lesson-event rounded-xl p-3 text-xs ${onSlotClick?'cursor-pointer':''} ${subbed?'subbed':''}" data-slot="${slot.id}" data-date="${cellDate}" style="--event-color:${sub?.color||'#64748b'}">
-                  <div class="font-extrabold text-[15px] leading-tight">${sub?.name||'?'}</div>
+                return `<div class="schedule-cell lesson-event rounded-xl p-3 text-xs ${onSlotClick||selectable?'cursor-pointer':''} ${subbed?'subbed':''} ${cancelled?'cancelled':''} ${selected?'selected-slot':''}" data-slot="${slot.id}" data-date="${cellDate}" data-slot-key="${key}" data-cancelled="${cancelled?'1':'0'}" style="--event-color:${cancelled?'#e11d48':(sub?.color||'#64748b')}">
+                  <div class="font-extrabold text-[15px] leading-tight">${cancelled?'O - otpao čas':(sub?.name||'?')}</div>
                   <div class="muted text-xs mt-1 flex items-center gap-1">
                     <i data-lucide="${classId?'user':'school'}" class="icon-sm"></i> ${classId?(tch?.name||''):(cls?.name||'')}
                   </div>
                   ${slot.room?`<div class="muted text-xs mt-0.5 flex items-center gap-1"><i data-lucide="map-pin" class="icon-sm"></i> ${slot.room}</div>`:''}
+                  ${cancelled?`<div class="mt-2"><span class="badge bg-red-50 text-red-700">O</span> <span class="text-[11px]">${cancelled.reason||'Otpao čas'}</span></div>`:''}
                   ${hw.length||ass.length?`<div class="mt-2 flex flex-wrap gap-1">
                     ${hw.map(h=>`<span class="badge bg-amber-50 text-amber-700" title="${h.title}">Zadaća</span>`).join('')}
                     ${ass.map(a=>`<span class="badge ${a.type==='test'?'bg-red-50 text-red-700':'bg-blue-50 text-blue-700'}" title="${a.title}">${assessmentLabel(a.type)}</span>`).join('')}
@@ -2583,8 +2603,20 @@ function buildScheduleGrid(opts){
       db.schedule=db.schedule.filter(s=>s.id!==b.dataset.rmv); saveDB(); render();
     }));
   }
+  if(selectable){
+    tbl.querySelectorAll('[data-slot-key]').forEach(card=>card.addEventListener('click', e=>{
+      if(e.target.closest('[data-rmv]')) return;
+      const key=card.dataset.slotKey;
+      if(view.selectedSlotKeys.includes(key)) view.selectedSlotKeys=view.selectedSlotKeys.filter(k=>k!==key);
+      else view.selectedSlotKeys.push(key);
+      render();
+    }));
+  }
   if(onSlotClick){
-    tbl.querySelectorAll('[data-slot]').forEach(b=>b.addEventListener('click', ()=>onSlotClick(b.dataset.slot, b.dataset.date || dateForSubs || todayStr())));
+    tbl.querySelectorAll('[data-slot]').forEach(b=>b.addEventListener('click', ()=>{
+      if(b.dataset.cancelled==='1'){ alert('Ovaj čas je označen kao O - otpao i ne može se otvoriti.'); return; }
+      onSlotClick(b.dataset.slot, b.dataset.date || dateForSubs || todayStr());
+    }));
     tbl.querySelectorAll('[data-special]').forEach(b=>b.addEventListener('click', ()=>openSpecialClassInfoModal(b.dataset.special)));
   }
   return tbl;
@@ -2594,18 +2626,50 @@ function buildScheduleGrid(opts){
 function renderAdminSchedule(){
   if(!view.classId) view.classId = db.classes[0]?.id;
   getScheduleDate('admin_schedule');
+  if(!Array.isArray(view.selectedSlotKeys)) view.selectedSlotKeys=[];
   const wrap=el(`<div>
     ${pageHeader('Raspored časova','Sedmični raspored po razredima','calendar-days',
       `<select id="clsSel" class="form-input" style="width:auto;">
         ${db.classes.map(c=>`<option value="${c.id}" ${c.id===view.classId?'selected':''}>${c.name}</option>`).join('')}
       </select><button id="prevWeek" class="btn btn-soft"><i data-lucide="arrow-left"></i> Prošla sedmica</button><input id="dateSel" type="date" class="form-input" style="width:auto;" value="${view.date}"><button id="nextWeek" class="btn btn-soft">Sljedeća sedmica <i data-lucide="arrow-right"></i></button>
+      <select id="selectDay" class="form-input" style="width:auto;"><option value="">Odaberi dan</option>${DAYS.map((d,i)=>`<option value="${i}">${d}</option>`).join('')}</select>
+      <button id="selectDayBtn" class="btn btn-soft"><i data-lucide="mouse-pointer-2"></i> Selektuj dan</button>
+      <button id="selectWeekBtn" class="btn btn-soft"><i data-lucide="calendar-check"></i> Selektuj sedmicu</button>
+      <button id="clearSelectionBtn" class="btn btn-soft"><i data-lucide="x"></i> Poništi (${view.selectedSlotKeys.length})</button>
+      <button id="cancelSelectedBtn" class="btn btn-danger"><i data-lucide="ban"></i> O - otpao</button>
+      <button id="restoreSelectedBtn" class="btn btn-soft"><i data-lucide="undo-2"></i> Vrati čas</button>
       <button id="clearScheduleBtn" class="btn btn-danger"><i data-lucide="trash-2"></i> Obriši cijeli raspored</button>`)}
     <div class="p-8" id="schedHolder"></div>
   </div>`);
-  wrap.querySelector('#clsSel').addEventListener('change', e=>{ view.classId=e.target.value; render(); });
-  wrap.querySelector('#dateSel').addEventListener('change', e=>{ setScheduleDate('admin_schedule', e.target.value); render(); });
-  wrap.querySelector('#prevWeek').addEventListener('click', ()=>shiftScheduleWeek('admin_schedule', -1));
-  wrap.querySelector('#nextWeek').addEventListener('click', ()=>shiftScheduleWeek('admin_schedule', 1));
+  function visibleKeysForDay(day){
+    const weekStart=startOfWeek(view.date);
+    const date=addDays(weekStart,+day);
+    return db.schedule.filter(s=>s.classId===view.classId && s.day===+day).map(s=>slotKey(s.id,date));
+  }
+  function visibleKeysForWeek(){ return DAYS.flatMap((_,i)=>visibleKeysForDay(i)); }
+  wrap.querySelector('#clsSel').addEventListener('change', e=>{ view.classId=e.target.value; view.selectedSlotKeys=[]; render(); });
+  wrap.querySelector('#dateSel').addEventListener('change', e=>{ setScheduleDate('admin_schedule', e.target.value); view.selectedSlotKeys=[]; render(); });
+  wrap.querySelector('#prevWeek').addEventListener('click', ()=>{ view.selectedSlotKeys=[]; shiftScheduleWeek('admin_schedule', -1); });
+  wrap.querySelector('#nextWeek').addEventListener('click', ()=>{ view.selectedSlotKeys=[]; shiftScheduleWeek('admin_schedule', 1); });
+  wrap.querySelector('#selectDayBtn').addEventListener('click', ()=>{
+    const day=wrap.querySelector('#selectDay').value;
+    if(day===''){ alert('Odaberite dan.'); return; }
+    view.selectedSlotKeys=[...new Set([...view.selectedSlotKeys, ...visibleKeysForDay(day)])]; render();
+  });
+  wrap.querySelector('#selectWeekBtn').addEventListener('click', ()=>{ view.selectedSlotKeys=visibleKeysForWeek(); render(); });
+  wrap.querySelector('#clearSelectionBtn').addEventListener('click', ()=>{ view.selectedSlotKeys=[]; render(); });
+  wrap.querySelector('#cancelSelectedBtn').addEventListener('click', ()=>{
+    if(!view.selectedSlotKeys.length){ alert('Prvo selektujte časove mišem ili dugmadima za dan/sedmicu.'); return; }
+    const reason=prompt('Razlog / napomena za otpali čas:', 'Otpao čas');
+    if(reason===null) return;
+    view.selectedSlotKeys.forEach(k=>{ const {scheduleId,date}=parseSlotKey(k); cancelSlot(scheduleId,date,reason); });
+    view.selectedSlotKeys=[]; saveDB(); render();
+  });
+  wrap.querySelector('#restoreSelectedBtn').addEventListener('click', ()=>{
+    if(!view.selectedSlotKeys.length){ alert('Prvo selektujte časove koje želite vratiti.'); return; }
+    view.selectedSlotKeys.forEach(k=>{ const {scheduleId,date}=parseSlotKey(k); restoreSlot(scheduleId,date); });
+    view.selectedSlotKeys=[]; saveDB(); render();
+  });
   wrap.querySelector('#clearScheduleBtn').addEventListener('click', ()=>{
     if(!confirm('Obrisati CIJELI raspored za sve razrede i profesore? Ovo će ukloniti sve časove iz rasporeda svima.')) return;
     if(!confirm('Potvrdi još jednom: svi rasporedi će biti prazni. Održani časovi i ocjene ostaju, ali sedmični raspored se briše.')) return;
@@ -2616,7 +2680,7 @@ function renderAdminSchedule(){
     db.materials.forEach(m=>{ m.scheduleId=''; m.scheduleIds=[]; });
     saveDB(); render();
   });
-  wrap.querySelector('#schedHolder').appendChild(buildScheduleGrid({classId:view.classId, editable:true, dateForSubs:view.date}));
+  wrap.querySelector('#schedHolder').appendChild(buildScheduleGrid({classId:view.classId, editable:true, selectable:true, dateForSubs:view.date}));
   return wrap;
 }
 
@@ -2792,6 +2856,17 @@ function renderTeacherSchedule(){
 function renderClassSession(scheduleId, date){
   const sc=db.schedule.find(s=>s.id===scheduleId);
   if(!sc) return el('<div class="p-8">Čas nije pronađen.</div>');
+  const cancelled=cancellationForSlot(scheduleId,date);
+  if(cancelled){
+    const w=el(`<div class="p-8"><div class="card p-6 bg-red-50 border-red-200">
+      <div class="flex items-center gap-3 text-red-800"><i data-lucide="ban"></i><b>O - otpao čas</b></div>
+      <p class="text-sm text-red-700 mt-2">Ovaj čas je označen kao otpao za datum ${date} i ne može se otvoriti.</p>
+      <p class="text-sm text-red-700 mt-1">${cancelled.reason||''}</p>
+      <button id="back" class="btn btn-soft mt-4">Nazad</button>
+    </div></div>`);
+    w.querySelector('#back').addEventListener('click', ()=>{ view={name:'teacher-schedule'}; render(); });
+    return w;
+  }
   const me=getUser(session.userId);
   const effTeacherId = effectiveTeacherFor(scheduleId, date);
   if(me.role==='teacher' && me.id!==effTeacherId){
